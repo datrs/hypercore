@@ -10,6 +10,18 @@ Secure, distributed, append-only log. Adapted from
 
 ## Usage
 ```rust
+extern crate hypercore;
+
+use std::path::PathBuf;
+
+let path = PathBuf::from("./my-first-dataset");
+let feed = hypercore::new(path);
+
+feed.append(b"hello")?;
+feed.append(b"world")?;
+
+println!("{:?}", feed.get(0)); // prints "hello"
+println!("{:?}", feed.get(1)); // prints "world"
 ```
 
 ## Installation
