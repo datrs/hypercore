@@ -11,12 +11,15 @@ use failure::Error;
 use std::path::PathBuf;
 
 /// Append-only log structure.
-pub struct Log {}
+pub struct Feed {
+  /// Location on disk of where to persist the archive.
+  pub path: PathBuf,
+}
 
-impl Log {
+impl Feed {
   /// Create a new instance.
-  pub fn new(_path: PathBuf) -> Self {
-    unimplemented!();
+  pub fn new(path: PathBuf) -> Self {
+    Feed { path }
   }
 
   /// Append data into the log.

@@ -15,7 +15,7 @@ extern crate hypercore;
 use std::path::PathBuf;
 
 let path = PathBuf::from("./my-first-dataset");
-let feed = hypercore::Log::new(path);
+let feed = hypercore::Feed::new(path);
 
 feed.append(b"hello")?;
 feed.append(b"world")?;
