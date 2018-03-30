@@ -9,13 +9,13 @@ Secure, distributed, append-only log. Adapted from
 - [Crates.io][2]
 
 ## Usage
-```rust
+```rust,ignore
 extern crate hypercore;
 
 use std::path::PathBuf;
 
 let path = PathBuf::from("./my-first-dataset");
-let feed = hypercore::new(path);
+let feed = hypercore::Log::new(path);
 
 feed.append(b"hello")?;
 feed.append(b"world")?;
