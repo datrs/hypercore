@@ -1,0 +1,11 @@
+[package]
+name = "hypercore"
+version = "0.0.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/datrs/hypercore"
+documentation = "https://docs.rs/hypercore"
+description = "Secure, distributed, append-only log"
+authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
+
+[dependencies]
+clippy = "*"
