@@ -10,3 +10,4 @@ authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
 [dependencies]
 clippy = "*"
 failure = "0.1.1"
+lazy_static = "1.0.0"

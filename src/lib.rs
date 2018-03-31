@@ -5,30 +5,11 @@
 #![cfg_attr(test, feature(plugin))]
 #![cfg_attr(test, plugin(clippy))]
 
-extern crate failure;
+#[macro_use]
+extern crate lazy_static;
 
-use failure::Error;
-use std::path::PathBuf;
+mod crypto;
+mod feed;
 
-/// Append-only log structure.
-pub struct Feed {
-  /// Location on disk of where to persist the archive.
-  pub path: PathBuf,
-}
-
-impl Feed {
-  /// Create a new instance.
-  pub fn new(path: PathBuf) -> Self {
-    Feed { path }
-  }
-
-  /// Append data into the log.
-  pub fn append(&self, _data: &[u8]) -> Result<(), Error> {
-    unimplemented!();
-  }
-
-  /// Retrieve data from the log.
-  pub fn get(&self, _index: usize) -> Option<&[u8]> {
-    unimplemented!();
-  }
-}
+use crypto::*;
+pub use feed::*;
