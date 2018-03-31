@@ -3,7 +3,7 @@
 [![downloads][5]][6] [![docs.rs docs][7]][8]
 
 Secure, distributed, append-only log structure. Adapted from
-[hypercore](https://github.com/datrs/hypercore).
+[mafintosh/hypercore](https://github.com/datrs/hypercore).
 
 - [Documentation][8]
 - [Crates.io][2]
