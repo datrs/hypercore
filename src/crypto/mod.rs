@@ -7,3 +7,6 @@ lazy_static! {
 
 /// Generate an Ed25519 keypair.
 pub mod key_pair;
+
+/// Create an Ed25519 signature for data.
+pub mod signature;
