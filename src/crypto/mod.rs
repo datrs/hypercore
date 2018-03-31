@@ -4,3 +4,5 @@ lazy_static! {
   static ref ROOT_TYPE: &'static [u8] = b"2";
   static ref HYPERCORE: &'static [u8] = b"hypercore";
 }
+
+pub mod key_pair;

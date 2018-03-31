@@ -11,5 +11,4 @@ extern crate lazy_static;
 mod crypto;
 mod feed;
 
-use crypto::*;
 pub use feed::*;

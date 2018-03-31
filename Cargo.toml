@@ -11,3 +11,4 @@ authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
 clippy = "*"
 failure = "0.1.1"
 lazy_static = "1.0.0"
+rust_sodium = "0.8.0"

@@ -2,7 +2,7 @@
 [![crates.io version][1]][2] [![build status][3]][4]
 [![downloads][5]][6] [![docs.rs docs][7]][8]
 
-Secure, distributed, append-only log. Adapted from
+Secure, distributed, append-only log structure. Adapted from
 [hypercore](https://github.com/datrs/hypercore).
 
 - [Documentation][8]

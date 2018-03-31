@@ -1,6 +1,6 @@
 extern crate failure;
 
-use super::*;
+use super::crypto::*;
 
 use self::failure::Error;
 use std::path::PathBuf;
