@@ -5,4 +5,5 @@ lazy_static! {
   static ref HYPERCORE: &'static [u8] = b"hypercore";
 }
 
+/// Generate an Ed25519 keypair.
 pub mod key_pair;
