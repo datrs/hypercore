@@ -8,8 +8,9 @@
 #[macro_use]
 extern crate lazy_static;
 
-/// Internal cryptography functions.
+/// Cryptographic functions.
 pub mod crypto;
+
 mod feed;
 
 pub use feed::*;

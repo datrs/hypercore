@@ -1,6 +1,7 @@
 extern crate rust_sodium as sodium;
 
-pub use self::sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Seed};
+pub use self::sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Seed,
+                                              Signature};
 use self::sodium::crypto::sign::ed25519::{gen_keypair, keypair_from_seed};
 
 /// Ed25519 key pair.
