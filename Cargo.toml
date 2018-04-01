@@ -13,6 +13,7 @@ lazy_static = "1.0.0"
 rust_sodium = "0.8.0"
 blake2-rfc = "0.2.18"
 byteorder = "1.2.1"
+merkle-tree-stream = "0.1.1"
 
 [dev-dependencies]
 clippy = "*"
