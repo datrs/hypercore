@@ -21,12 +21,12 @@ use self::sodium::crypto::sign::ed25519::{sign_detached, verify_detached};
 /// Generate an `Ed25519` keypair.
 pub mod key_pair;
 
-/// Sign an `Ed25519` key pair.
+/// Sign a piece of data using an `Ed25519` secret key.
 pub fn sign(data: &[u8], secret_key: &SecretKey) -> Signature {
   sign_detached(&data, &secret_key)
 }
 
-/// Verify an `Ed25519` key pair.
+/// Verify a piece of data's signature using an `Ed25519` public key.
 pub fn verify(
   signature: &Signature,
   data: &[u8],
