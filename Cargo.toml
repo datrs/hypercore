@@ -1,6 +1,6 @@
 [package]
 name = "hypercore"
-version = "0.0.1"
+version = "0.0.2"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/datrs/hypercore"
 documentation = "https://docs.rs/hypercore"
@@ -16,4 +16,4 @@ byteorder = "1.2.1"
 merkle-tree-stream = "0.1.1"
 
 [dev-dependencies]
-clippy = "*"
+clippy = "0.0"
