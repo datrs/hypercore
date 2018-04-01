@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "hypercore"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
