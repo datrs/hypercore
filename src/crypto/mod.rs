@@ -37,7 +37,7 @@ pub fn verify(
 
 /// Compute the hash of a leaf node using `BLAKE2b`.
 /// TODO: accept `Node` types.
-pub fn hash_leaf(data: &[u8]) -> Blake2bResult {
+pub fn hash_leaf(data: &Node) -> Blake2bResult {
   let mut size = vec![]; // FIXME: allocate once only.
   size
     .write_u64::<BigEndian>(data.len() as u64)
@@ -46,23 +46,23 @@ pub fn hash_leaf(data: &[u8]) -> Blake2bResult {
   let mut hasher = Blake2b::new(32);
   hasher.update(*LEAF_TYPE);
   hasher.update(&size);
-  hasher.update(data);
+  hasher.update(data.as_ref().unwrap());
   hasher.finalize()
 }
 
 /// Compute the hash of a parent node using `BLAKE2b`.
 pub fn hash_parent(a: &Node, b: &Node) -> Blake2bResult {
-  assert!(b.index > a.index);
+  assert!(b.position() > a.position());
 
   let mut size = vec![]; // FIXME: allocate once only.
   size
-    .write_u64::<BigEndian>((a.size + b.size) as u64)
+    .write_u64::<BigEndian>((a.len() + b.len()) as u64)
     .unwrap();
 
   let mut hasher = Blake2b::new(32);
   hasher.update(*PARENT_TYPE);
   hasher.update(&size);
-  hasher.update(&a.hash);
-  hasher.update(&b.hash);
+  hasher.update(&a.hash());
+  hasher.update(&b.hash());
   hasher.finalize()
 }
