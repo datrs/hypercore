@@ -36,7 +36,6 @@ pub fn verify(
 }
 
 /// Compute the hash of a leaf node using `BLAKE2b`.
-/// TODO: accept `Node` types.
 pub fn hash_leaf(data: &Node) -> Blake2bResult {
   let mut size = vec![]; // FIXME: allocate once only.
   size
