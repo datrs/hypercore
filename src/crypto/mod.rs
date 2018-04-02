@@ -66,3 +66,24 @@ pub fn hash_parent(a: &Node, b: &Node) -> Blake2bResult {
   hasher.update(&b.hash());
   hasher.finalize()
 }
+
+/// Hash a set of roots.
+pub fn hash_roots(roots: &[&Node]) -> Blake2bResult {
+  let mut hasher = Blake2b::new(32);
+  hasher.update(*ROOT_TYPE);
+
+  for node in roots {
+    let mut position = Vec::with_capacity(1); // FIXME: allocate once only.
+    position
+      .write_u64::<BigEndian>((node.position()) as u64)
+      .unwrap();
+    let mut len = Vec::with_capacity(1); // FIXME: allocate once only.
+    len
+      .write_u64::<BigEndian>((node.len()) as u64)
+      .unwrap();
+    hasher.update(&node.hash());
+    hasher.update(&position);
+    hasher.update(&len);
+  }
+  hasher.finalize()
+}
