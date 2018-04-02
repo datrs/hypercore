@@ -26,11 +26,11 @@ println!("{:?}", feed.get(1)); // prints "world"
 ```
 
 ## Tasks
-- [ ] Crypto implementation.
+- [x] Crypto implementation.
 - [ ] Bitfield implementation.
 - [ ] Storage implementation.
 - [ ] Tree Index implementation.
-- [ ] Glue the implementations into `hypercore`.
+- [ ] Pub Feed API.
 
 ## Installation
 ```sh

@@ -1,3 +1,7 @@
+//! Stateful tree index. Or well, stateful flat-tree. It's what happens when you
+//! combine a flat-tree with a sparse-bitfield - which ends up being pretty
+//! cool!
+
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
 
@@ -14,30 +18,42 @@ impl TreeIndex {
     TreeIndex { bitfield }
   }
 
+  /// Prove... something?
+  ///
+  /// TODO: Ask mafintosh what a good description for this would be.
   pub fn proof(&self) {
     unimplemented!();
   }
 
+  /// Create a digest for data at index.
   pub fn digest(&self) {
     unimplemented!();
   }
 
+  /// Get the amount of... blocks?
   pub fn blocks(&self) {
     unimplemented!();
   }
 
+  /// Get all root nodes.
   pub fn roots(&self) {
     unimplemented!();
   }
 
+  /// Find the node that verified the node that's passed.
   pub fn verified_by(&self) {
     unimplemented!();
   }
 
+  /// Set a bit on the bitfield.
+  ///
+  /// NOTE: maybe we should turn this into the Deref trait / accessors? Keep the
+  /// API the same as with bitfield.
   pub fn get(&self) {
     unimplemented!();
   }
 
+  /// Set a bit on the bitfield.
   pub fn set(&self) {
     unimplemented!();
   }

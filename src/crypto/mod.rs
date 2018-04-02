@@ -23,7 +23,7 @@ pub mod key_pair;
 
 /// Sign a piece of data using an `Ed25519` secret key.
 pub fn sign(data: &[u8], secret_key: &SecretKey) -> Signature {
-  sign_detached(&data, &secret_key)
+  sign_detached(data, secret_key)
 }
 
 /// Verify a piece of data's signature using an `Ed25519` public key.
@@ -32,7 +32,7 @@ pub fn verify(
   data: &[u8],
   public_key: &PublicKey,
 ) -> bool {
-  verify_detached(signature, &data, public_key)
+  verify_detached(signature, data, public_key)
 }
 
 /// Compute the hash of a leaf node using `BLAKE2b`.
@@ -61,8 +61,8 @@ pub fn hash_parent(a: &Node, b: &Node) -> Blake2bResult {
   let mut hasher = Blake2b::new(32);
   hasher.update(*PARENT_TYPE);
   hasher.update(&size);
-  hasher.update(&a.hash());
-  hasher.update(&b.hash());
+  hasher.update(a.hash());
+  hasher.update(b.hash());
   hasher.finalize()
 }
 
@@ -80,7 +80,7 @@ pub fn hash_roots(roots: &[&Node]) -> Blake2bResult {
     len
       .write_u64::<BigEndian>((node.len()) as u64)
       .unwrap();
-    hasher.update(&node.hash());
+    hasher.update(node.hash());
     hasher.update(&position);
     hasher.update(&len);
   }
