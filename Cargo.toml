@@ -2,9 +2,10 @@
 name = "hypercore"
 version = "0.0.3"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/datrs/hypercore"
-documentation = "https://docs.rs/hypercore"
 description = "Secure, distributed, append-only log"
+documentation = "https://docs.rs/hypercore"
+repository = "https://github.com/datrs/hypercore"
+readme = "README.md"
 authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
 
 [dependencies]
