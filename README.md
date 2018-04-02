@@ -12,10 +12,11 @@ Secure, distributed, append-only log structure. Adapted from
 ```rust,ignore
 extern crate hypercore;
 
+use hypercore::Feed;
 use std::path::PathBuf;
 
 let path = PathBuf::from("./my-first-dataset");
-let feed = hypercore::Feed::new(path);
+let feed = Feed::new(path);
 
 feed.append(b"hello")?;
 feed.append(b"world")?;

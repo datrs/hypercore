@@ -12,9 +12,14 @@ pub struct Feed {
 }
 
 impl Feed {
-  /// Create a new instance.
-  pub fn new(path: PathBuf) -> Self {
-    Feed { path }
+  /// Create a new instance with an on-disk storage backend.
+  pub fn new(_path: PathBuf) -> Self {
+    unimplemented!();
+  }
+
+  /// Create a new instance with a custom storage backend.
+  pub fn with_storage() -> Self {
+    unimplemented!();
   }
 
   /// Append data into the log.
@@ -24,6 +29,13 @@ impl Feed {
 
   /// Retrieve data from the log.
   pub fn get(&self, _index: usize) -> Option<&[u8]> {
+    unimplemented!();
+  }
+}
+
+/// Create a new instance with an in-memory storage backend.
+impl Default for Feed {
+  fn default() -> Self {
     unimplemented!();
   }
 }
