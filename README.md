@@ -2,7 +2,7 @@
 [![crates.io version][1]][2] [![build status][3]][4]
 [![downloads][5]][6] [![docs.rs docs][7]][8]
 
-Secure, distributed, append-only log structure. Adapted from
+WIP. Secure, distributed, append-only log structure. Adapted from
 [mafintosh/hypercore](https://github.com/datrs/hypercore).
 
 - [Documentation][8]
@@ -24,6 +24,13 @@ feed.append(b"world")?;
 println!("{:?}", feed.get(0)); // prints "hello"
 println!("{:?}", feed.get(1)); // prints "world"
 ```
+
+## Tasks
+- [ ] Crypto implementation.
+- [ ] Bitfield implementation.
+- [ ] Storage implementation.
+- [ ] Tree Index implementation.
+- [ ] Glue the implementations into `hypercore`.
 
 ## Installation
 ```sh
