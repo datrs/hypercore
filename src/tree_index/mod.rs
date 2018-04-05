@@ -5,6 +5,8 @@
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
 
+mod proof;
+
 pub use self::bitfield::Bitfield;
 
 /// Index a tree structure or something.
@@ -21,7 +23,7 @@ impl TreeIndex {
   /// Prove... something?
   ///
   /// TODO: Ask mafintosh what a good description for this would be.
-  pub fn proof(&self) {
+  pub fn proof(&self) -> proof::Proof {
     unimplemented!();
   }
 
