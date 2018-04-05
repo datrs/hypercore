@@ -8,6 +8,7 @@ extern crate sparse_bitfield as bitfield;
 mod proof;
 
 pub use self::bitfield::Bitfield;
+pub use self::proof::Proof;
 
 /// Index a tree structure or something.
 pub struct TreeIndex {
@@ -20,10 +21,40 @@ impl TreeIndex {
     TreeIndex { bitfield }
   }
 
+  /// Get a bit from the bitfield.
+  pub fn get(&mut self, index: usize) -> bool {
+    self.bitfield.get(index)
+  }
+
+  /// Set an index on the tree to `true`, and also all of the parents to the
+  /// index. Walks the tree upward.
+  ///
+  /// NOTE: we can probably change the bitfield.set syntax to return false to
+  /// simplify this code a little.
+  pub fn set(&mut self, index: usize) -> bool {
+    let was_false = !self.bitfield.get(index);
+    self.bitfield.set(index, true);
+    if was_false {
+      return false;
+    }
+
+    let mut index = index;
+    while self.bitfield.get(flat::sibling(index)) {
+      index = flat::parent(index);
+      let was_false = !self.bitfield.get(index);
+      self.bitfield.set(index, true);
+      if was_false {
+        break;
+      }
+    }
+    true
+  }
+
   /// Prove... something?
   ///
   /// TODO: Ask mafintosh what a good description for this would be.
-  pub fn proof(&self) -> proof::Proof {
+  pub fn proof(&self) -> Proof {
+    let _nodes: Vec<usize> = Vec::new();
     unimplemented!();
   }
 
@@ -46,19 +77,6 @@ impl TreeIndex {
   pub fn verified_by(&self) {
     unimplemented!();
   }
-
-  /// Set a bit on the bitfield.
-  ///
-  /// NOTE: maybe we should turn this into the Deref trait / accessors? Keep the
-  /// API the same as with bitfield.
-  pub fn get(&self) {
-    unimplemented!();
-  }
-
-  /// Set a bit on the bitfield.
-  pub fn set(&self) {
-    unimplemented!();
-  }
 }
 
 /// Create a TreeIndex with an empty sparse_bitfield instance with a page size
@@ -71,13 +89,50 @@ impl Default for TreeIndex {
   }
 }
 
-/// Shift a number to the right.
-#[inline]
-fn shift_right(n: usize) -> usize {
-  (n - (n & 1)) / 2
+// /// Shift a number to the right.
+// #[inline]
+// fn shift_right(n: usize) -> usize {
+//   (n - (n & 1)) / 2
+// }
+
+// /// Do stuff with full roots.
+// fn add_full_roots() {
+//   unimplemented!();
+// }
+
+#[test]
+fn can_create_new() {
+  extern crate flat_tree as flat;
+  extern crate sparse_bitfield as bitfield;
+
+  pub use self::bitfield::Bitfield;
+
+  let bitfield = Bitfield::new(1024);
+  let _tree = TreeIndex::new(bitfield);
 }
 
-/// Do stuff with full roots.
-fn add_full_roots() {
-  unimplemented!();
+#[test]
+fn can_set() {
+  extern crate flat_tree as flat;
+  extern crate sparse_bitfield as bitfield;
+
+  pub use self::bitfield::Bitfield;
+
+  let bitfield = Bitfield::new(1024);
+  let mut tree = TreeIndex::new(bitfield);
+  tree.set(1);
+}
+
+#[test]
+fn can_get() {
+  extern crate flat_tree as flat;
+  extern crate sparse_bitfield as bitfield;
+
+  pub use self::bitfield::Bitfield;
+
+  let bitfield = Bitfield::new(1024);
+  let mut tree = TreeIndex::new(bitfield);
+  tree.set(0);
+  assert_eq!(tree.get(0), true);
+  assert_eq!(tree.get(1), false);
 }

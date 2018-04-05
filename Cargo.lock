@@ -267,7 +267,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "flat-tree"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -377,7 +377,7 @@ dependencies = [
  "byteorder 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clippy 0.0.191 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "flat-tree 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "flat-tree 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "merkle-tree-stream 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "random-access-memory 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1448,7 +1448,7 @@ dependencies = [
 "checksum failure_derive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c7cdda555bb90c9bb67a3b670a0f42de8e73f5981524123ad8578aafec8ddb8b"
 "checksum filetime 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)" = "714653f3e34871534de23771ac7b26e999651a0a228f47beb324dfdf1dd4b10f"
 "checksum flat-tree 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8b5659bd0d8654f3799de4a5f8eb7b5cefce6648e59c37516ffa539dd9c54556"
-"checksum flat-tree 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "396a33c6709355f4944b61d1a0343b224984dc4081bd47f6f49be92541232666"
+"checksum flat-tree 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "690d1077cafc76da1adc298639368c2429f932e47a5794db788ccece172c4b18"
 "checksum flate2 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9fac2277e84e5e858483756647a9d0aa8d9a2b7cba517fd84325a0aaa69a0909"
 "checksum foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
 "checksum foreign-types-shared 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
