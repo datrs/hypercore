@@ -1,13 +1,16 @@
 //! Stateful tree index. Or well, stateful flat-tree. It's what happens when you
 //! combine a flat-tree with a sparse-bitfield - which ends up being pretty
 //! cool!
+//!
+//! Adapted from
+//! https://github.com/mafintosh/hypercore/blob/master/lib/tree-index.js.
 
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
 
 mod proof;
 
-pub use self::bitfield::Bitfield;
+pub use self::bitfield::{Bitfield, Change};
 pub use self::proof::Proof;
 
 /// Index a tree structure or something.
@@ -29,25 +32,23 @@ impl TreeIndex {
   /// Set an index on the tree to `true`, and also all of the parents to the
   /// index. Walks the tree upward.
   ///
+  /// Returns a "Change" member to indicate if the underlying value was changed.
+  ///
   /// NOTE: we can probably change the bitfield.set syntax to return false to
   /// simplify this code a little.
-  pub fn set(&mut self, index: usize) -> bool {
-    let was_false = !self.bitfield.get(index);
-    self.bitfield.set(index, true);
-    if was_false {
-      return false;
+  pub fn set(&mut self, index: usize) -> Change {
+    if let Change::Unchanged = self.bitfield.set(index, true) {
+      return Change::Unchanged;
     }
 
     let mut index = index;
     while self.bitfield.get(flat::sibling(index)) {
       index = flat::parent(index);
-      let was_false = !self.bitfield.get(index);
-      self.bitfield.set(index, true);
-      if was_false {
+      if let Change::Unchanged = self.bitfield.set(index, true) {
         break;
       }
     }
-    true
+    Change::Changed
   }
 
   /// Prove... something?
@@ -120,7 +121,10 @@ fn can_set() {
 
   let bitfield = Bitfield::new(1024);
   let mut tree = TreeIndex::new(bitfield);
-  tree.set(1);
+  assert_eq!(tree.set(1), Change::Changed);
+  assert_eq!(tree.set(1), Change::Unchanged);
+  assert_eq!(tree.set(0), Change::Changed);
+  assert_eq!(tree.set(0), Change::Unchanged);
 }
 
 #[test]

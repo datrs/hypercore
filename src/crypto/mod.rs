@@ -1,3 +1,5 @@
+//! Cryptographic functions.
+
 lazy_static! {
   static ref LEAF_TYPE: &'static [u8] = b"0";
   static ref PARENT_TYPE: &'static [u8] = b"1";
