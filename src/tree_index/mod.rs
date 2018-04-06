@@ -75,7 +75,8 @@ impl TreeIndex {
     }
 
     if self.get(top) {
-      self.verified_by(top) / 2
+      let (x, _) = self.verified_by(top);
+      x / 2
     } else {
       0
     }
@@ -87,8 +88,47 @@ impl TreeIndex {
   }
 
   /// Find the node that verified the node that's passed.
-  pub fn verified_by(&self, _index: usize) -> usize {
-    unimplemented!();
+  ///
+  /// Returns `(node, top)`.
+  /// TODO: return proper struct
+  pub fn verified_by(&mut self, index: usize) -> (usize, usize) {
+    let has_index = self.get(index);
+    if !has_index {
+      return (0, 0);
+    }
+
+    // Find root of current tree.
+    let mut depth = flat::depth(index);
+    let mut top = index;
+    let mut parent = flat::parent_with_depth(top, depth);
+    depth += 1;
+    while self.get(parent) && self.get(flat::sibling(top)) {
+      top = parent;
+      parent = flat::parent_with_depth(top, depth);
+      depth += 1;
+    }
+
+    // Expand right down.
+    depth -= 1;
+    while depth != 0 {
+      top = flat::left_child_with_depth(
+        flat::index(depth, flat::offset_with_depth(top, depth) + 1),
+        depth,
+      ).unwrap();
+      depth -= 1;
+
+      while !self.get(top) && depth > 0 {
+        top = flat::left_child_with_depth(top, depth).unwrap();
+        depth -= 1;
+      }
+    }
+
+    let res = if self.get(top) {
+      top + 2
+    } else {
+      top
+    };
+    (res, top)
   }
 }
 
