@@ -8,6 +8,14 @@ mod proof;
 pub use self::bitfield::{Bitfield, Change};
 pub use self::proof::Proof;
 
+/// Returned by `.verified_by()`.
+pub struct Verification {
+  /// Node that verifies the index.
+  pub node: usize,
+  /// The highest Node found.
+  pub top: usize,
+}
+
 /// Index a tree structure or something.
 pub struct TreeIndex {
   bitfield: Bitfield,
@@ -75,8 +83,7 @@ impl TreeIndex {
     }
 
     if self.get(top) {
-      let (x, _) = self.verified_by(top);
-      x / 2
+      self.verified_by(top).node / 2
     } else {
       0
     }
@@ -91,12 +98,16 @@ impl TreeIndex {
 
   /// Find the node that verified the node that's passed.
   ///
-  /// Returns `(node, top)`.
-  /// TODO: return proper struct
-  pub fn verified_by(&mut self, index: usize) -> (usize, usize) {
+  /// This is different from the Javascript implementation in that it doesn't
+  /// push the `top` value into an array, but returns it instead through the
+  /// `Verification` type.
+  pub fn verified_by(&mut self, index: usize) -> Verification {
     let has_index = self.get(index);
     if !has_index {
-      return (0, 0);
+      return Verification {
+        node: 0,
+        top: 0,
+      };
     }
 
     // Find root of current tree.
@@ -127,12 +138,13 @@ impl TreeIndex {
       }
     }
 
-    let res = if self.get(top) {
+    let node = if self.get(top) {
       top + 2
     } else {
       top
     };
-    (res, top)
+
+    Verification { node, top }
   }
 }
 
