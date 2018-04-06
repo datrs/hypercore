@@ -83,8 +83,10 @@ impl TreeIndex {
   }
 
   /// Get all root nodes.
-  pub fn roots(&self) {
-    unimplemented!();
+  ///
+  /// TODO: don't make this allocate, but fill a vector instead.
+  pub fn roots(&mut self) -> Vec<usize> {
+    flat::full_roots(2 * self.blocks())
   }
 
   /// Find the node that verified the node that's passed.
@@ -109,6 +111,8 @@ impl TreeIndex {
     }
 
     // Expand right down.
+    //
+    // NOTE: this is probably a candidate to move to `flat-tree`.
     depth -= 1;
     while depth != 0 {
       top = flat::left_child_with_depth(
