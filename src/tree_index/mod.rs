@@ -59,9 +59,26 @@ impl TreeIndex {
     unimplemented!();
   }
 
-  /// Get the amount of... blocks?
-  pub fn blocks(&self) {
-    unimplemented!();
+  /// Get the position of the highest entry in the tree. Aka max.
+  ///
+  /// NOTE: should we rename this to `.len()` ?
+  pub fn blocks(&mut self) -> usize {
+    let mut top = 0;
+    let mut next = 0;
+    let max = self.bitfield.len();
+
+    while flat::right_span(next) < max {
+      next = flat::parent(next);
+      if self.get(next) {
+        top = next;
+      }
+    }
+
+    if self.get(top) {
+      self.verified_by(top) / 2
+    } else {
+      0
+    }
   }
 
   /// Get all root nodes.
@@ -70,7 +87,7 @@ impl TreeIndex {
   }
 
   /// Find the node that verified the node that's passed.
-  pub fn verified_by(&self) {
+  pub fn verified_by(&self, _index: usize) -> usize {
     unimplemented!();
   }
 }
@@ -134,4 +151,20 @@ fn can_get() {
   tree.set(0);
   assert_eq!(tree.get(0), true);
   assert_eq!(tree.get(1), false);
+}
+
+#[test]
+fn can_index_blocks() {
+  extern crate flat_tree as flat;
+  extern crate sparse_bitfield as bitfield;
+
+  pub use self::bitfield::Bitfield;
+
+  let bitfield = Bitfield::new(1024);
+  let mut tree = TreeIndex::new(bitfield);
+
+  tree.set(0);
+  assert_eq!(tree.blocks(), 1);
+  tree.set(3);
+  assert_eq!(tree.blocks(), 4);
 }
