@@ -1,9 +1,4 @@
-//! Stateful tree index. Or well, stateful flat-tree. It's what happens when you
-//! combine a flat-tree with a sparse-bitfield - which ends up being pretty
-//! cool!
-//!
-//! Adapted from
-//! https://github.com/mafintosh/hypercore/blob/master/lib/tree-index.js.
+#![doc(include = "./tree_index/README.md")]
 
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
