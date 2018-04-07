@@ -65,6 +65,7 @@ impl TreeIndex {
     if !self.get(index) {
       return None;
     }
+    shift_right(12);
     None
     // unimplemented!();
   }
@@ -175,3 +176,17 @@ impl Default for TreeIndex {
 // fn add_full_roots() {
 //   unimplemented!();
 // }
+
+#[inline]
+/// Bitwise shift numbers one to the right. e.g. 1001 (9) becomes 0100 (4).
+fn shift_right(n: usize) -> usize {
+  (n - (n & 1)) / 2
+}
+
+#[test]
+fn shifts_bits_right() {
+  assert_eq!(shift_right(9), 4);
+  assert_eq!(shift_right(12), 6);
+  assert_eq!(shift_right(13), 6);
+  assert_eq!(shift_right(14), 7);
+}
