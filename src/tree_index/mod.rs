@@ -1,5 +1,7 @@
 #![doc(include = "./tree_index/README.md")]
 
+// https://github.com/mafintosh/hypercore/blob/master/lib/tree-index.js
+
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
 
@@ -54,12 +56,17 @@ impl TreeIndex {
     Change::Changed
   }
 
-  /// Prove... something?
-  ///
-  /// TODO: Ask mafintosh what a good description for this would be.
-  pub fn proof(&self) -> Proof {
+  /// Determine which Nodes prove the correctness for the Node at `index`.
+  // - opts.hash: always push index to nodes.
+  // - nodes: proven nodes.
+  // - opts.digest: not sure what digest does.
+  pub fn proof(&mut self, index: usize) -> Option<Proof> {
     let _nodes: Vec<usize> = Vec::new();
-    unimplemented!();
+    if !self.get(index) {
+      return None;
+    }
+    None
+    // unimplemented!();
   }
 
   /// Create a digest for data at index.

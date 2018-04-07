@@ -30,13 +30,26 @@ fn can_get() {
   assert_eq!(tree.get(1), false);
 }
 
-#[test]
-fn can_index_blocks() {
-  let bitfield = Bitfield::new(1024);
-  let mut tree = TreeIndex::new(bitfield);
+mod blocks {
+  use super::*;
+  #[test]
+  fn can_index_blocks() {
+    let bitfield = Bitfield::new(1024);
+    let mut tree = TreeIndex::new(bitfield);
 
-  tree.set(0);
-  assert_eq!(tree.blocks(), 1);
-  tree.set(3);
-  assert_eq!(tree.blocks(), 4);
+    tree.set(0);
+    assert_eq!(tree.blocks(), 1);
+    tree.set(3);
+    assert_eq!(tree.blocks(), 4);
+  }
+}
+
+mod proof {
+  use super::*;
+  #[test]
+  fn returns_none_for_out_of_bounds() {
+    let bitfield = Bitfield::new(1024);
+    let mut tree = TreeIndex::new(bitfield);
+    assert!(tree.proof(0).is_none());
+  }
 }
