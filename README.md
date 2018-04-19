@@ -29,7 +29,7 @@ println!("{:?}", feed.get(1)); // prints "world"
 - [x] Crypto implementation.
 - [ ] Bitfield implementation.
 - [ ] Storage implementation.
-- [ ] Tree Index implementation.
+- [x] Tree Index implementation.
 - [ ] Pub Feed API.
 
 ## Installation

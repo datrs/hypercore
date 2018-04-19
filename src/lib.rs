@@ -7,9 +7,9 @@
 
 #[macro_use]
 extern crate lazy_static;
+extern crate tree_index;
 
 pub mod crypto;
-pub mod tree_index;
 
 mod feed;
 
