@@ -110,6 +110,11 @@ impl Bitfield {
   }
 
   /// Set a value at index.
+  ///
+  ///```txt
+  ///                    (a + b | c + d | e + f | g + h)
+  /// -> (a | b | c | d)                                (e | f | g | h)
+  ///```
   fn set_index(&mut self, _index: usize, _value: u8) {
     unimplemented!();
   }
