@@ -57,13 +57,50 @@ impl Bitfield {
   }
 
   /// Get a value at a position in the bitfield.
-  pub fn get(&mut self) {
-    unimplemented!();
+  pub fn get(&mut self, index: usize) -> bool {
+    self.data.get(index)
   }
 
   /// Calculate the total of ... TODO(yw)
-  pub fn total(&mut self) {
-    unimplemented!();
+  pub fn total(&mut self, start: usize, end: usize) -> u8 {
+    if end < start {
+      return 0;
+    }
+
+    let o = mask_8b(start);
+    let e = mask_8b(end);
+
+    let pos = (start - o) / 8;
+    let last = (end - e) / 8;
+
+    let left_mask = if o == 0 {
+      255
+    } else {
+      255 - self.masks.data_iterate[o - 1]
+    };
+
+    let right_mask = if o == 0 {
+      0
+    } else {
+      self.masks.data_iterate[e - 1]
+    };
+
+    let byte = self.data.get_byte(pos);
+    if pos == last {
+      let index = (byte & left_mask & right_mask) as usize;
+      return self.masks.total_1_bits[index];
+    }
+    let index = (byte & left_mask) as usize;
+    let mut total = self.masks.total_1_bits[index];
+
+    for i in pos + 1..last {
+      let index = self.data.get_byte(i) as usize;
+      total += self.masks.total_1_bits[index];
+    }
+
+    let index: usize = self.data.get_byte(last) as usize & right_mask as usize;
+    total += self.masks.total_1_bits[index];
+    total
   }
 
   /// Create an iterator that iterates over the bitfield.
