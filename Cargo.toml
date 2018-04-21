@@ -19,6 +19,7 @@ flat-tree = "2.1.0"
 sparse-bitfield = "0.2.0"
 random-access-memory = "0.1.0"
 tree-index = "0.1.0"
+memory-pager = "0.4.5"
 
 [dev-dependencies]
 clippy = "0.0"

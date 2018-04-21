@@ -9,6 +9,7 @@
 extern crate lazy_static;
 extern crate tree_index;
 
+pub mod bitfield;
 pub mod crypto;
 
 mod feed;
