@@ -6,6 +6,16 @@
 //!
 //! TODO(yw): Document the use cases for this module, especially when opposed to
 //! `sparse_bitfield`.
+//!
+//! NOTE(yw): in the JavaScript version, this code uses a single pager under the
+//! hood. Because of Rust's borrow rules, that would be tricky to pull off for
+//! us. So instead we've chosen to create three separate instances, with three
+//! separate pagers powering it.
+//! This means that when serializing to disk, we need to weave the contents of
+//! all three of the pagers into a single instance. And when restoring it from
+//! disk, we must do so again.
+//! We need to make sure the performance impact of this stays well within
+//! bounds.
 
 extern crate flat_tree as flat;
 extern crate sparse_bitfield as bitfield;
@@ -20,6 +30,7 @@ pub struct Bitfield {
   data: bitfield::Bitfield,
   tree: bitfield::Bitfield,
   index: bitfield::Bitfield,
+  page_len: usize,
   length: usize,
   masks: Masks,
   // iterator: flat::Iterator,
@@ -32,6 +43,7 @@ impl Bitfield {
       data: bitfield::Bitfield::new(1024),
       tree: bitfield::Bitfield::new(2048),
       index: bitfield::Bitfield::new(256),
+      page_len: 3328,
       length: 0,
       masks: Masks::new(),
     }
@@ -67,6 +79,11 @@ impl Bitfield {
       return 0;
     }
 
+    // FIXME
+    // if end > this.data.len() {
+    //   this.expand(end);
+    // }
+
     let o = mask_8b(start);
     let e = mask_8b(end);
 
@@ -99,8 +116,7 @@ impl Bitfield {
     }
 
     let index: usize = self.data.get_byte(last) as usize & right_mask as usize;
-    total += self.masks.total_1_bits[index];
-    total
+    total + self.masks.total_1_bits[index]
   }
 
   /// Create an iterator that iterates over the bitfield.
@@ -115,8 +131,60 @@ impl Bitfield {
   ///                    (a + b | c + d | e + f | g + h)
   /// -> (a | b | c | d)                                (e | f | g | h)
   ///```
-  fn set_index(&mut self, _index: usize, _value: u8) {
-    unimplemented!();
+  ///
+  /// NOTE(yw): lots of magic values going on; I have no idea what we're doing
+  /// here.
+  fn set_index(&mut self, index: usize, value: u8) -> Change {
+    let o = index & 3;
+    index = (index - o) / 4;
+
+    let bitfield = self.index;
+    let ite = self.iterator;
+    let masks = self.masks;
+    let start = 2 * index;
+
+    let left = bitfield.get_byte(start) & self.masks.index_update[o];
+    let right = get_index_value(value) >> (2 * o);
+    let mut byte = left | right;
+    let len = bitfield.len();
+    let max_len = self.page_len * 256;
+
+    ite.seek(start);
+
+    while ite.index < max_len
+      && bitfield.set_byte(ite.index, byte) == Change::Changed
+    {
+      if ite.is_left() {
+        let index: usize = bitfield.get_byte(ite.sibling()).into();
+        byte =
+          masks.map_parent_left[byte as usize] | masks.map_parent_right[index];
+      } else {
+        let index: usize = bitfield.get_byte(ite.sibling()).into();
+        byte =
+          masks.map_parent_right[index] | masks.map_parent_left[byte as usize];
+      }
+      ite.parent();
+    }
+
+    // FIXME
+    // if len != bitfield.len() {
+    //   self.expand(len);
+    // }
+
+    if ite.index == start {
+      Change::Changed
+    } else {
+      Change::Unchanged
+    }
+  }
+}
+
+#[inline]
+fn get_index_value(index: u8) -> u8 {
+  match index {
+    255 => 192,
+    0 => 0,
+    _ => 64,
   }
 }
 
