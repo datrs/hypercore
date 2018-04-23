@@ -4,7 +4,7 @@ use super::Bitfield;
 
 /// Iterate over a bitfield.
 #[derive(Debug)]
-pub struct Iterator {
+pub struct<b>Iterator {
   start: usize,
   end: usize,
   index_end: usize,

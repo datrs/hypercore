@@ -18,34 +18,35 @@
 //! bounds.
 
 extern crate flat_tree as flat;
-extern crate sparse_bitfield as bitfield;
+extern crate sparse_bitfield;
 
 mod masks;
 
-pub use self::bitfield::Change;
 use self::masks::Masks;
+pub use self::sparse_bitfield::Change;
 
 /// Bitfield with `{data, tree, index} fields.`
 pub struct Bitfield {
-  data: bitfield::Bitfield,
-  tree: bitfield::Bitfield,
-  index: bitfield::Bitfield,
+  data: sparse_bitfield::Bitfield,
+  tree: sparse_bitfield::Bitfield,
+  index: sparse_bitfield::Bitfield,
   page_len: usize,
   length: usize,
   masks: Masks,
-  // iterator: flat::Iterator,
+  iterator: flat::Iterator,
 }
 
 impl Bitfield {
   /// Create a new instance.
   pub fn new() -> Self {
     Self {
-      data: bitfield::Bitfield::new(1024),
-      tree: bitfield::Bitfield::new(2048),
-      index: bitfield::Bitfield::new(256),
+      data: sparse_bitfield::Bitfield::new(1024),
+      tree: sparse_bitfield::Bitfield::new(2048),
+      index: sparse_bitfield::Bitfield::new(256),
       page_len: 3328,
       length: 0,
       masks: Masks::new(),
+      iterator: flat::Iterator::new(0),
     }
   }
 
@@ -134,32 +135,32 @@ impl Bitfield {
   ///
   /// NOTE(yw): lots of magic values going on; I have no idea what we're doing
   /// here.
-  fn set_index(&mut self, index: usize, value: u8) -> Change {
+  fn set_index(&mut self, mut index: usize, value: u8) -> Change {
     let o = index & 3;
     index = (index - o) / 4;
 
-    let bitfield = self.index;
-    let ite = self.iterator;
-    let masks = self.masks;
+    let bf = &mut self.index;
+    let ite = &mut self.iterator;
+    let masks = &self.masks;
     let start = 2 * index;
 
-    let left = bitfield.get_byte(start) & self.masks.index_update[o];
+    let left = bf.get_byte(start) & self.masks.index_update[o];
     let right = get_index_value(value) >> (2 * o);
     let mut byte = left | right;
-    let len = bitfield.len();
+    let len = bf.len();
     let max_len = self.page_len * 256;
 
     ite.seek(start);
 
-    while ite.index < max_len
-      && bitfield.set_byte(ite.index, byte) == Change::Changed
+    while ite.index() < max_len
+      && bf.set_byte(ite.index(), byte) == Change::Changed
     {
       if ite.is_left() {
-        let index: usize = bitfield.get_byte(ite.sibling()).into();
+        let index: usize = bf.get_byte(ite.sibling()).into();
         byte =
           masks.map_parent_left[byte as usize] | masks.map_parent_right[index];
       } else {
-        let index: usize = bitfield.get_byte(ite.sibling()).into();
+        let index: usize = bf.get_byte(ite.sibling()).into();
         byte =
           masks.map_parent_right[index] | masks.map_parent_left[byte as usize];
       }
@@ -167,16 +168,58 @@ impl Bitfield {
     }
 
     // FIXME
-    // if len != bitfield.len() {
+    // if len != bf.len() {
     //   self.expand(len);
     // }
 
-    if ite.index == start {
+    if ite.index() == start {
       Change::Changed
     } else {
       Change::Unchanged
     }
   }
+
+  fn expand(&mut self, len: usize) {
+    let mut roots = vec![]; // FIXME: alloc.
+    flat::full_roots(2 * len, &mut roots);
+    let bf = &mut self.index;
+    let ite = &mut self.iterator;
+    let masks = &self.masks;
+    let mut byte = 0;
+
+    for i in 0..roots.len() {
+      ite.seek(roots[i]);
+      byte = bf.get_byte(ite.index());
+
+      loop {
+        if ite.is_left() {
+          let index = bf.get_byte(ite.sibling()) as usize;
+          byte = masks.map_parent_left[byte as usize]
+            | masks.map_parent_right[index];
+        } else {
+          let index = bf.get_byte(ite.sibling()) as usize;
+          byte = masks.map_parent_right[byte as usize]
+            | masks.map_parent_left[index];
+        }
+
+        if let Change::Unchanged = set_byte_no_alloc(bf, ite.parent(), byte) {
+          break;
+        }
+      }
+    }
+  }
+}
+
+// NOTE: can we move this into `sparse_bitfield`?
+fn set_byte_no_alloc(
+  bf: &mut sparse_bitfield::Bitfield,
+  index: usize,
+  value: u8,
+) -> Change {
+  if 8 * index >= bf.len() {
+    return Change::Unchanged;
+  }
+  bf.set_byte(index, value)
 }
 
 #[inline]
