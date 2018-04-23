@@ -140,7 +140,7 @@ impl Bitfield {
 
   /// Create an iterator that iterates over the bitfield.
   // Wait with implementing the iterator until the very end.
-  pub fn iterator(&mut self, start: usize, end: usize) {
+  pub fn iterator(&mut self, _start: usize, _end: usize) {
     unimplemented!();
   }
 
@@ -180,7 +180,7 @@ impl Bitfield {
       } else {
         let index: usize = self
           .index
-          .get_byte(self.iterator.sibling())
+          .get_byte(self.iterator.sibling()) // FIXME: out of bounds read
           .into();
         byte = self.masks.map_parent_right[index]
           | self.masks.map_parent_left[byte as usize];
@@ -205,7 +205,7 @@ impl Bitfield {
     let bf = &mut self.index;
     let ite = &mut self.iterator;
     let masks = &self.masks;
-    let mut byte = 0;
+    let mut byte;
 
     for i in 0..roots.len() {
       ite.seek(roots[i]);
@@ -234,12 +234,12 @@ impl Bitfield {
 fn set_byte_no_alloc(
   bf: &mut sparse_bitfield::Bitfield,
   index: usize,
-  value: u8,
+  byte: u8,
 ) -> Change {
   if 8 * index >= bf.len() {
     return Change::Unchanged;
   }
-  bf.set_byte(index, value)
+  bf.set_byte(index, byte)
 }
 
 #[inline]
