@@ -26,11 +26,11 @@ impl Masks {
     let index_iterate = vec![0, 192, 240, 252];
     let data_iterate = vec![128, 192, 224, 240, 248, 252, 254, 255];
     let data_update = vec![127, 191, 223, 239, 247, 251, 253, 254];
-    let mut map_parent_right = Vec::with_capacity(256);
-    let mut map_parent_left = Vec::with_capacity(256);
-    let mut next_data_0_bit = Vec::with_capacity(256);
-    let mut next_index_0_bit = Vec::with_capacity(256);
-    let mut total_1_bits = Vec::with_capacity(256);
+    let mut map_parent_right = vec![0; 256];
+    let mut map_parent_left = vec![0; 256];
+    let mut next_data_0_bit = vec![0; 256];
+    let mut next_index_0_bit = vec![0; 256];
+    let mut total_1_bits = vec![0; 256];
 
     for i in 0..256 {
       let a = (i & (15 << 4)) >> 4;
