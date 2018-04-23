@@ -26,6 +26,7 @@ use self::masks::Masks;
 pub use self::sparse_bitfield::Change;
 
 /// Bitfield with `{data, tree, index} fields.`
+// #[derive(Debug)]
 pub struct Bitfield {
   data: sparse_bitfield::Bitfield,
   tree: sparse_bitfield::Bitfield,

@@ -3,6 +3,7 @@
 //! This piece of code is still a bit unclear; lots of magic numbers. It'd be
 //! good to figure out what things mean.
 
+#[derive(Debug)]
 pub(super) struct Masks {
   /// https://oeis.org/search?q=63+207+243+252&sort=&language=&go=Search
   pub index_update: Vec<u8>,
