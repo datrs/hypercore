@@ -99,10 +99,9 @@ impl Bitfield {
       return 0;
     }
 
-    // FIXME
-    // if end > this.data.len() {
-    //   this.expand(end);
-    // }
+    if end > self.data.len() {
+      self.expand(end);
+    }
 
     let o = mask_8b(start);
     let e = mask_8b(end);
@@ -158,43 +157,45 @@ impl Bitfield {
     let o = index & 3;
     index = (index - o) / 4;
 
-    let bf = &mut self.index;
-    let ite = &mut self.iterator;
-    let masks = &self.masks;
     let start = 2 * index;
 
-    let left = bf.get_byte(start) & self.masks.index_update[o];
+    let left = self.index.get_byte(start) & self.masks.index_update[o];
     let right = get_index_value(value) >> (2 * o);
     let mut byte = left | right;
-    let len = bf.len();
+    let len = self.index.len();
     let max_len = self.page_len * 256;
 
-    ite.seek(start);
+    self.iterator.seek(start);
 
-    while ite.index() < max_len
-      && bf.set_byte(ite.index(), byte) == Change::Changed
+    while self.iterator.index() < max_len
+      && self.index.set_byte(self.iterator.index(), byte) == Change::Changed
     {
-      if ite.is_left() {
-        let index: usize = bf.get_byte(ite.sibling()).into();
-        byte =
-          masks.map_parent_left[byte as usize] | masks.map_parent_right[index];
+      if self.iterator.is_left() {
+        let index: usize = self
+          .index
+          .get_byte(self.iterator.sibling())
+          .into();
+        byte = self.masks.map_parent_left[byte as usize]
+          | self.masks.map_parent_right[index];
       } else {
-        let index: usize = bf.get_byte(ite.sibling()).into();
-        byte =
-          masks.map_parent_right[index] | masks.map_parent_left[byte as usize];
+        let index: usize = self
+          .index
+          .get_byte(self.iterator.sibling())
+          .into();
+        byte = self.masks.map_parent_right[index]
+          | self.masks.map_parent_left[byte as usize];
       }
-      ite.parent();
+      self.iterator.parent();
     }
 
-    // FIXME
-    // if len != bf.len() {
-    //   self.expand(len);
-    // }
+    if len != self.index.len() {
+      self.expand(len);
+    }
 
-    if ite.index() == start {
-      Change::Changed
-    } else {
+    if self.iterator.index() == start {
       Change::Unchanged
+    } else {
+      Change::Changed
     }
   }
 
