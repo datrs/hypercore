@@ -51,13 +51,14 @@ impl Bitfield {
   }
 
   /// Set a value at an index.
-  pub fn set(&mut self, index: usize, value: Option<bool>) -> Change {
+  pub fn set(&mut self, index: usize, value: bool) -> Change {
     let o = mask_8b(index);
     let index = (index - o) / 8;
 
-    let value = match value {
-      Some(value) => self.data.get_byte(index) | 128 >> o,
-      None => self.data.get_byte(index) & self.masks.data_update[o],
+    let value = if value {
+      self.data.get_byte(index) | 128 >> o
+    } else {
+      self.data.get_byte(index) & self.masks.data_update[o]
     };
 
     if let Change::Unchanged = self.data.set_byte(index, value) {
@@ -74,8 +75,25 @@ impl Bitfield {
     self.data.get(index)
   }
 
+  /// Calculate the total for the whole data.
+  pub fn total(&mut self) -> u8 {
+    let len = self.data.len();
+    self.total_with_range(0, len)
+  }
+
+  /// Calculate the total from the start value.
+  pub fn total_with_start(&mut self, start: usize) -> u8 {
+    let len = self.data.len();
+    self.total_with_range(start, len)
+  }
+
+  /// Calculate the total up until the end value.
+  pub fn total_with_end(&mut self, end: usize) -> u8 {
+    self.total_with_range(0, end)
+  }
+
   /// Calculate the total of ... TODO(yw)
-  pub fn total(&mut self, start: usize, end: usize) -> u8 {
+  pub fn total_with_range(&mut self, start: usize, end: usize) -> u8 {
     if end < start {
       return 0;
     }

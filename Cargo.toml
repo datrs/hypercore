@@ -22,4 +22,4 @@ tree-index = "0.1.0"
 memory-pager = "0.4.5"
 
 [dev-dependencies]
-clippy = "0.0"
+# clippy = "0.0"
