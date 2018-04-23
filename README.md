@@ -3,7 +3,7 @@
 [![downloads][5]][6] [![docs.rs docs][7]][8]
 
 WIP. Secure, distributed, append-only log structure. Adapted from
-[mafintosh/hypercore](https://github.com/datrs/hypercore).
+[mafintosh/hypercore](https://github.com/mafintosh/hypercore).
 
 - [Documentation][8]
 - [Crates.io][2]
