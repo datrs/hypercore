@@ -115,7 +115,7 @@ impl Bitfield {
       255 - self.masks.data_iterate[o - 1]
     };
 
-    let right_mask = if o == 0 {
+    let right_mask = if e == 0 {
       0
     } else {
       self.masks.data_iterate[e - 1]
