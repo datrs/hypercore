@@ -41,22 +41,18 @@ impl Masks {
 
       let left = if a == 15 {
         3
+      } else if a == 0 {
+        0
       } else {
-        if a == 0 {
-          0
-        } else {
-          1
-        }
+        1
       };
 
       let right = if b == 15 {
         3
+      } else if b == 0 {
+        0
       } else {
-        if b == 0 {
-          0
-        } else {
-          1
-        }
+        1
       };
 
       map_parent_right[i] = left | right;
