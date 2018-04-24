@@ -29,7 +29,8 @@ pub use self::sparse_bitfield::Change;
 // #[derive(Debug)]
 pub struct Bitfield {
   data: sparse_bitfield::Bitfield,
-  tree: sparse_bitfield::Bitfield,
+  /// FIXME: SLEEP protocol tree field.
+  pub tree: sparse_bitfield::Bitfield,
   index: sparse_bitfield::Bitfield,
   page_len: usize,
   length: usize,
