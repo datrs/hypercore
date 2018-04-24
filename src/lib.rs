@@ -7,10 +7,10 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate tree_index;
 
 pub mod bitfield;
 pub mod crypto;
+pub mod storage;
 
 mod feed;
 
