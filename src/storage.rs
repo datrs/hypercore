@@ -1,8 +1,25 @@
 //! Save data to a desired storage backend.
 
-// use bitfield::Bitfield;
+use bitfield::Bitfield;
+
+/// The types of stores that can be created.
+pub enum Store {
+  /// Public key
+  Key,
+  /// Secret key
+  SecretKey,
+  /// Tree
+  Tree,
+  /// Data
+  Data,
+  /// Bitfield
+  Bitfield,
+  /// Signatures
+  Signatures,
+}
 
 /// Save data to a desired storage backend.
+#[derive(Debug)]
 pub struct Storage {
   // key: Vec<u8>,
   // secret_key: Vec<u8>,
@@ -10,12 +27,22 @@ pub struct Storage {
   // bitfield
   // signatures
   // create (function)
+  // cache_size
 }
 
 impl Storage {
   /// Create a new instance.
   // Named `.open()` in the JS version.
-  pub fn new(&mut self) {
+  pub fn new(create: fn(Store) -> Bitfield) -> Self {
+    // let missing = 5;
+
+    let key = create(Store::Key);
+    let secret_key = create(Store::SecretKey);
+    let tree = create(Store::Tree);
+    let data = create(Store::Data);
+    let bitfield = create(Store::Bitfield);
+    let signatures = create(Store::Signatures);
+
     unimplemented!();
   }
 
