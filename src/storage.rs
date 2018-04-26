@@ -1,10 +1,12 @@
 //! Save data to a desired storage backend.
 
+extern crate failure;
 extern crate random_access_storage as ras;
 extern crate sleep_parser;
 
+use self::failure::Error;
 use self::ras::SyncMethods;
-use self::sleep_parser::{FileType, HashType, Header};
+use self::sleep_parser::*;
 use super::crypto::{KeyPair, PublicKey, SecretKey};
 use bitfield::Bitfield;
 
@@ -44,10 +46,14 @@ impl<T> Storage<T>
 where
   T: SyncMethods,
 {
-  /// Create a new instance.
+  /// Create a new instance. Takes a keypair and a callback to create new
+  /// storage instances.
   // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
   // requiring a key pair to be initialized before creating a new instance.
-  pub fn new(key_pair: KeyPair, create: fn(Store) -> ras::Sync<T>) -> Self {
+  pub fn new(
+    key_pair: KeyPair,
+    create: fn(Store) -> ras::Sync<T>,
+  ) -> Result<Self, Error> {
     // let missing = 5;
     let mut instance = Self {
       public_key: key_pair.public_key,
@@ -58,10 +64,16 @@ where
       signatures: create(Store::Signatures),
     };
 
-    let header = Header::new(FileType::BitField, 3328, HashType::None);
-    instance.bitfield.write(0, &header.to_vec());
+    let header = create_bitfield();
+    instance.bitfield.write(0, &header.to_vec())?;
 
-    instance
+    let header = create_signatures();
+    instance.signatures.write(0, &header.to_vec())?;
+
+    let header = create_tree();
+    instance.tree.write(0, &header.to_vec())?;
+
+    Ok(instance)
   }
 
   /// TODO(yw) docs
