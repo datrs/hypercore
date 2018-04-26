@@ -12,16 +12,16 @@ extern crate byteorder;
 extern crate merkle_tree_stream as merkle_stream;
 extern crate rust_sodium as sodium;
 
+pub mod key_pair;
+
 pub use self::blake2::blake2b::Blake2bResult;
+pub use self::key_pair::KeyPair;
 pub use self::sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Signature};
 
 use self::blake2::blake2b::Blake2b;
 use self::byteorder::{BigEndian, WriteBytesExt};
 use self::merkle_stream::Node;
 use self::sodium::crypto::sign::ed25519::{sign_detached, verify_detached};
-
-/// Generate an `Ed25519` keypair.
-pub mod key_pair;
 
 /// Sign a piece of data using an `Ed25519` secret key.
 pub fn sign(data: &[u8], secret_key: &SecretKey) -> Signature {

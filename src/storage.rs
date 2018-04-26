@@ -1,8 +1,15 @@
 //! Save data to a desired storage backend.
 
+extern crate random_access_storage as ras;
+extern crate sleep_parser;
+
+use self::ras::SyncMethods;
+use self::sleep_parser::{FileType, HashType, Header};
+use super::crypto::{KeyPair, PublicKey, SecretKey};
 use bitfield::Bitfield;
 
 /// The types of stores that can be created.
+#[derive(Debug)]
 pub enum Store {
   /// Public key
   Key,
@@ -19,37 +26,39 @@ pub enum Store {
 }
 
 /// Save data to a desired storage backend.
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Storage {
-  // key: Vec<u8>,
-  // secret_key: Vec<u8>,
-  // tree
-  // bitfield
-  // signatures
-  // create (function)
+  public_key: PublicKey,
+  secret_key: SecretKey,
+  tree: ras::Sync<Box<SyncMethods>>,
+  data: ras::Sync<Box<SyncMethods>>,
+  bitfield: ras::Sync<Box<SyncMethods>>,
+  signatures: ras::Sync<Box<SyncMethods>>,
   // cache_size
 }
 
 impl Storage {
   /// Create a new instance.
-  // Named `.open()` in the JS version.
-  pub fn new(create: fn(Store) -> Bitfield) -> Self {
+  // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
+  // requiring a key pair to be initialized before creating a new instance.
+  pub fn new(
+    key_pair: KeyPair,
+    create: fn(Store) -> ras::Sync<Box<SyncMethods>>,
+  ) -> Self {
     // let missing = 5;
+    let instance = Self {
+      public_key: key_pair.public_key,
+      secret_key: key_pair.secret_key,
+      tree: create(Store::Tree),
+      data: create(Store::Data),
+      bitfield: create(Store::Bitfield),
+      signatures: create(Store::Signatures),
+    };
 
-    let key = create(Store::Key);
-    let secret_key = create(Store::SecretKey);
-    let tree = create(Store::Tree);
-    let data = create(Store::Data);
-    let bitfield = create(Store::Bitfield);
-    let signatures = create(Store::Signatures);
+    let header = Header::new(FileType::BitField, 3328, HashType::None);
+    instance.bitfield.write(0, header.to_vec());
 
-    unimplemented!();
-  }
-
-  /// Create a new instance but only for keys.
-  // Named `.open_key()` in the JS version.
-  pub fn new_with_key(&mut self) {
-    unimplemented!();
+    instance
   }
 
   /// TODO(yw) docs

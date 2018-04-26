@@ -20,6 +20,8 @@ sparse-bitfield = "0.3.2"
 random-access-memory = "0.1.0"
 tree-index = "0.1.0"
 memory-pager = "0.4.5"
+sleep-parser = "0.3.1"
+random-access-storage = "0.3.2"
 
 [dev-dependencies]
 # clippy = "0.0"

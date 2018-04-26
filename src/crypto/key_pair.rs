@@ -1,3 +1,5 @@
+//! Generate an `Ed25519` keypair.
+
 extern crate rust_sodium as sodium;
 
 use self::sodium::crypto::sign::ed25519::{gen_keypair, keypair_from_seed};
