@@ -16,10 +16,6 @@ use std::path::PathBuf;
 /// The types of stores that can be created.
 #[derive(Debug)]
 pub enum Store {
-  /// Public key
-  PublicKey,
-  /// Secret key
-  SecretKey,
   /// Tree
   Tree,
   /// Data
@@ -145,8 +141,9 @@ where
 
 impl Storage<self::rad::SyncMethods> {
   /// Create a new instance that persists to disk at the location of `dir`.
-  // TODO: ensure that dir is always a directory.
-  // NOTE: should we `mkdirp` here?
+  // TODO: Ensure that dir is always a directory.
+  // NOTE: Should we `mkdirp` here?
+  // NOTE: Should we call these `data.bitfield` / `data.tree`?
   pub fn new(key_pair: KeyPair, dir: PathBuf) -> Result<Self, Error> {
     Self::with_storage(key_pair, |storage: Store| {
       let name = match storage {
@@ -154,7 +151,6 @@ impl Storage<self::rad::SyncMethods> {
         Store::Data => "data",
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
-        other => panic!(format!("Unacceptable type {:?} found.", other)),
       };
       rad::Sync::new(dir.as_path().join(name))
     })
