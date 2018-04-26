@@ -27,7 +27,10 @@ pub enum Store {
 
 /// Save data to a desired storage backend.
 // #[derive(Debug)]
-pub struct Storage<T> {
+pub struct Storage<T>
+where
+  T: SyncMethods,
+{
   public_key: PublicKey,
   secret_key: SecretKey,
   tree: ras::Sync<T>,
@@ -37,13 +40,16 @@ pub struct Storage<T> {
   // cache_size
 }
 
-impl<T> Storage<T> {
+impl<T> Storage<T>
+where
+  T: SyncMethods,
+{
   /// Create a new instance.
   // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
   // requiring a key pair to be initialized before creating a new instance.
   pub fn new(key_pair: KeyPair, create: fn(Store) -> ras::Sync<T>) -> Self {
     // let missing = 5;
-    let instance = Self {
+    let mut instance = Self {
       public_key: key_pair.public_key,
       secret_key: key_pair.secret_key,
       tree: create(Store::Tree),
@@ -53,7 +59,7 @@ impl<T> Storage<T> {
     };
 
     let header = Header::new(FileType::BitField, 3328, HashType::None);
-    instance.bitfield.write(0, header.to_vec());
+    instance.bitfield.write(0, &header.to_vec());
 
     instance
   }
@@ -109,7 +115,10 @@ impl<T> Storage<T> {
   }
 }
 
-impl<T> Drop for Storage<T> {
+impl<T> Drop for Storage<T>
+where
+  T: SyncMethods,
+{
   fn drop(&mut self) {
     unimplemented!();
   }
