@@ -1,6 +1,8 @@
 //! Save data to a desired storage backend.
 
 extern crate failure;
+extern crate random_access_disk as rad;
+extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
 extern crate sleep_parser;
 
@@ -9,12 +11,13 @@ use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use super::crypto::{KeyPair, PublicKey, SecretKey};
 use bitfield::Bitfield;
+use std::path::PathBuf;
 
 /// The types of stores that can be created.
 #[derive(Debug)]
 pub enum Store {
   /// Public key
-  Key,
+  PublicKey,
   /// Secret key
   SecretKey,
   /// Tree
@@ -50,11 +53,10 @@ where
   /// storage instances.
   // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
   // requiring a key pair to be initialized before creating a new instance.
-  pub fn new<Cb>(key_pair: KeyPair, create: Cb) -> Result<Self, Error>
+  pub fn with_storage<Cb>(key_pair: KeyPair, create: Cb) -> Result<Self, Error>
   where
     Cb: Fn(Store) -> ras::Sync<T>,
   {
-    // let missing = 5;
     let mut instance = Self {
       public_key: key_pair.public_key,
       secret_key: key_pair.secret_key,
@@ -138,5 +140,31 @@ where
   /// TODO(yw) docs
   pub fn open_key(&mut self) {
     unimplemented!();
+  }
+}
+
+impl Storage<self::rad::SyncMethods> {
+  /// Create a new instance that persists to disk at the location of `dir`.
+  // TODO: ensure that dir is always a directory.
+  // NOTE: should we `mkdirp` here?
+  pub fn new(key_pair: KeyPair, dir: PathBuf) -> Result<Self, Error> {
+    Self::with_storage(key_pair, |storage: Store| {
+      let name = match storage {
+        Store::Tree => "tree",
+        Store::Data => "data",
+        Store::Bitfield => "bitfield",
+        Store::Signatures => "signatures",
+        other => panic!(format!("Unacceptable type {:?} found.", other)),
+      };
+      rad::Sync::new(dir.as_path().join(name))
+    })
+  }
+}
+
+impl Default for Storage<self::ram::SyncMethods> {
+  /// Create a new instance with a memory backend and an ephemeral key pair.
+  fn default() -> Self {
+    let key_pair = KeyPair::default();
+    Self::with_storage(key_pair, |_store: Store| ram::Sync::default()).unwrap()
   }
 }

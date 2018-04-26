@@ -17,11 +17,12 @@ byteorder = "1.2.1"
 merkle-tree-stream = "0.2.0"
 flat-tree = "3.3.0"
 sparse-bitfield = "0.3.2"
-random-access-memory = "0.1.0"
+random-access-memory = "0.2.0"
 tree-index = "0.1.0"
 memory-pager = "0.4.5"
 sleep-parser = "0.4.0"
 random-access-storage = "0.3.2"
+random-access-disk = "0.2.0"
 
 [dev-dependencies]
 # clippy = "0.0"
