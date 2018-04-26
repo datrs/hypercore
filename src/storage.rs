@@ -50,10 +50,10 @@ where
   /// storage instances.
   // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
   // requiring a key pair to be initialized before creating a new instance.
-  pub fn new(
-    key_pair: KeyPair,
-    create: fn(Store) -> ras::Sync<T>,
-  ) -> Result<Self, Error> {
+  pub fn new<Cb>(key_pair: KeyPair, create: Cb) -> Result<Self, Error>
+  where
+    Cb: Fn(Store) -> ras::Sync<T>,
+  {
     // let missing = 5;
     let mut instance = Self {
       public_key: key_pair.public_key,
