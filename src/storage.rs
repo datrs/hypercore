@@ -96,9 +96,17 @@ where
     unimplemented!();
   }
 
-  /// TODO(yw) docs
-  pub fn put_signature(&mut self) {
-    unimplemented!();
+  /// Write a `Signature` to `self.Signatures`.
+  /// TODO: Ensure the signature size is correct.
+  /// NOTE: Should we create a `Signature` entry type?
+  pub fn put_signature(
+    &mut self,
+    index: usize,
+    signature: &[u8],
+  ) -> Result<(), Error> {
+    self
+      .signatures
+      .write(32 + 64 * index, signature)
   }
 
   /// TODO(yw) docs
@@ -116,22 +124,19 @@ where
     unimplemented!();
   }
 
-  /// TODO(yw) docs
-  pub fn put_bitfield(&mut self) {
-    unimplemented!();
+  /// Write data to the internal bitfield module.
+  /// TODO: Ensure the chunk size is correct.
+  /// NOTE: Should we create a bitfield entry type?
+  pub fn put_bitfield(
+    &mut self,
+    offset: usize,
+    data: &[u8],
+  ) -> Result<(), Error> {
+    self.bitfield.write(32 + offset, data)
   }
 
   /// TODO(yw) docs
   pub fn open_key(&mut self) {
-    unimplemented!();
-  }
-}
-
-impl<T> Drop for Storage<T>
-where
-  T: SyncMethods,
-{
-  fn drop(&mut self) {
     unimplemented!();
   }
 }
