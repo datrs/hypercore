@@ -11,8 +11,13 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use super::crypto::{KeyPair, PublicKey, SecretKey};
+use super::data::Data;
+use super::node::Node;
+use super::signature::Signature;
 use bitfield::Bitfield;
 use std::path::PathBuf;
+
+const HEADER_OFFSET: usize = 32;
 
 /// The types of stores that can be created.
 #[derive(Debug)]
@@ -118,7 +123,7 @@ where
   ) -> Result<(), Error> {
     self
       .signatures
-      .write(32 + 64 * index, signature)
+      .write(HEADER_OFFSET + 64 * index, signature)
   }
 
   /// TODO(yw) docs
@@ -131,13 +136,13 @@ where
     let mut roots = Vec::new();
     flat::full_roots(2 * index, &mut roots);
     let mut offset = 0;
-    let pending = roots.len();
+    let mut pending = roots.len();
     let blk = 2 * index;
 
     if pending == 0 {
       pending = 1;
       // onnode(null, null)
-      return Ok(());
+      return Ok((0, 0)); // TODO: fixme
     }
 
     // for root in roots {
@@ -166,7 +171,9 @@ where
     offset: usize,
     data: &[u8],
   ) -> Result<(), Error> {
-    self.bitfield.write(32 + offset, data)
+    self
+      .bitfield
+      .write(HEADER_OFFSET + offset, data)
   }
 
   /// TODO(yw) docs
@@ -201,13 +208,13 @@ impl Default for Storage<self::ram::SyncMethods> {
   }
 }
 
-// /// Get a node from a vector of nodes.
-// // TODO: define type of node
-// fn find_node(nodes: Vec<Node>, index: usize) -> Option<Node> {
-//   for node in nodes {
-//     if node.index == index {
-//       return Some(node);
-//     }
-//   }
-//   None
-// }
+/// Get a node from a vector of nodes.
+// TODO: define type of node
+fn find_node(nodes: Vec<Node>, index: usize) -> Option<Node> {
+  for node in nodes {
+    if node.index() == index {
+      return Some(node);
+    }
+  }
+  None
+}
