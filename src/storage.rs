@@ -1,6 +1,7 @@
 //! Save data to a desired storage backend.
 
 extern crate failure;
+extern crate flat_tree as flat;
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
@@ -74,9 +75,22 @@ where
     Ok(instance)
   }
 
-  /// TODO(yw) docs
-  pub fn put_data(&mut self) {
-    unimplemented!();
+  /// Write `Data` to `self.Data`.
+  /// TODO: Ensure the signature size is correct.
+  /// NOTE: Should we create a `Signature` entry type?
+  pub fn put_data(
+    &mut self,
+    index: usize,
+    data: &[u8],
+    nodes: &[u8],
+  ) -> Result<(), Error> {
+    if data.is_empty() {
+      return Ok(());
+    }
+
+    let (offset, size) = self.data_offset(index, nodes)?;
+    ensure!(size == data.len(), "Unexpected size data");
+    self.data.write(offset, data)
   }
 
   /// TODO(yw) docs
@@ -108,7 +122,29 @@ where
   }
 
   /// TODO(yw) docs
-  pub fn data_offset(&mut self) {
+  /// Get the offset for the data, return `(offset, size)`.
+  pub fn data_offset(
+    &mut self,
+    index: usize,
+    cached_nodes: &[u8],
+  ) -> Result<(usize, usize), Error> {
+    let mut roots = Vec::new();
+    flat::full_roots(2 * index, &mut roots);
+    let mut offset = 0;
+    let pending = roots.len();
+    let blk = 2 * index;
+
+    if pending == 0 {
+      pending = 1;
+      // onnode(null, null)
+      return Ok(());
+    }
+
+    // for root in roots {
+    //   match find_node(cached_nodes, root) {
+    //     Some(node) => onnode,
+    //   }
+    // }
     unimplemented!();
   }
 
@@ -164,3 +200,14 @@ impl Default for Storage<self::ram::SyncMethods> {
     Self::with_storage(key_pair, |_store: Store| ram::Sync::default()).unwrap()
   }
 }
+
+// /// Get a node from a vector of nodes.
+// // TODO: define type of node
+// fn find_node(nodes: Vec<Node>, index: usize) -> Option<Node> {
+//   for node in nodes {
+//     if node.index == index {
+//       return Some(node);
+//     }
+//   }
+//   None
+// }

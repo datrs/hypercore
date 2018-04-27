@@ -8,6 +8,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate failure;
+
 pub mod bitfield;
 pub mod crypto;
 pub mod storage;
