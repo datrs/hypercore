@@ -138,7 +138,7 @@ where
     index: usize,
     cached_nodes: &[u8],
   ) -> Result<(usize, usize), Error> {
-    let mut roots = Vec::new();
+    let mut roots = Vec::new(); // FIXME: reuse alloc
     flat::full_roots(2 * index, &mut roots);
     let mut offset = 0;
     let mut pending = roots.len();
@@ -158,14 +158,25 @@ where
     unimplemented!();
   }
 
-  /// TODO(yw) docs
-  pub fn get_node(&mut self) {
-    unimplemented!();
+  /// Get a `Node` from the `tree` storage.
+  pub fn get_node(&mut self, index: usize) -> Result<Node, Error> {
+    let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
+    Node::from_vec(index, &buf)
   }
 
   /// TODO(yw) docs
-  pub fn put_node(&mut self) {
-    unimplemented!();
+  /// Write a `Node` to the `tree` storage.
+  /// TODO: prevent extra allocs here. Implement a method on node that can reuse
+  /// a buffer.
+  pub fn put_node(
+    &mut self,
+    index: usize,
+    node: &mut Node,
+  ) -> Result<(), Error> {
+    let buf = node.to_vec()?;
+    self
+      .tree
+      .write(HEADER_OFFSET + 40 * index, &buf)
   }
 
   /// Write data to the internal bitfield module.
