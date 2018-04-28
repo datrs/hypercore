@@ -31,17 +31,17 @@ impl Node {
   pub fn from_vec(index: usize, buffer: &[u8]) -> Result<Self, Error> {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
-    let mut rdr = Cursor::new(buffer);
+    let mut reader = Cursor::new(buffer);
 
     // TODO: subslice directly, move cursor forward.
     let capacity = 32;
     let mut hash = Vec::with_capacity(capacity);
     for _ in 0..capacity {
-      hash.push(rdr.read_u8()?);
+      hash.push(reader.read_u8()?);
     }
 
     // FIXME: This will blow up on 32 bit systems, because usize can be 32 bits.
-    let length = rdr.read_u64::<BigEndian>()? as usize;
+    let length = reader.read_u64::<BigEndian>()? as usize;
     Ok(Self {
       hash,
       length,
@@ -50,8 +50,11 @@ impl Node {
   }
 
   /// Convert to a buffer that can be written to disk.
-  pub fn to_vec(self) -> Vec<u8> {
-    unimplemented!();
+  pub fn to_vec(&mut self) -> Vec<u8> {
+    let mut writer = Vec::with_capacity(40);
+    writer.extend_from_slice(&self.hash);
+    writer.write_u64::<BigEndian>(self.length as u64);
+    writer
   }
 
   /// Get the current index.
