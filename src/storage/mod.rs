@@ -7,13 +7,18 @@ extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
 extern crate sleep_parser;
 
+mod data;
+mod node;
+mod signature;
+
+pub use self::data::Data;
+pub use self::node::Node;
+pub use self::signature::Signature;
+
 use self::failure::Error;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use super::crypto::{KeyPair, PublicKey, SecretKey};
-use super::data::Data;
-use super::node::Node;
-use super::signature::Signature;
 use bitfield::Bitfield;
 use std::path::PathBuf;
 

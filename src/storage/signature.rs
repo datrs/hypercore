@@ -1,1 +1,2 @@
+/// Signature.
 pub struct Signature;

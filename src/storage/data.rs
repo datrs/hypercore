@@ -1,1 +1,2 @@
+/// Data.
 pub struct Data;

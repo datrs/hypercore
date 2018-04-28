@@ -12,9 +12,6 @@ extern crate failure;
 
 pub mod bitfield;
 pub mod crypto;
-pub(crate) mod data;
-pub(crate) mod node;
-pub(crate) mod signature;
 pub mod storage;
 
 use self::failure::Error;
