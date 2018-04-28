@@ -50,11 +50,11 @@ impl Node {
   }
 
   /// Convert to a buffer that can be written to disk.
-  pub fn to_vec(&mut self) -> Vec<u8> {
+  pub fn to_vec(&mut self) -> Result<Vec<u8>, Error> {
     let mut writer = Vec::with_capacity(40);
     writer.extend_from_slice(&self.hash);
-    writer.write_u64::<BigEndian>(self.length as u64);
-    writer
+    writer.write_u64::<BigEndian>(self.length as u64)?;
+    Ok(writer)
   }
 
   /// Get the current index.
