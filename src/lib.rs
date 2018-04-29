@@ -22,7 +22,7 @@ use self::ras::SyncMethods;
 use std::path::PathBuf;
 
 use crypto::KeyPair;
-use storage::{Storage, Store};
+pub use storage::{Storage, Store};
 
 /// Append-only log structure.
 pub struct Feed<T>
@@ -62,8 +62,13 @@ where
   T: SyncMethods,
 {
   /// Create a new instance with a custom storage backend.
-  pub fn with_storage() -> Self {
-    unimplemented!();
+  pub fn with_storage(storage: storage::Storage<T>) -> Result<Self, Error> {
+    let key_pair = KeyPair::default(); // TODO: read key_pair;
+
+    Ok(Self {
+      key_pair,
+      storage,
+    })
   }
 
   /// Append data into the log.
