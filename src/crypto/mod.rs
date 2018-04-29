@@ -12,10 +12,16 @@ extern crate byteorder;
 extern crate merkle_tree_stream as merkle_stream;
 extern crate rust_sodium as sodium;
 
-pub mod key_pair;
+mod hash;
+mod hasher;
+mod key_pair;
+mod sign;
 
 pub use self::blake2::blake2b::Blake2bResult;
+pub use self::hash::Hash;
+pub use self::hasher::Hasher;
 pub use self::key_pair::KeyPair;
+pub use self::sign::Sign;
 pub use self::sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Signature};
 
 use self::blake2::blake2b::Blake2b;
@@ -69,6 +75,7 @@ pub fn hash_parent(a: &Node, b: &Node) -> Blake2bResult {
 }
 
 /// Hash a set of roots.
+// Called `crypto.tree()` in the JS implementation.
 pub fn hash_roots(roots: &[&Node]) -> Blake2bResult {
   let mut hasher = Blake2b::new(32);
   hasher.update(*ROOT_TYPE);
