@@ -1,10 +1,10 @@
 //! Generate an `Ed25519` keypair.
 
-extern crate rust_sodium as sodium;
+extern crate rust_sodium;
 
-use self::sodium::crypto::sign::ed25519::{gen_keypair, keypair_from_seed};
-pub use self::sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Seed,
-                                              Signature};
+use self::rust_sodium::crypto::sign::ed25519::{gen_keypair, keypair_from_seed};
+pub use self::rust_sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Seed,
+                                                   Signature};
 
 /// `Ed25519` key pair.
 #[derive(Debug, PartialEq)]

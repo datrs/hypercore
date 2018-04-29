@@ -25,13 +25,6 @@ println!("{:?}", feed.get(0)); // prints "hello"
 println!("{:?}", feed.get(1)); // prints "world"
 ```
 
-## Tasks
-- [x] Crypto implementation.
-- [ ] Bitfield implementation.
-- [ ] Storage implementation.
-- [x] Tree Index implementation.
-- [ ] Pub Feed API.
-
 ## Installation
 ```sh
 $ cargo add hypercore
