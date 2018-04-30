@@ -21,7 +21,7 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use std::path::PathBuf;
 
-use crypto::KeyPair;
+use crypto::{KeyPair, Merkle};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
@@ -29,6 +29,7 @@ pub struct Feed<T>
 where
   T: SyncMethods,
 {
+  merkle: Merkle,
   key_pair: KeyPair,
   storage: Storage<T>,
 }
@@ -51,6 +52,7 @@ impl Feed<self::rad::SyncMethods> {
     })?;
 
     Ok(Self {
+      merkle: Merkle::new(),
       key_pair,
       storage,
     })
@@ -66,13 +68,16 @@ where
     let key_pair = KeyPair::default(); // TODO: read key_pair;
 
     Ok(Self {
+      merkle: Merkle::new(),
       key_pair,
       storage,
     })
   }
 
   /// Append data into the log.
-  pub fn append(&self, _data: &[u8]) -> Result<(), Error> {
+  pub fn append(&self, data: &[u8]) -> Result<(), Error> {
+    // let data = self.codec.encode(&data);
+    let nodes = self.merkle.next(data);
     unimplemented!();
   }
 
@@ -94,6 +99,7 @@ impl Default for Feed<self::ram::SyncMethods> {
       storage::Storage::new(|_store: Store| ram::Sync::default()).unwrap();
 
     Self {
+      merkle: Merkle::new(),
       key_pair,
       storage,
     }
