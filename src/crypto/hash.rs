@@ -81,6 +81,11 @@ impl Hash {
       hash: hasher.finalize(),
     }
   }
+
+  /// Returns a byte slice of this `Hash`'s contents.
+  pub fn as_bytes(&self) -> &[u8] {
+    self.hash.as_bytes()
+  }
 }
 
 impl Deref for Hash {

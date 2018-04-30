@@ -75,7 +75,7 @@ where
   }
 
   /// Append data into the log.
-  pub fn append(&self, data: &[u8]) -> Result<(), Error> {
+  pub fn append(&mut self, data: &[u8]) -> Result<(), Error> {
     // let data = self.codec.encode(&data);
     let nodes = self.merkle.next(data);
     unimplemented!();
