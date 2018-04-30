@@ -79,7 +79,7 @@ where
 
   /// Write `Data` to `self.Data`.
   /// TODO: Ensure the signature size is correct.
-  /// NOTE: Should we create a `Signature` entry type?
+  /// NOTE: Should we create a `Data` entry type?
   pub fn put_data(
     &mut self,
     index: usize,
