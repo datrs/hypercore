@@ -86,7 +86,7 @@ where
     &mut self,
     index: usize,
     data: &[u8],
-    nodes: &[u8],
+    nodes: &[Node],
   ) -> Result<(), Error> {
     if data.is_empty() {
       return Ok(());
@@ -130,7 +130,7 @@ where
   pub fn data_offset(
     &mut self,
     index: usize,
-    cached_nodes: &[u8],
+    cached_nodes: &[Node],
   ) -> Result<(usize, usize), Error> {
     let mut roots = Vec::new(); // FIXME: reuse alloc
     flat::full_roots(2 * index, &mut roots);
@@ -162,11 +162,8 @@ where
   /// Write a `Node` to the `tree` storage.
   /// TODO: prevent extra allocs here. Implement a method on node that can reuse
   /// a buffer.
-  pub fn put_node(
-    &mut self,
-    index: usize,
-    node: &mut Node,
-  ) -> Result<(), Error> {
+  pub fn put_node(&mut self, node: &mut Node) -> Result<(), Error> {
+    let index = node.index();
     let buf = node.to_vec()?;
     self
       .tree

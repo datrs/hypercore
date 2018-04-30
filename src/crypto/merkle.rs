@@ -1,7 +1,8 @@
 extern crate merkle_tree_stream;
 
 use self::merkle_tree_stream::{HashMethods, MerkleTreeStream, Node,
-                               NodeVector, PartialNode};
+                               PartialNode};
+use super::super::storage;
 use super::Hash;
 use std::rc::Rc;
 
@@ -25,7 +26,7 @@ impl HashMethods for S {
 #[derive(Debug)]
 pub struct Merkle {
   stream: MerkleTreeStream<S>,
-  nodes: NodeVector,
+  nodes: Vec<Rc<Node>>,
 }
 
 impl Merkle {
@@ -41,14 +42,28 @@ impl Merkle {
   }
 
   /// Access the next item.
-  pub fn next(&mut self, data: &[u8]) -> &NodeVector {
+  // TODO: remove extra conversion alloc.
+
+  // NOTE: Convert from the Merkle nodes into our own node type. Ideally we
+  // could pass our own node type to the Merkle module.
+  pub fn next(&mut self, data: &[u8]) -> Vec<storage::Node> {
     self.stream.next(&data, &mut self.nodes);
     self.nodes()
   }
 
   /// Get the nodes from the struct.
-  #[inline]
-  pub fn nodes(&self) -> &NodeVector {
-    &self.nodes
+  // TODO: remove extra conversion alloc.
+  pub fn nodes(&self) -> Vec<storage::Node> {
+    self
+      .nodes
+      .iter()
+      .map(|node| {
+        storage::Node::new(
+          node.position(),
+          node.hash().to_vec(),
+          node.len(),
+        )
+      })
+      .collect()
   }
 }

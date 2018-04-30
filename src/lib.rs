@@ -19,7 +19,6 @@ pub mod storage;
 
 use self::failure::Error;
 use self::ras::SyncMethods;
-use self::storage::Node;
 use std::path::PathBuf;
 
 use crypto::{KeyPair, Merkle};
@@ -57,22 +56,13 @@ where
     let nodes = self.merkle.next(data);
     let mut offset = 0;
 
-    // TODO: find a way to write this using `storage.put_data()`.
-    // self
-    //   .storage
-    //   .data
-    //   .write(self.byte_length + offset, data)?;
+    let off = self.byte_length + offset;
+    self.storage.put_data(off, data, &nodes)?;
     offset += data.len();
 
-    // FIXME: the conversion here is super gross.
-    // FIXME: storage.put_node shouldn't require an index as the first arg.
-    for node in nodes {
-      let mut node = Node::new(
-        node.position(),
-        node.hash().to_vec(),
-        node.len(),
-      );
-      self.storage.put_node(node.index(), &mut node)?;
+    // TODO: make sure `nodes` is cleared after we're done inserting.
+    for mut node in nodes {
+      self.storage.put_node(&mut node)?;
     }
 
     self.byte_length += offset;
