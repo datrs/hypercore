@@ -21,7 +21,7 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use std::path::PathBuf;
 
-use crypto::{Hash, KeyPair, Merkle, Signature};
+use crypto::{generate_keypair, Hash, Keypair, Merkle, Signature};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
@@ -32,7 +32,7 @@ where
   /// Merkle tree instance.
   merkle: Merkle,
   /// Ed25519 key pair.
-  key_pair: KeyPair,
+  key_pair: Keypair,
   /// Struct that saves data to a `random-access-storage` backend.
   storage: Storage<T>,
   /// Total length of data stored.
@@ -47,7 +47,7 @@ where
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: storage::Storage<T>) -> Result<Self, Error> {
-    let key_pair = KeyPair::default(); // TODO: read key_pair from disk;
+    let key_pair = generate_keypair(); // TODO: read key_pair from disk;
     Ok(Self {
       merkle: Merkle::new(),
       byte_length: 0,

@@ -1,39 +1,15 @@
 //! Generate an `Ed25519` keypair.
 
-extern crate rust_sodium;
+extern crate ed25519_dalek;
+extern crate rand;
+extern crate sha2;
 
-use self::rust_sodium::crypto::sign::ed25519::{gen_keypair, keypair_from_seed};
-pub use self::rust_sodium::crypto::sign::ed25519::{PublicKey, SecretKey, Seed,
-                                                   Signature};
+pub use self::ed25519_dalek::Keypair;
+use self::rand::OsRng;
+use self::sha2::Sha512;
 
-/// `Ed25519` key pair.
-#[derive(Debug, PartialEq)]
-pub struct KeyPair {
-  /// The public key.
-  pub public_key: PublicKey,
-  /// The secret key.
-  pub secret_key: SecretKey,
-}
-
-impl KeyPair {
-  /// Create a new ed25519 key pair instance from a Seed.
-  // TODO: don't expose the seed, just accept a byte slice and create a seed
-  // ourselves instead.
-  pub fn with_seed(seed: &Seed) -> Self {
-    let (public_key, secret_key) = keypair_from_seed(seed);
-    KeyPair {
-      public_key,
-      secret_key,
-    }
-  }
-}
-
-impl Default for KeyPair {
-  fn default() -> Self {
-    let (public_key, secret_key) = gen_keypair();
-    KeyPair {
-      public_key,
-      secret_key,
-    }
-  }
+/// Generate a new `Ed25519` key pair.
+pub fn generate() -> Keypair {
+  let mut cspring: OsRng = OsRng::new().unwrap();
+  Keypair::generate::<Sha512>(&mut cspring)
 }
