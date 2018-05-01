@@ -40,7 +40,7 @@ impl Hash {
   }
 
   /// Hash two `Leaf` nodes hashes together to form a `Parent` hash.
-  pub fn from_parent(left: &[u8], right: &[u8]) -> Self {
+  pub fn from_hashes(left: &[u8], right: &[u8]) -> Self {
     let mut size = vec![]; // FIXME: allocate once only.
     size
       .write_u64::<BigEndian>((left.len() + right.len()) as u64)

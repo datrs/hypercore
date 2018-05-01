@@ -21,7 +21,7 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use std::path::PathBuf;
 
-use crypto::{KeyPair, Merkle};
+use crypto::{Hash, KeyPair, Merkle, Signature};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
@@ -29,10 +29,16 @@ pub struct Feed<T>
 where
   T: SyncMethods,
 {
+  /// Merkle tree instance.
   merkle: Merkle,
+  /// Ed25519 key pair.
   key_pair: KeyPair,
+  /// Struct that saves data to a `random-access-storage` backend.
   storage: Storage<T>,
+  /// Total length of data stored.
   byte_length: usize,
+  /// TODO: description. Length of... roots?
+  length: usize,
 }
 
 impl<T> Feed<T>
@@ -46,6 +52,7 @@ where
       merkle: Merkle::new(),
       byte_length: 0,
       key_pair,
+      length: 0,
       storage,
     })
   }
@@ -59,6 +66,10 @@ where
     let off = self.byte_length + offset;
     self.storage.put_data(off, data, &nodes)?;
     offset += data.len();
+
+    // let hash = Hash::from_hashes(self.merkle.roots);
+    // let signature = Signature::new(self.length, hash, self.key_pair.secret_key);
+    // self.storage.put_signature(signature)?;
 
     // TODO: make sure `nodes` is cleared after we're done inserting.
     for mut node in nodes {

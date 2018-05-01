@@ -10,12 +10,10 @@ extern crate sleep_parser;
 mod data;
 mod node;
 mod persist;
-mod signature;
 
 pub use self::data::Data;
 pub use self::node::Node;
 pub use self::persist::Persist;
-pub use self::signature::Signature;
 
 use self::failure::Error;
 use self::ras::SyncMethods;

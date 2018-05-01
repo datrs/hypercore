@@ -17,7 +17,7 @@ impl HashMethods for S {
   }
 
   fn parent(&self, a: &Node, b: &Node) -> Vec<u8> {
-    let hash = Hash::from_parent(a.hash(), b.hash());
+    let hash = Hash::from_hashes(a.hash(), b.hash());
     hash.as_bytes().to_vec()
   }
 }

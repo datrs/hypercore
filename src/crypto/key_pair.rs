@@ -17,6 +17,8 @@ pub struct KeyPair {
 
 impl KeyPair {
   /// Create a new ed25519 key pair instance from a Seed.
+  // TODO: don't expose the seed, just accept a byte slice and create a seed
+  // ourselves instead.
   pub fn with_seed(seed: &Seed) -> Self {
     let (public_key, secret_key) = keypair_from_seed(seed);
     KeyPair {

@@ -17,13 +17,15 @@ pub enum Verification {
 /// `Ed25519` Signature.
 #[derive(Debug, PartialEq)]
 pub struct Signature {
+  index: usize,
   signature: ed25519::Signature,
 }
 
 impl Signature {
   /// Sign a piece of data using an `Ed25519` secret key.
-  pub fn new(data: &[u8], secret_key: &SecretKey) -> Self {
+  pub fn new(index: usize, data: &[u8], secret_key: &SecretKey) -> Self {
     Self {
+      index,
       signature: sign_detached(data, secret_key),
     }
   }
@@ -37,6 +39,10 @@ impl Signature {
       Verification::Unverified
     }
   }
+
+  // /// Convert the signature to a byte vector. Useful when persisting to disk.
+  // pub fn to_bytes(&self) -> Vec<u8> {
+  // }
 }
 
 impl Deref for Signature {
