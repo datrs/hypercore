@@ -78,7 +78,11 @@ where
     }
 
     self.byte_length += offset;
-    unimplemented!();
+
+    // self.bitfield.set(self.length, true)
+    // self.tree.set(2 * self.length++)
+
+    Ok(())
   }
 
   /// Retrieve data from the log.
