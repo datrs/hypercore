@@ -21,7 +21,7 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use std::path::PathBuf;
 
-use crypto::{generate_keypair, Hash, Keypair, Merkle, Signature};
+use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
@@ -32,7 +32,7 @@ where
   /// Merkle tree instance.
   merkle: Merkle,
   /// Ed25519 key pair.
-  key_pair: Keypair,
+  keypair: Keypair,
   /// Struct that saves data to a `random-access-storage` backend.
   storage: Storage<T>,
   /// Total length of data stored.
@@ -47,11 +47,11 @@ where
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: storage::Storage<T>) -> Result<Self, Error> {
-    let key_pair = generate_keypair(); // TODO: read key_pair from disk;
+    let keypair = generate_keypair(); // TODO: read keypair from disk;
     Ok(Self {
       merkle: Merkle::new(),
       byte_length: 0,
-      key_pair,
+      keypair,
       length: 0,
       storage,
     })
@@ -68,8 +68,9 @@ where
     offset += data.len();
 
     // let hash = Hash::from_hashes(self.merkle.roots);
-    // let signature = Signature::new(self.length, hash, self.key_pair.secret_key);
-    // self.storage.put_signature(signature)?;
+    // let index = self.length;
+    // let signature = sign(hash, self.keypair);
+    // self.storage.put_signature(index, signature)?;
 
     // TODO: make sure `nodes` is cleared after we're done inserting.
     for mut node in nodes {
