@@ -8,7 +8,7 @@ pub use self::blake2::blake2b::Blake2bResult;
 use self::blake2::blake2b::Blake2b;
 use self::byteorder::{BigEndian, WriteBytesExt};
 use self::ed25519_dalek::PublicKey;
-use self::merkle_stream::Node;
+use self::merkle_stream::{Node, NodeVector};
 use std::ops::{Deref, DerefMut};
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
@@ -73,7 +73,7 @@ impl Hash {
 
   /// Hash a vector of `Root` nodes.
   // Called `crypto.tree()` in the JS implementation.
-  pub fn from_roots(roots: &[&Node]) -> Self {
+  pub fn from_roots(roots: &NodeVector) -> Self {
     let mut hasher = Blake2b::new(32);
     hasher.update(*ROOT_TYPE);
 

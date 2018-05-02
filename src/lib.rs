@@ -76,10 +76,10 @@ where
     self.storage.put_data(off, data, &nodes)?;
     offset += data.len();
 
-    // let hash = Hash::from_hashes(self.merkle.roots);
-    // let index = self.length;
-    // let signature = sign(hash, self.keypair);
-    // self.storage.put_signature(index, signature)?;
+    let hash = Hash::from_roots(self.merkle.roots());
+    let index = self.length;
+    let signature = sign(&self.keypair, hash.as_bytes());
+    self.storage.put_signature(index, signature)?;
 
     for mut node in &mut nodes {
       self.storage.put_node(&mut node)?;

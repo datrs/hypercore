@@ -1,5 +1,6 @@
 //! Save data to a desired storage backend.
 
+extern crate ed25519_dalek;
 extern crate failure;
 extern crate flat_tree as flat;
 extern crate random_access_disk as rad;
@@ -15,6 +16,7 @@ pub use self::data::Data;
 pub use self::node::Node;
 pub use self::persist::Persist;
 
+use self::ed25519_dalek::Signature;
 use self::failure::Error;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
@@ -116,11 +118,12 @@ where
   pub fn put_signature(
     &mut self,
     index: usize,
-    signature: &[u8],
+    signature: Signature,
   ) -> Result<(), Error> {
-    self
-      .signatures
-      .write(HEADER_OFFSET + 64 * index, signature)
+    self.signatures.write(
+      HEADER_OFFSET + 64 * index,
+      &signature.to_bytes(),
+    )
   }
 
   /// TODO(yw) docs

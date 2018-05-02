@@ -1,7 +1,7 @@
 extern crate merkle_tree_stream;
 
 use self::merkle_tree_stream::{HashMethods, MerkleTreeStream, Node,
-                               PartialNode};
+                               NodeVector, PartialNode};
 use super::super::storage;
 use super::Hash;
 use std::rc::Rc;
@@ -49,6 +49,11 @@ impl Merkle {
   pub fn next(&mut self, data: &[u8]) -> Vec<storage::Node> {
     self.stream.next(&data, &mut self.nodes);
     self.nodes()
+  }
+
+  /// Get the roots vector.
+  pub fn roots(&self) -> &NodeVector {
+    &self.stream.roots()
   }
 
   /// Get the nodes from the struct.

@@ -15,6 +15,6 @@ pub fn generate() -> Keypair {
 }
 
 /// Sign a byte slice using a keypair.
-pub fn sign(keypair: Keypair, msg: &[u8]) -> Signature {
+pub fn sign(keypair: &Keypair, msg: &[u8]) -> Signature {
   keypair.sign::<Sha512>(msg)
 }
