@@ -12,14 +12,18 @@ extern crate failure;
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
+extern crate sparse_bitfield;
+extern crate tree_index;
 
 pub mod bitfield;
 pub mod crypto;
 pub mod storage;
 
-use self::failure::Error;
-use self::ras::SyncMethods;
+use failure::Error;
+use ras::SyncMethods;
+use sparse_bitfield::Bitfield;
 use std::path::PathBuf;
+use tree_index::TreeIndex;
 
 use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
 pub use storage::{Storage, Store};
@@ -39,6 +43,9 @@ where
   byte_length: usize,
   /// TODO: description. Length of... roots?
   length: usize,
+  /// Bitfield to keep track of which data we own.
+  bitfield: Bitfield,
+  tree: TreeIndex,
 }
 
 impl<T> Feed<T>
@@ -51,8 +58,10 @@ where
     Ok(Self {
       merkle: Merkle::new(),
       byte_length: 0,
-      keypair,
       length: 0,
+      bitfield: Bitfield::default(),
+      tree: TreeIndex::default(),
+      keypair,
       storage,
     })
   }
@@ -60,7 +69,7 @@ where
   /// Append data into the log.
   pub fn append(&mut self, data: &[u8]) -> Result<(), Error> {
     // let data = self.codec.encode(&data);
-    let nodes = self.merkle.next(data);
+    let mut nodes = self.merkle.next(data);
     let mut offset = 0;
 
     let off = self.byte_length + offset;
@@ -72,10 +81,10 @@ where
     // let signature = sign(hash, self.keypair);
     // self.storage.put_signature(index, signature)?;
 
-    // TODO: make sure `nodes` is cleared after we're done inserting.
-    for mut node in nodes {
+    for mut node in &mut nodes {
       self.storage.put_node(&mut node)?;
     }
+    nodes.clear();
 
     self.byte_length += offset;
 
