@@ -88,8 +88,9 @@ where
 
     self.byte_length += offset;
 
-    // self.bitfield.set(self.length, true)
-    // self.tree.set(2 * self.length++)
+    self.bitfield.set(self.length, true);
+    self.tree.set(2 * self.length);
+    self.length += 1;
 
     Ok(())
   }
