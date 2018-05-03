@@ -25,7 +25,7 @@ use sparse_bitfield::Bitfield;
 use std::path::PathBuf;
 use tree_index::TreeIndex;
 
-use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
+use crypto::{generate_keypair, sign, Hash, Keypair, Merkle};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
