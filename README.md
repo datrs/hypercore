@@ -16,10 +16,10 @@ use hypercore::Feed;
 use std::path::PathBuf;
 
 let path = PathBuf::from("./my-first-dataset");
-let feed = Feed::new(path);
+let mut feed = Feed::new(path).unwrap();
 
-feed.append(b"hello")?;
-feed.append(b"world")?;
+feed.append(b"hello").unwrap();
+feed.append(b"world").unwrap();
 
 println!("{:?}", feed.get(0)); // prints "hello"
 println!("{:?}", feed.get(1)); // prints "world"
