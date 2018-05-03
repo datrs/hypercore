@@ -96,13 +96,13 @@ where
   }
 
   /// Retrieve data from the log.
-  pub fn get(&mut self, index: usize) -> Option<&[u8]> {
+  pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>, Error> {
     let has = self.bitfield.get(index);
     if !has {
-      // Do network lookup here once we have network code.
-      return None;
+      // NOTE: Do network lookup here once we have network code.
+      return Ok(None);
     }
-    unimplemented!();
+    Ok(Some(self.storage.get_data(index)?))
   }
 }
 

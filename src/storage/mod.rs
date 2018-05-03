@@ -97,9 +97,12 @@ where
     self.data.write(offset, data)
   }
 
-  /// TODO(yw) docs
-  pub fn get_data(&mut self) {
-    unimplemented!();
+  /// Get data from disk that the user has written to it. This is stored
+  /// unencrypted, so there's no decryption needed.
+  pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>, Error> {
+    let cached_nodes = Vec::new(); // FIXME: reuse allocation.
+    let (offset, size) = self.data_offset(index, &cached_nodes)?;
+    self.data.read(offset, size)
   }
 
   /// TODO(yw) docs

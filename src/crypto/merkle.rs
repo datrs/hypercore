@@ -1,7 +1,8 @@
 extern crate merkle_tree_stream;
 
-use self::merkle_tree_stream::{HashMethods, MerkleTreeStream, Node,
-                               NodeVector, PartialNode};
+use self::merkle_tree_stream::{
+  HashMethods, MerkleTreeStream, Node, NodeVector, PartialNode,
+};
 use super::super::storage;
 use super::Hash;
 use std::rc::Rc;
