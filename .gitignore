@@ -7,3 +7,5 @@ npm-debug.log*
 .nyc_output
 target/
 Cargo.lock
+
+my-first-dataset/
