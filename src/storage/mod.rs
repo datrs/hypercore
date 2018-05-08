@@ -142,24 +142,50 @@ where
     let mut pending = roots.len();
     let blk = 2 * index;
 
-    if pending == 0 {
-      pending = 1;
-      // onnode(null, null)
-      return Ok((0, 0)); // TODO: fixme
+    {
+      if pending == 0 {
+        let len = match find_node(&cached_nodes, blk) {
+          Some(node) => node.len(),
+          None => (self.get_node(blk)?).len(),
+        };
+        return Ok((offset, len));
+      }
     }
 
-    // for root in roots {
-    //   match find_node(cached_nodes, root) {
-    //     Some(node) => onnode,
-    //   }
-    // }
-    unimplemented!();
+    for root in roots {
+      // FIXME: we're always having a cache miss here. Check cache first before
+      // getting a node from the backend.
+      //
+      // ```rust
+      // let node = match find_node(cached_nodes, root) {
+      //   Some(node) => node,
+      //   None => self.get_node(root),
+      // };
+      // ```
+      let node = self.get_node(root)?;
+
+      offset += node.len();
+      pending -= 1;
+      if pending > 0 {
+        continue;
+      }
+
+      let len = match find_node(&cached_nodes, blk) {
+        Some(node) => node.len(),
+        None => (self.get_node(blk)?).len(),
+      };
+
+      return Ok((offset, len));
+    }
+
+    panic!("Loop executed without finding max value");
   }
 
   /// Get a `Node` from the `tree` storage.
   pub fn get_node(&mut self, index: usize) -> Result<Node, Error> {
     let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
-    Node::from_vec(index, &buf)
+    let node = Node::from_vec(index, &buf)?;
+    Ok(node)
   }
 
   /// TODO(yw) docs
@@ -194,8 +220,7 @@ where
 }
 
 /// Get a node from a vector of nodes.
-// TODO: define type of node
-fn find_node(nodes: Vec<Node>, index: usize) -> Option<Node> {
+fn find_node(nodes: &[Node], index: usize) -> Option<&Node> {
   for node in nodes {
     if node.index() == index {
       return Some(node);

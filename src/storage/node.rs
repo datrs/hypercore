@@ -3,6 +3,7 @@ extern crate failure;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use failure::Error;
+use std::convert::AsRef;
 use std::io::Cursor;
 
 /// Nodes that are persisted to disk.
@@ -78,5 +79,11 @@ impl Node {
   /// The length of the data
   pub fn is_empty(&self) -> bool {
     self.length == 0
+  }
+}
+
+impl AsRef<Node> for Node {
+  fn as_ref(&self) -> &Self {
+    self
   }
 }

@@ -1,5 +1,5 @@
-#![deny(missing_docs)]
-#![cfg_attr(test, deny(warnings))]
+// #![deny(missing_docs)]
+// #![cfg_attr(test, deny(warnings))]
 #![feature(external_doc)]
 #![doc(include = "../README.md")]
 // #![cfg_attr(test, feature(plugin))]
@@ -9,6 +9,7 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate failure;
+
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
