@@ -1,9 +1,11 @@
 extern crate byteorder;
 extern crate failure;
+extern crate pretty_hash;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use failure::Error;
+use self::failure::Error;
 use std::convert::AsRef;
+use std::fmt::{self, Display};
 use std::io::Cursor;
 
 /// Nodes that are persisted to disk.
@@ -85,5 +87,19 @@ impl Node {
 impl AsRef<Node> for Node {
   fn as_ref(&self) -> &Self {
     self
+  }
+}
+
+impl Display for Node {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(
+      f,
+      "Node {} index: {}, hash: {}, length: {} {}",
+      '{',
+      self.index,
+      pretty_hash::fmt(&self.hash).unwrap(),
+      self.length,
+      '}'
+    )
   }
 }

@@ -181,7 +181,9 @@ where
     let mut pending = roots.len();
     let blk = 2 * index;
 
-    println!("roots {:?}", cached_nodes);
+    for node in cached_nodes {
+      println!("root {}", node);
+    }
 
     if pending == 0 {
       let len = match find_node(&cached_nodes, blk) {
