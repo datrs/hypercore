@@ -93,7 +93,13 @@ where
     }
 
     let (offset, size) = self.data_offset(index, nodes)?;
-    ensure!(size == data.len(), "Unexpected size data");
+    let len = data.len();
+
+    ensure!(
+      size == len,
+      format!("Unexpected size data `{:?} != {:?}`", size, len)
+    );
+
     self.data.write(offset, data)
   }
 
