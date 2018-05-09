@@ -36,6 +36,35 @@ pub enum Store {
   Signatures,
 }
 
+/// Result for `Storage.data_offset`
+pub struct DataOffset {
+  length: usize,
+  pub offset: usize,
+}
+
+impl DataOffset {
+  /// Create a new instance.
+  #[inline]
+  pub fn new(offset: usize, length: usize) -> Self {
+    Self { offset, length }
+  }
+  /// Get the offset.
+  #[inline]
+  pub fn offset(&self) -> usize {
+    self.offset
+  }
+  /// Get the length.
+  #[inline]
+  pub fn len(&self) -> usize {
+    self.length
+  }
+  /// Check whether the length is zero.
+  #[inline]
+  pub fn is_empty(&self) -> bool {
+    self.length == 0
+  }
+}
+
 /// Save data to a desired storage backend.
 // #[derive(Debug)]
 pub struct Storage<T>
@@ -79,7 +108,8 @@ where
     Ok(instance)
   }
 
-  /// Write `Data` to `self.Data`.
+  /// Write a byte vector to a data storage (random-access instance) at the
+  /// position of `index`.
   /// TODO: Ensure the signature size is correct.
   /// NOTE: Should we create a `Data` entry type?
   pub fn put_data(
@@ -92,23 +122,26 @@ where
       return Ok(());
     }
 
-    let (offset, size) = self.data_offset(index, nodes)?;
-    let len = data.len();
+    let offset = self.data_offset(index, nodes)?;
 
     ensure!(
-      size == len,
-      format!("Unexpected size data `{:?} != {:?}`", size, len)
+      offset.len() == data.len(),
+      format!(
+        "length  `{:?} != {:?}`",
+        offset.len(),
+        data.len()
+      )
     );
 
-    self.data.write(offset, data)
+    self.data.write(offset.offset(), data)
   }
 
   /// Get data from disk that the user has written to it. This is stored
   /// unencrypted, so there's no decryption needed.
   pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>, Error> {
     let cached_nodes = Vec::new(); // FIXME: reuse allocation.
-    let (offset, size) = self.data_offset(index, &cached_nodes)?;
-    self.data.read(offset, size)
+    let offset = self.data_offset(index, &cached_nodes)?;
+    self.data.read(offset.offset(), offset.len())
   }
 
   /// TODO(yw) docs
@@ -141,21 +174,22 @@ where
     &mut self,
     index: usize,
     cached_nodes: &[Node],
-  ) -> Result<(usize, usize), Error> {
+  ) -> Result<DataOffset, Error> {
     let mut roots = Vec::new(); // FIXME: reuse alloc
     flat::full_roots(2 * index, &mut roots);
     let mut offset = 0;
     let mut pending = roots.len();
     let blk = 2 * index;
 
-    {
-      if pending == 0 {
-        let len = match find_node(&cached_nodes, blk) {
-          Some(node) => node.len(),
-          None => (self.get_node(blk)?).len(),
-        };
-        return Ok((offset, len));
-      }
+    println!("roots {:?}", cached_nodes);
+
+    if pending == 0 {
+      let len = match find_node(&cached_nodes, blk) {
+        Some(node) => node.len(),
+        None => (self.get_node(blk)?).len(),
+      };
+      println!("len {}", len);
+      return Ok(DataOffset::new(offset, len));
     }
 
     for root in roots {
@@ -181,7 +215,7 @@ where
         None => (self.get_node(blk)?).len(),
       };
 
-      return Ok((offset, len));
+      return Ok(DataOffset::new(offset, len));
     }
 
     panic!("Loop executed without finding max value");
