@@ -19,13 +19,13 @@ fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
 #[bench]
 fn create(b: &mut Bencher) {
   b.iter(|| {
-    create_feed(50).unwrap();
+    create_feed(1024).unwrap();
   });
 }
 
 #[bench]
 fn write(b: &mut Bencher) {
-  let mut feed = create_feed(50).unwrap();
+  let mut feed = create_feed(1024).unwrap();
   b.iter(|| {
     feed.append(b"hello").unwrap();
   });
@@ -33,7 +33,7 @@ fn write(b: &mut Bencher) {
 
 #[bench]
 fn read(b: &mut Bencher) {
-  let mut feed = create_feed(50).unwrap();
+  let mut feed = create_feed(1024).unwrap();
   for _ in 0..1000 {
     feed.append(b"hello").unwrap();
   }

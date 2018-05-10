@@ -35,3 +35,8 @@ fn append() {
   assert_eq!(feed.get(1).unwrap(), Some(br#"{"hello":"mundo"}"#.to_vec()));
   assert_eq!(feed.get(2).unwrap(), Some(br#"{"hello":"welt"}"#.to_vec()));
 }
+
+#[test]
+fn verify() {
+  // unimplemented!();
+}
