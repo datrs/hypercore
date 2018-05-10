@@ -20,13 +20,13 @@ pub mod bitfield;
 pub mod crypto;
 pub mod storage;
 
+use crypto::{generate_keypair, sign, Hash, Keypair, Merkle};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
 use std::path::PathBuf;
 use tree_index::TreeIndex;
 
-use crypto::{generate_keypair, sign, Hash, Keypair, Merkle};
 pub use storage::{Storage, Store};
 
 /// Append-only log structure.
@@ -73,9 +73,7 @@ where
     let mut nodes = self.merkle.next(data);
     let mut offset = 0;
 
-    self
-      .storage
-      .write_data(self.byte_length + offset, &data)?;
+    self.storage.write_data(self.byte_length + offset, &data)?;
     offset += data.len();
 
     let hash = Hash::from_roots(self.merkle.roots());

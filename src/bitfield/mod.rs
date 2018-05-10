@@ -172,10 +172,7 @@ impl Bitfield {
       && self.index.set_byte(self.iterator.index(), byte) == Change::Changed
     {
       if self.iterator.is_left() {
-        let index: usize = self
-          .index
-          .get_byte(self.iterator.sibling())
-          .into();
+        let index: usize = self.index.get_byte(self.iterator.sibling()).into();
         byte = self.masks.map_parent_left[byte as usize]
           | self.masks.map_parent_right[index];
       } else {

@@ -64,11 +64,7 @@ impl Merkle {
       .nodes
       .iter()
       .map(|node| {
-        storage::Node::new(
-          node.position(),
-          node.hash().to_vec(),
-          node.len(),
-        )
+        storage::Node::new(node.position(), node.hash().to_vec(), node.len())
       })
       .collect()
   }

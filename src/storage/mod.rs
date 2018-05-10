@@ -37,6 +37,7 @@ pub enum Store {
 }
 
 /// Result for `Storage.data_offset`
+#[derive(Debug)]
 pub struct DataOffset {
   length: usize,
   pub offset: usize,
@@ -139,11 +140,7 @@ where
 
     ensure!(
       offset.len() == data.len(),
-      format!(
-        "length  `{:?} != {:?}`",
-        offset.len(),
-        data.len()
-      )
+      format!("length  `{:?} != {:?}`", offset.len(), data.len())
     );
 
     self.data.write(offset.offset(), data)
@@ -175,10 +172,9 @@ where
     index: usize,
     signature: Signature,
   ) -> Result<(), Error> {
-    self.signatures.write(
-      HEADER_OFFSET + 64 * index,
-      &signature.to_bytes(),
-    )
+    self
+      .signatures
+      .write(HEADER_OFFSET + 64 * index, &signature.to_bytes())
   }
 
   /// TODO(yw) docs
@@ -250,9 +246,7 @@ where
   pub fn put_node(&mut self, node: &mut Node) -> Result<(), Error> {
     let index = node.index();
     let buf = node.to_vec()?;
-    self
-      .tree
-      .write(HEADER_OFFSET + 40 * index, &buf)
+    self.tree.write(HEADER_OFFSET + 40 * index, &buf)
   }
 
   /// Write data to the internal bitfield module.
@@ -263,9 +257,7 @@ where
     offset: usize,
     data: &[u8],
   ) -> Result<(), Error> {
-    self
-      .bitfield
-      .write(HEADER_OFFSET + offset, data)
+    self.bitfield.write(HEADER_OFFSET + offset, data)
   }
 
   /// TODO(yw) docs

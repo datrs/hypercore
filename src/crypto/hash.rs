@@ -28,9 +28,7 @@ impl Hash {
   /// Hash a `Leaf` node.
   pub fn from_leaf(data: &[u8]) -> Self {
     let mut size = vec![]; // FIXME: allocate once only.
-    size
-      .write_u64::<BigEndian>(data.len() as u64)
-      .unwrap();
+    size.write_u64::<BigEndian>(data.len() as u64).unwrap();
 
     let mut hasher = Blake2b::new(32);
     hasher.update(*LEAF_TYPE);
@@ -83,9 +81,7 @@ impl Hash {
         .write_u64::<BigEndian>((node.position()) as u64)
         .unwrap();
       let mut len = Vec::with_capacity(1); // FIXME: allocate once only.
-      len
-        .write_u64::<BigEndian>((node.len()) as u64)
-        .unwrap();
+      len.write_u64::<BigEndian>((node.len()) as u64).unwrap();
       hasher.update(node.hash());
       hasher.update(&position);
       hasher.update(&len);

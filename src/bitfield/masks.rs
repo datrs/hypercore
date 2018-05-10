@@ -66,11 +66,7 @@ impl Masks {
         8 - ((256f32 - i as f32).log2() / (2f32).log2()).ceil() as i16
       };
 
-      next_index_0_bit[i] = if i == 255 {
-        -1
-      } else {
-        next_data_0_bit[i] / 2
-      };
+      next_index_0_bit[i] = if i == 255 { -1 } else { next_data_0_bit[i] / 2 };
 
       total_1_bits[i] = nibble[i >> 4] + nibble[i & 0x0F];
     }
