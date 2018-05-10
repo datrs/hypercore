@@ -4,11 +4,12 @@ extern crate random_access_storage as ras;
 use self::ras::SyncMethods;
 use super::Storage;
 use failure::Error;
+use std::fmt::Debug;
 
 /// Persist data to a `Storage` instance.
 pub trait Persist<T>
 where
-  T: SyncMethods,
+  T: SyncMethods + Debug,
 {
   /// Create an instance from a byte vector.
   fn from_bytes(index: usize, buf: &[u8]) -> Self;

@@ -20,6 +20,7 @@ use self::ed25519_dalek::Signature;
 use self::failure::Error;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
+use std::fmt::Debug;
 
 const HEADER_OFFSET: usize = 32;
 
@@ -70,7 +71,7 @@ impl DataOffset {
 // #[derive(Debug)]
 pub struct Storage<T>
 where
-  T: SyncMethods,
+  T: SyncMethods + Debug,
 {
   tree: ras::Sync<T>,
   data: ras::Sync<T>,
@@ -80,7 +81,7 @@ where
 
 impl<T> Storage<T>
 where
-  T: SyncMethods,
+  T: SyncMethods + Debug,
 {
   /// Create a new instance. Takes a keypair and a callback to create new
   /// storage instances.

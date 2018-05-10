@@ -24,6 +24,7 @@ use crypto::{generate_keypair, sign, Hash, Keypair, Merkle};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
+use std::fmt::Debug;
 use std::path::PathBuf;
 use tree_index::TreeIndex;
 
@@ -32,7 +33,7 @@ pub use storage::{Storage, Store};
 /// Append-only log structure.
 pub struct Feed<T>
 where
-  T: SyncMethods,
+  T: SyncMethods + Debug,
 {
   /// Merkle tree instance.
   merkle: Merkle,
@@ -51,7 +52,7 @@ where
 
 impl<T> Feed<T>
 where
-  T: SyncMethods,
+  T: SyncMethods + Debug,
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: storage::Storage<T>) -> Result<Self, Error> {
