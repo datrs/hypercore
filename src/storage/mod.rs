@@ -21,6 +21,7 @@ use self::failure::Error;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use std::fmt::Debug;
+use std::ops::Range;
 
 const HEADER_OFFSET: usize = 32;
 
@@ -35,36 +36,6 @@ pub enum Store {
   Bitfield,
   /// Signatures
   Signatures,
-}
-
-/// Result for `Storage.data_offset`
-#[derive(Debug)]
-pub struct DataOffset {
-  length: usize,
-  pub offset: usize,
-}
-
-impl DataOffset {
-  /// Create a new instance.
-  #[inline]
-  pub fn new(offset: usize, length: usize) -> Self {
-    Self { offset, length }
-  }
-  /// Get the offset.
-  #[inline]
-  pub fn offset(&self) -> usize {
-    self.offset
-  }
-  /// Get the length.
-  #[inline]
-  pub fn len(&self) -> usize {
-    self.length
-  }
-  /// Check whether the length is zero.
-  #[inline]
-  pub fn is_empty(&self) -> bool {
-    self.length == 0
-  }
 }
 
 /// Save data to a desired storage backend.
@@ -137,22 +108,23 @@ where
       return Ok(());
     }
 
-    let offset = self.data_offset(index, nodes)?;
+    let range = self.data_offset(index, nodes)?;
 
     ensure!(
-      offset.len() == data.len(),
-      format!("length  `{:?} != {:?}`", offset.len(), data.len())
+      range.len() == data.len(),
+      format!("length  `{:?} != {:?}`", range.len(), data.len())
     );
 
-    self.data.write(offset.offset(), data)
+    self.data.write(range.start, data)
   }
 
   /// Get data from disk that the user has written to it. This is stored
   /// unencrypted, so there's no decryption needed.
+  // FIXME: data_offset always reads out index 0, length 0
   pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>, Error> {
     let cached_nodes = Vec::new(); // FIXME: reuse allocation.
-    let offset = self.data_offset(index, &cached_nodes)?;
-    self.data.read(offset.offset(), offset.len())
+    let range = self.data_offset(index, &cached_nodes)?;
+    self.data.read(range.start, range.len())
   }
 
   /// TODO(yw) docs
@@ -184,7 +156,7 @@ where
     &mut self,
     index: usize,
     cached_nodes: &[Node],
-  ) -> Result<DataOffset, Error> {
+  ) -> Result<Range<usize>, Error> {
     let mut roots = Vec::new(); // FIXME: reuse alloc
     flat::full_roots(2 * index, &mut roots);
     let mut offset = 0;
@@ -201,7 +173,7 @@ where
         None => (self.get_node(blk)?).len(),
       };
       println!("len {}", len);
-      return Ok(DataOffset::new(offset, len));
+      return Ok(offset..offset + len);
     }
 
     for root in roots {
@@ -227,7 +199,7 @@ where
         None => (self.get_node(blk)?).len(),
       };
 
-      return Ok(DataOffset::new(offset, len));
+      return Ok(offset..offset + len);
     }
 
     panic!("Loop executed without finding max value");
