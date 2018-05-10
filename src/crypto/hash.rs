@@ -8,7 +8,7 @@ pub use self::blake2::blake2b::Blake2bResult;
 use self::blake2::blake2b::Blake2b;
 use self::byteorder::{BigEndian, WriteBytesExt};
 use self::ed25519_dalek::PublicKey;
-use self::merkle_stream::{Node, NodeVector};
+use self::merkle_stream::NodeVector;
 use std::ops::{Deref, DerefMut};
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack

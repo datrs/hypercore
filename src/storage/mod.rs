@@ -159,20 +159,16 @@ where
   ) -> Result<Range<usize>, Error> {
     let mut roots = Vec::new(); // FIXME: reuse alloc
     flat::full_roots(2 * index, &mut roots);
+
     let mut offset = 0;
     let mut pending = roots.len();
-    let blk = 2 * index;
-
-    for node in cached_nodes {
-      println!("root {}", node);
-    }
+    let block_index = 2 * index;
 
     if pending == 0 {
-      let len = match find_node(&cached_nodes, blk) {
+      let len = match find_node(&cached_nodes, block_index) {
         Some(node) => node.len(),
-        None => (self.get_node(blk)?).len(),
+        None => (self.get_node(block_index)?).len(),
       };
-      println!("len {}", len);
       return Ok(offset..offset + len);
     }
 
@@ -194,9 +190,9 @@ where
         continue;
       }
 
-      let len = match find_node(&cached_nodes, blk) {
+      let len = match find_node(&cached_nodes, block_index) {
         Some(node) => node.len(),
-        None => (self.get_node(blk)?).len(),
+        None => (self.get_node(block_index)?).len(),
       };
 
       return Ok(offset..offset + len);
