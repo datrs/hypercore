@@ -1,13 +1,19 @@
+extern crate failure;
 extern crate hypercore;
+extern crate random_access_memory as ram;
 
-use hypercore::Feed;
-use std::path::PathBuf;
+use failure::Error;
+use hypercore::{Feed, Storage, Store};
+
+fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
+  let create = |_store: Store| ram::Sync::new(page_size);
+  let storage = Storage::new(create)?;
+  Ok(Feed::with_storage(storage)?)
+}
 
 #[test]
 fn set_get() {
-  let path = PathBuf::from("./my-first-dataset");
-  let mut feed = Feed::new(path).unwrap();
-
+  let mut feed = create_feed(50).unwrap();
   feed.append(b"hello").unwrap();
   feed.append(b"world").unwrap();
 
