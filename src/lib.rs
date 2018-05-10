@@ -73,8 +73,9 @@ where
     let mut nodes = self.merkle.next(data);
     let mut offset = 0;
 
-    let off = self.byte_length + offset;
-    self.storage.put_data(off, data, &nodes)?;
+    self
+      .storage
+      .write_data(self.byte_length + offset, &data)?;
     offset += data.len();
 
     let hash = Hash::from_roots(self.merkle.roots());

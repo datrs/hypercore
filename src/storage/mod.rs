@@ -108,8 +108,21 @@ where
     Ok(instance)
   }
 
+  /// Write data to the feed.
+  pub fn write_data(
+    &mut self,
+    offset: usize,
+    data: &[u8],
+  ) -> Result<(), Error> {
+    self.data.write(offset, &data)
+  }
+
   /// Write a byte vector to a data storage (random-access instance) at the
   /// position of `index`.
+  ///
+  /// NOTE: Meant to be called from the `.put()` feed method. Probably used to
+  /// insert data as-is after receiving it from the network (need to confirm
+  /// with mafintosh).
   /// TODO: Ensure the signature size is correct.
   /// NOTE: Should we create a `Data` entry type?
   pub fn put_data(
