@@ -20,3 +20,18 @@ fn set_get() {
   assert_eq!(feed.get(0).unwrap(), Some(b"hello".to_vec()));
   assert_eq!(feed.get(1).unwrap(), Some(b"world".to_vec()));
 }
+
+#[test]
+fn append() {
+  let mut feed = create_feed(50).unwrap();
+  feed.append(br#"{"hello":"world"}"#);
+  feed.append(br#"{"hello":"mundo"}"#);
+  feed.append(br#"{"hello":"welt"}"#);
+
+  assert_eq!(feed.len(), 3);
+  assert_eq!(feed.byte_len(), 50);
+
+  assert_eq!(feed.get(0).unwrap(), Some(br#"{"hello":"world"}"#.to_vec()));
+  assert_eq!(feed.get(1).unwrap(), Some(br#"{"hello":"mundo"}"#.to_vec()));
+  assert_eq!(feed.get(2).unwrap(), Some(br#"{"hello":"welt"}"#.to_vec()));
+}

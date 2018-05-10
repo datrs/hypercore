@@ -68,6 +68,16 @@ where
     })
   }
 
+  /// Get the amount of entries in the feed.
+  pub fn len(&self) -> usize {
+    self.length
+  }
+
+  /// Get the total amount of bytes stored in the feed.
+  pub fn byte_len(&self) -> usize {
+    self.byte_length
+  }
+
   /// Append data into the log.
   pub fn append(&mut self, data: &[u8]) -> Result<(), Error> {
     // let data = self.codec.encode(&data);
