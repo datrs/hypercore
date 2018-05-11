@@ -24,9 +24,9 @@ fn set_get() {
 #[test]
 fn append() {
   let mut feed = create_feed(50).unwrap();
-  feed.append(br#"{"hello":"world"}"#);
-  feed.append(br#"{"hello":"mundo"}"#);
-  feed.append(br#"{"hello":"welt"}"#);
+  feed.append(br#"{"hello":"world"}"#).unwrap();
+  feed.append(br#"{"hello":"mundo"}"#).unwrap();
+  feed.append(br#"{"hello":"welt"}"#).unwrap();
 
   assert_eq!(feed.len(), 3);
   assert_eq!(feed.byte_len(), 50);
@@ -38,5 +38,19 @@ fn append() {
 
 #[test]
 fn verify() {
-  // unimplemented!();
+  let feed = create_feed(50).unwrap();
+
+  let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
+  let evil_feed = Feed::with_storage(storage).unwrap(); // FIXME: pass key from feed
+
+  feed.append(b"test").unwrap();
+  evil_feed.append(b"t0st").unwrap();
+
+  let sig = feed.signature(0).unwrap();
+  assert_eq!(sig.index(), 0);
+
+  feed.verify(0, &sig.signature).unwrap();
+
+  let res = evil_feed.verify(&sig.signature);
+  assert!(res.is_error());
 }
