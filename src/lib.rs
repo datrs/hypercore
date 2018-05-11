@@ -20,7 +20,7 @@ pub mod bitfield;
 pub mod crypto;
 pub mod storage;
 
-use crypto::{generate_keypair, sign, Hash, Keypair, Merkle};
+use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
@@ -114,6 +114,17 @@ where
       return Ok(None);
     }
     Ok(Some(self.storage.get_data(index)?))
+  }
+
+  /// Get a signature from the store.
+  pub fn signature(&mut self, index: usize) -> Result<Signature, Error> {
+    ensure!(index <= self.length, "No signature found");
+    Ok(self.storage.next_signature(index)?)
+  }
+
+  /// Verify a signature is correct for the data at an index.
+  pub fn verify(&self, index: usize, sig: &Signature) -> Result<(), Error> {
+    unimplemented!();
   }
 }
 

@@ -38,19 +38,17 @@ fn append() {
 
 #[test]
 fn verify() {
-  let feed = create_feed(50).unwrap();
+  let mut feed = create_feed(50).unwrap();
 
   let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
-  let evil_feed = Feed::with_storage(storage).unwrap(); // FIXME: pass key from feed
+  let mut evil_feed = Feed::with_storage(storage).unwrap(); // FIXME: pass key from feed
 
   feed.append(b"test").unwrap();
   evil_feed.append(b"t0st").unwrap();
 
   let sig = feed.signature(0).unwrap();
-  assert_eq!(sig.index(), 0);
+  feed.verify(0, &sig).unwrap();
 
-  feed.verify(0, &sig.signature).unwrap();
-
-  let res = evil_feed.verify(&sig.signature);
-  assert!(res.is_error());
+  let res = evil_feed.verify(0, &sig);
+  assert!(res.is_err());
 }

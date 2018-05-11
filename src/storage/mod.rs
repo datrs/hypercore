@@ -127,14 +127,21 @@ where
     self.data.read(range.start, range.len())
   }
 
-  /// TODO(yw) docs
-  pub fn next_signature(&mut self) {
-    unimplemented!();
+  /// Search the signature stores for a `Signature`, starting at `index`.
+  pub fn next_signature(&mut self, index: usize) -> Result<Signature, Error> {
+    let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
+    if not_zeroes(&bytes) {
+      Ok(self.next_signature(index + 1)?)
+    } else {
+      Ok(Signature::from_bytes(&bytes)?)
+    }
   }
 
-  /// TODO(yw) docs
-  pub fn get_signature(&mut self) {
-    unimplemented!();
+  /// Get a `Signature` from the store.
+  pub fn get_signature(&mut self, index: usize) -> Result<Signature, Error> {
+    let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
+    ensure!(not_zeroes(&bytes), "No signature found");
+    Ok(Signature::from_bytes(&bytes)?)
   }
 
   /// Write a `Signature` to `self.Signatures`.
@@ -243,4 +250,14 @@ fn find_node(nodes: &[Node], index: usize) -> Option<&Node> {
     }
   }
   None
+}
+
+/// Check if a byte slice is not completely zero-filled.
+fn not_zeroes(bytes: &[u8]) -> bool {
+  for byte in bytes {
+    if *byte != 0 {
+      return true;
+    }
+  }
+  false
 }
