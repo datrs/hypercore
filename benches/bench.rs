@@ -26,16 +26,18 @@ fn create(b: &mut Bencher) {
 #[bench]
 fn write(b: &mut Bencher) {
   let mut feed = create_feed(1024).unwrap();
+  let data = Vec::from("hello");
   b.iter(|| {
-    feed.append(b"hello").unwrap();
+    feed.append(&data).unwrap();
   });
 }
 
 #[bench]
 fn read(b: &mut Bencher) {
   let mut feed = create_feed(1024).unwrap();
+  let data = Vec::from("hello");
   for _ in 0..1000 {
-    feed.append(b"hello").unwrap();
+    feed.append(&data).unwrap();
   }
 
   let mut i = 0;
