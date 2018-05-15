@@ -1,10 +1,13 @@
 //! Generate an `Ed25519` keypair.
 
 extern crate ed25519_dalek;
+extern crate failure;
 extern crate rand;
 extern crate sha2;
 
-pub use self::ed25519_dalek::{Keypair, Signature};
+pub use self::ed25519_dalek::{Keypair, PublicKey, Signature};
+
+use self::failure::Error;
 use self::rand::OsRng;
 use self::sha2::Sha512;
 
@@ -14,7 +17,20 @@ pub fn generate() -> Keypair {
   Keypair::generate::<Sha512>(&mut cspring)
 }
 
-/// Sign a byte slice using a keypair.
+/// Sign a byte slice using a keypair's private key.
 pub fn sign(keypair: &Keypair, msg: &[u8]) -> Signature {
   keypair.sign::<Sha512>(msg)
+}
+
+/// Verify a signature on a message with a keypair's public key.
+pub fn verify(
+  public: &PublicKey,
+  msg: &[u8],
+  sig: &Signature,
+) -> Result<(), Error> {
+  ensure!(
+    public.verify::<Sha512>(msg, sig),
+    "Signature verification failed"
+  );
+  Ok(())
 }

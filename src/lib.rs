@@ -10,6 +10,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate failure;
 
+extern crate flat_tree as flat;
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
@@ -20,7 +21,9 @@ pub mod bitfield;
 pub mod crypto;
 pub mod storage;
 
-use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
+use crypto::{
+  generate_keypair, sign, Hash, Keypair, Merkle, PublicKey, Signature,
+};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
@@ -28,7 +31,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use tree_index::TreeIndex;
 
-pub use storage::{Storage, Store};
+pub use storage::{Node, Storage, Store};
 
 /// Append-only log structure.
 pub struct Feed<T>
@@ -123,8 +126,32 @@ where
   }
 
   /// Verify a signature is correct for the data at an index.
-  pub fn verify(&self, index: usize, sig: &Signature) -> Result<(), Error> {
-    unimplemented!();
+  pub fn verify(
+    &self,
+    index: usize,
+    signature: &Signature,
+    public_key: &PublicKey,
+  ) -> Result<(), Error> {
+    let roots = self.roots(index)?;
+    let checksum = crypto::Hash::from_roots(&roots);
+    Ok(crypto::verify(public_key, checksum.as_bytes(), signature)?)
+  }
+
+  /// Get all the roots in the feed.
+  // In the JavaScript implemenentation it's possible this calls to
+  // `._getRootsToVerify()` with a bunch of empty arguments. In Rust it seems
+  // better to just inline the code, as it's a lot cheaper.
+  pub fn roots(&self, verified_by: usize) -> Result<Vec<Node>, Error> {
+    let mut indexes = vec![];
+    flat::full_roots(verified_by, &mut indexes);
+
+    let roots = Vec::with_capacity(indexes.len());
+    for index in 0..indexes.len() {
+      let node = self.storage.get_node(index)?;
+      roots.push(node);
+    }
+
+    Ok(roots)
   }
 }
 

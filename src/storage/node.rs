@@ -70,7 +70,7 @@ impl Node {
     &self.hash
   }
 
-  /// The length of the data
+  /// Get the length of the data.
   // TODO: check if we can compile this conditionally to return a u64 on 32 bit
   // systems. Would solve the downcasting problem.
   // TODO: should we expose a `.len_as_u64()` call?
@@ -78,7 +78,7 @@ impl Node {
     self.length
   }
 
-  /// The length of the data
+  /// Check whether the length of the data is zero.
   pub fn is_empty(&self) -> bool {
     self.length == 0
   }
