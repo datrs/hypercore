@@ -6,9 +6,11 @@ mod hash;
 mod hasher;
 mod key_pair;
 mod merkle;
+mod root;
 
 pub use self::ed25519_dalek::{PublicKey, Signature};
 
+pub use self::root::Root;
 pub use self::hash::Hash;
 pub use self::hasher::Hasher;
 pub use self::key_pair::{generate as generate_keypair, sign, verify, Keypair};

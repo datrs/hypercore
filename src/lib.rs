@@ -125,7 +125,8 @@ where
     Ok(self.storage.next_signature(index)?)
   }
 
-  /// Verify a signature is correct for the data at an index.
+  /// Verify the entire feed. Checks a signature against the signature of all
+  /// root nodes combined.
   pub fn verify(
     &self,
     index: usize,
