@@ -1,16 +1,16 @@
 extern crate merkle_tree_stream;
 
 use self::merkle_tree_stream::{
-  HashMethods, MerkleTreeStream, Node, NodeVector, PartialNode,
+  HashMethods, MerkleTreeStream, Node as NodeTrait, PartialNode,
 };
-use super::super::storage;
 use super::Hash;
 use std::rc::Rc;
+use storage::{self, Node};
 
 #[derive(Debug)]
 struct S;
 
-impl HashMethods for S {
+impl HashMethods<Node> for S {
   // FIXME: remove double (triple?) allocation here.
   fn leaf(&self, leaf: &PartialNode, _roots: &[Rc<Node>]) -> Vec<u8> {
     let data = leaf.as_ref().unwrap();
@@ -21,12 +21,16 @@ impl HashMethods for S {
     let hash = Hash::from_hashes(a.hash(), b.hash());
     hash.as_bytes().to_vec()
   }
+
+  fn node(&self, partial: &PartialNode, hash: Vec<u8>) -> Node {
+    unimplemented!();
+  }
 }
 
 /// Merkle Tree Stream
 #[derive(Debug)]
 pub struct Merkle {
-  stream: MerkleTreeStream<S>,
+  stream: MerkleTreeStream<S, Node>,
   nodes: Vec<Rc<Node>>,
 }
 
@@ -53,19 +57,12 @@ impl Merkle {
   }
 
   /// Get the roots vector.
-  pub fn roots(&self) -> &NodeVector {
-    &self.stream.roots()
+  pub fn roots(&self) -> &Vec<Rc<Node>> {
+    self.stream.roots()
   }
 
   /// Get the nodes from the struct.
-  // TODO: remove extra conversion alloc.
   pub fn nodes(&self) -> Vec<storage::Node> {
-    self
-      .nodes
-      .iter()
-      .map(|node| {
-        storage::Node::new(node.position(), node.hash().to_vec(), node.len())
-      })
-      .collect()
+    self.nodes()
   }
 }

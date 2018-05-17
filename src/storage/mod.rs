@@ -3,6 +3,7 @@
 extern crate ed25519_dalek;
 extern crate failure;
 extern crate flat_tree as flat;
+extern crate merkle_tree_stream as merkle_stream;
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
@@ -18,6 +19,7 @@ pub use self::persist::Persist;
 
 use self::ed25519_dalek::Signature;
 use self::failure::Error;
+use self::merkle_stream::Node as NodeTrait;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use std::fmt::Debug;

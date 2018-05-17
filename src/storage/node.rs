@@ -1,5 +1,6 @@
 extern crate byteorder;
 extern crate failure;
+extern crate merkle_tree_stream as merkle;
 extern crate pretty_hash;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -15,16 +16,20 @@ pub struct Node {
   index: usize,
   hash: Vec<u8>,
   length: usize,
+  parent: usize,
 }
 
 impl Node {
   /// Create a new instance.
   // TODO: ensure sizes are correct.
   pub fn new(index: usize, hash: Vec<u8>, length: usize) -> Self {
+    let parent = 0; // FIXME: parent cannot be hardcoded to zero here.
+
     Self {
       index,
       hash,
       length,
+      parent,
     }
   }
 
@@ -34,6 +39,7 @@ impl Node {
   pub fn from_vec(index: usize, buffer: &[u8]) -> Result<Self, Error> {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
+    let parent = 0; // FIXME: this will screw us over.
     let mut reader = Cursor::new(buffer);
 
     // TODO: subslice directly, move cursor forward.
@@ -49,6 +55,7 @@ impl Node {
       hash,
       length,
       index,
+      parent,
     })
   }
 
@@ -59,28 +66,27 @@ impl Node {
     writer.write_u64::<BigEndian>(self.length as u64)?;
     Ok(writer)
   }
+}
 
-  /// Get the current index.
-  pub fn index(&self) -> usize {
+impl merkle::Node for Node {
+  fn index(&self) -> usize {
     self.index
   }
 
-  /// Get the current hash.
-  pub fn hash(&self) -> &[u8] {
+  fn hash(&self) -> &[u8] {
     &self.hash
   }
 
-  /// Get the length of the data.
-  // TODO: check if we can compile this conditionally to return a u64 on 32 bit
-  // systems. Would solve the downcasting problem.
-  // TODO: should we expose a `.len_as_u64()` call?
-  pub fn len(&self) -> usize {
+  fn len(&self) -> usize {
     self.length
   }
 
-  /// Check whether the length of the data is zero.
-  pub fn is_empty(&self) -> bool {
+  fn is_empty(&self) -> bool {
     self.length == 0
+  }
+
+  fn parent(&self) -> usize {
+    self.parent
   }
 }
 

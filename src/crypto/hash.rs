@@ -8,8 +8,10 @@ pub use self::blake2::blake2b::Blake2bResult;
 use self::blake2::blake2b::Blake2b;
 use self::byteorder::{BigEndian, WriteBytesExt};
 use self::ed25519_dalek::PublicKey;
-use self::merkle_stream::NodeVector;
+use self::merkle_stream::Node as NodeTrait;
 use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
+use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
 lazy_static! {
@@ -71,14 +73,14 @@ impl Hash {
 
   /// Hash a vector of `Root` nodes.
   // Called `crypto.tree()` in the JS implementation.
-  pub fn from_roots(roots: &NodeVector) -> Self {
+  pub fn from_roots(roots: &Vec<Rc<Node>>) -> Self {
     let mut hasher = Blake2b::new(32);
     hasher.update(*ROOT_TYPE);
 
     for node in roots {
       let mut position = Vec::with_capacity(1); // FIXME: allocate once only.
       position
-        .write_u64::<BigEndian>((node.position()) as u64)
+        .write_u64::<BigEndian>((node.index()) as u64)
         .unwrap();
       let mut len = Vec::with_capacity(1); // FIXME: allocate once only.
       len.write_u64::<BigEndian>((node.len()) as u64).unwrap();
