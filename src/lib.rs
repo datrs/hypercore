@@ -24,7 +24,7 @@ pub mod storage;
 pub use storage::{Node, Storage, Store};
 
 use crypto::{
-  generate_keypair, sign, Hash, Keypair, Merkle, PublicKey, Signature,
+  generate_keypair, sign, Hash, Keypair, Merkle, Signature,
 };
 use failure::Error;
 use ras::SyncMethods;

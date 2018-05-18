@@ -1,7 +1,6 @@
 extern crate hypercore;
 
 use hypercore::Feed;
-use std::path::PathBuf;
 
 fn main() {
   let mut feed = Feed::default();
