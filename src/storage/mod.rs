@@ -221,7 +221,7 @@ where
   /// Write a `Node` to the `tree` storage.
   /// TODO: prevent extra allocs here. Implement a method on node that can reuse
   /// a buffer.
-  pub fn put_node(&mut self, node: &mut Node) -> Result<(), Error> {
+  pub fn put_node(&mut self, node: &Node) -> Result<(), Error> {
     let index = node.index();
     let buf = node.to_bytes()?;
     self.tree.write(HEADER_OFFSET + 40 * index, &buf)

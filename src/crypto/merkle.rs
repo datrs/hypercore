@@ -5,7 +5,7 @@ use self::merkle_tree_stream::{
 };
 use super::Hash;
 use std::rc::Rc;
-use storage::{self, Node};
+use storage::Node;
 
 #[derive(Debug)]
 struct S;
@@ -51,9 +51,8 @@ impl Merkle {
 
   // NOTE: Convert from the Merkle nodes into our own node type. Ideally we
   // could pass our own node type to the Merkle module.
-  pub fn next(&mut self, data: &[u8]) -> Vec<storage::Node> {
+  pub fn next(&mut self, data: &[u8]) {
     self.stream.next(&data, &mut self.nodes);
-    self.nodes()
   }
 
   /// Get the roots vector.
@@ -62,7 +61,7 @@ impl Merkle {
   }
 
   /// Get the nodes from the struct.
-  pub fn nodes(&self) -> Vec<storage::Node> {
-    self.nodes()
+  pub fn nodes(&self) -> &Vec<Rc<Node>> {
+    &self.nodes
   }
 }

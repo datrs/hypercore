@@ -3,7 +3,7 @@ extern crate hypercore;
 use hypercore::Feed;
 use std::path::PathBuf;
 
-fn main () {
+fn main() {
   let mut feed = Feed::default();
 
   feed.append(b"hello").unwrap();

@@ -84,8 +84,7 @@ where
 
   /// Append data into the log.
   pub fn append(&mut self, data: &[u8]) -> Result<(), Error> {
-    // let data = self.codec.encode(&data);
-    let mut nodes = self.merkle.next(data);
+    self.merkle.next(data);
     let mut offset = 0;
 
     self.storage.write_data(self.byte_length + offset, &data)?;
@@ -96,10 +95,9 @@ where
     let signature = sign(&self.keypair, hash.as_bytes());
     self.storage.put_signature(index, signature)?;
 
-    for mut node in &mut nodes {
-      self.storage.put_node(&mut node)?;
+    for node in self.merkle.nodes() {
+      self.storage.put_node(node)?;
     }
-    nodes.clear();
 
     self.byte_length += offset;
 
