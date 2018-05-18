@@ -135,9 +135,9 @@ where
   pub fn next_signature(&mut self, index: usize) -> Result<Signature, Error> {
     let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
     if not_zeroes(&bytes) {
-      Ok(self.next_signature(index + 1)?)
-    } else {
       Ok(Signature::from_bytes(&bytes)?)
+    } else {
+      Ok(self.next_signature(index + 1)?)
     }
   }
 
@@ -271,4 +271,13 @@ fn not_zeroes(bytes: &[u8]) -> bool {
     }
   }
   false
+}
+
+#[test]
+fn should_detect_zeroes () {
+  let nums = vec![0; 10];
+  assert!(!not_zeroes(&nums));
+
+  let nums = vec![1; 10];
+  assert!(not_zeroes(&nums));
 }
