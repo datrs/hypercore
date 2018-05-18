@@ -213,7 +213,7 @@ where
   /// Get a `Node` from the `tree` storage.
   pub fn get_node(&mut self, index: usize) -> Result<Node, Error> {
     let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
-    let node = Node::from_vec(index, &buf)?;
+    let node = Node::from_bytes(index, &buf)?;
     Ok(node)
   }
 
@@ -223,7 +223,7 @@ where
   /// a buffer.
   pub fn put_node(&mut self, node: &mut Node) -> Result<(), Error> {
     let index = node.index();
-    let buf = node.to_vec()?;
+    let buf = node.to_bytes()?;
     self.tree.write(HEADER_OFFSET + 40 * index, &buf)
   }
 

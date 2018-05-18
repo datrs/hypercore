@@ -36,7 +36,7 @@ impl Node {
   /// Convert a vector to a new instance.
   ///
   /// Requires the index at which the buffer was read to be passed.
-  pub fn from_vec(index: usize, buffer: &[u8]) -> Result<Self, Error> {
+  pub fn from_bytes(index: usize, buffer: &[u8]) -> Result<Self, Error> {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
     let parent = 0; // FIXME: this will screw us over.
@@ -60,7 +60,7 @@ impl Node {
   }
 
   /// Convert to a buffer that can be written to disk.
-  pub fn to_vec(&mut self) -> Result<Vec<u8>, Error> {
+  pub fn to_bytes(&mut self) -> Result<Vec<u8>, Error> {
     let mut writer = Vec::with_capacity(40);
     writer.extend_from_slice(&self.hash);
     writer.write_u64::<BigEndian>(self.length as u64)?;
