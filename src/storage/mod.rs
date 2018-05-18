@@ -274,7 +274,7 @@ fn not_zeroes(bytes: &[u8]) -> bool {
 }
 
 #[test]
-fn should_detect_zeroes () {
+fn should_detect_zeroes() {
   let nums = vec![0; 10];
   assert!(!not_zeroes(&nums));
 

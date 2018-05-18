@@ -19,13 +19,13 @@ extern crate tree_index;
 
 pub mod bitfield;
 pub mod crypto;
+mod feed_builder;
 pub mod storage;
 
+pub use feed_builder::FeedBuilder;
 pub use storage::{Node, Storage, Store};
 
-use crypto::{
-  generate_keypair, sign, Hash, Keypair, Merkle, Signature,
-};
+use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
@@ -61,15 +61,7 @@ where
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: storage::Storage<T>) -> Result<Self, Error> {
     let keypair = generate_keypair(); // TODO: read keypair from disk;
-    Ok(Self {
-      merkle: Merkle::new(),
-      byte_length: 0,
-      length: 0,
-      bitfield: Bitfield::default(),
-      tree: TreeIndex::default(),
-      keypair,
-      storage,
-    })
+    Ok(FeedBuilder::new(keypair, storage).build()?)
   }
 
   /// Get the amount of entries in the feed.
@@ -134,7 +126,11 @@ where
     let roots = self.roots(index)?;
     let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
     let checksum = crypto::Hash::from_roots(&roots);
-    Ok(crypto::verify(&self.keypair.public, checksum.as_bytes(), signature)?)
+    Ok(crypto::verify(
+      &self.keypair.public,
+      checksum.as_bytes(),
+      signature,
+    )?)
   }
 
   /// Get all the roots in the feed.
@@ -171,7 +167,9 @@ impl Feed<self::rad::SyncMethods> {
       rad::Sync::new(dir.as_path().join(name))
     };
 
-    Self::with_storage(Storage::new(create)?)
+    let storage = Storage::new(create)?;
+    let keypair = generate_keypair(); // TODO: read keypair from disk;
+    Ok(FeedBuilder::new(keypair, storage).build()?)
   }
 }
 
