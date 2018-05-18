@@ -3,7 +3,7 @@ extern crate hypercore;
 extern crate random_access_memory as ram;
 
 use failure::Error;
-use hypercore::{Feed, Storage, Store};
+use hypercore::{Feed, Storage, Store, FeedBuilder, Keypair};
 
 fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
   let create = |_store: Store| ram::Sync::new(page_size);
@@ -39,17 +39,23 @@ fn append() {
 #[test]
 fn verify() {
   let mut feed = create_feed(50).unwrap();
+  let f_bytes = &feed.keypair().to_bytes();
+  let keypair = Keypair::from_bytes(f_bytes).unwrap();
 
   let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
-  let mut evil_feed = Feed::with_storage(storage).unwrap();
+  let mut evil_feed = FeedBuilder::new(keypair, storage).build().unwrap();
+  let ef_bytes = &feed.keypair().to_bytes();
 
+  // Verify the keys are the same.
+  assert_eq!(&f_bytes.to_vec(), &ef_bytes.to_vec());
+
+  // Verify that the signature on a single feed is correct.
   feed.append(b"test").unwrap();
-  evil_feed.append(b"t0st").unwrap();
-
   let sig = feed.signature(0).unwrap();
   feed.verify(0, &sig).unwrap();
 
+  // Verify that the signature between two different feeds is different.
+  evil_feed.append(b"t0st").unwrap();
   let res = evil_feed.verify(0, &sig);
   assert!(res.is_err());
-  unimplemented!(); // FIXME: `evil_feed` requires the key from `feed`
 }

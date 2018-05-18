@@ -24,8 +24,9 @@ pub mod storage;
 
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, Storage, Store};
+pub use crypto::Keypair;
 
-use crypto::{generate_keypair, sign, Hash, Keypair, Merkle, Signature};
+use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
 use ras::SyncMethods;
 use sparse_bitfield::Bitfield;
@@ -148,6 +149,11 @@ where
     }
 
     Ok(roots)
+  }
+
+  /// Access the keypair.
+  pub fn keypair(&self) -> &Keypair {
+    &self.keypair
   }
 }
 
