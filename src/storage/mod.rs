@@ -41,7 +41,7 @@ pub enum Store {
 }
 
 /// Save data to a desired storage backend.
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct Storage<T>
 where
   T: SyncMethods + Debug,
