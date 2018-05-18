@@ -58,4 +58,6 @@ fn verify() {
   evil_feed.append(b"t0st").unwrap();
   let res = evil_feed.verify(0, &sig);
   assert!(res.is_err());
+
+  // TODO: .verify is using hashes - not signatures to verify the things.
 }

@@ -126,7 +126,7 @@ where
   ) -> Result<(), Error> {
     let roots = self.roots(index)?;
     let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
-    let checksum = crypto::Hash::from_roots(&roots);
+    let checksum = Hash::from_roots(&roots);
     Ok(crypto::verify(
       &self.keypair.public,
       checksum.as_bytes(),
