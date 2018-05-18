@@ -13,10 +13,11 @@ use std::io::Cursor;
 // TODO: derive Ord, PartialOrd based on index.
 #[derive(Debug)]
 pub struct Node {
-  index: usize,
-  hash: Vec<u8>,
-  length: usize,
-  parent: usize,
+  pub(crate) index: usize,
+  pub(crate) hash: Vec<u8>,
+  pub(crate) length: usize,
+  pub(crate) parent: usize,
+  pub(crate) data: Option<Vec<u8>>,
 }
 
 impl Node {
@@ -30,6 +31,7 @@ impl Node {
       hash,
       length,
       parent,
+      data: Some(Vec::with_capacity(0)),
     }
   }
 
@@ -56,6 +58,7 @@ impl Node {
       length,
       index,
       parent,
+      data: Some(Vec::with_capacity(0)),
     })
   }
 

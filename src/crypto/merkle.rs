@@ -23,7 +23,18 @@ impl HashMethods<Node> for S {
   }
 
   fn node(&self, partial: &PartialNode, hash: Vec<u8>) -> Node {
-    unimplemented!();
+    let data = match partial.data() {
+      Some(data) => Some(data.clone()),
+      None => None,
+    };
+
+    Node {
+      index: partial.index(),
+      parent: partial.parent,
+      length: partial.len(),
+      data,
+      hash,
+    }
   }
 }
 
