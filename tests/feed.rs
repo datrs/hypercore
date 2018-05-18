@@ -36,19 +36,19 @@ fn append() {
   assert_eq!(feed.get(2).unwrap(), Some(br#"{"hello":"welt"}"#.to_vec()));
 }
 
-// #[test]
-// fn verify() {
-//   let mut feed = create_feed(50).unwrap();
+#[test]
+fn verify() {
+  let mut feed = create_feed(50).unwrap();
 
-//   let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
-//   let mut evil_feed = Feed::with_storage(storage).unwrap(); // FIXME: pass key from feed
+  let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
+  let mut evil_feed = Feed::with_storage(storage).unwrap(); // FIXME: pass key from feed
 
-//   feed.append(b"test").unwrap();
-//   evil_feed.append(b"t0st").unwrap();
+  feed.append(b"test").unwrap();
+  evil_feed.append(b"t0st").unwrap();
 
-//   let sig = feed.signature(0).unwrap();
-//   feed.verify(0, &sig).unwrap();
+  let sig = feed.signature(0).unwrap();
+  feed.verify(0, &sig).unwrap();
 
-//   let res = evil_feed.verify(0, &sig);
-//   assert!(res.is_err());
-// }
+  let res = evil_feed.verify(0, &sig);
+  assert!(res.is_err());
+}

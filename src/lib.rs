@@ -130,12 +130,11 @@ where
     &mut self,
     index: usize,
     signature: &Signature,
-    public_key: &PublicKey,
   ) -> Result<(), Error> {
     let roots = self.roots(index)?;
     let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
     let checksum = crypto::Hash::from_roots(&roots);
-    Ok(crypto::verify(public_key, checksum.as_bytes(), signature)?)
+    Ok(crypto::verify(&self.keypair.public, checksum.as_bytes(), signature)?)
   }
 
   /// Get all the roots in the feed.
