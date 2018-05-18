@@ -84,6 +84,7 @@ where
   }
 
   /// Write data to the feed.
+  #[inline]
   pub fn write_data(
     &mut self,
     offset: usize,
@@ -123,6 +124,7 @@ where
   /// Get data from disk that the user has written to it. This is stored
   /// unencrypted, so there's no decryption needed.
   // FIXME: data_offset always reads out index 0, length 0
+  #[inline]
   pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>, Error> {
     let cached_nodes = Vec::new(); // FIXME: reuse allocation.
     let range = self.data_offset(index, &cached_nodes)?;
@@ -140,6 +142,7 @@ where
   }
 
   /// Get a `Signature` from the store.
+  #[inline]
   pub fn get_signature(&mut self, index: usize) -> Result<Signature, Error> {
     let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
     ensure!(not_zeroes(&bytes), "No signature found");
@@ -149,6 +152,7 @@ where
   /// Write a `Signature` to `self.Signatures`.
   /// TODO: Ensure the signature size is correct.
   /// NOTE: Should we create a `Signature` entry type?
+  #[inline]
   pub fn put_signature(
     &mut self,
     index: usize,
@@ -211,6 +215,7 @@ where
   }
 
   /// Get a `Node` from the `tree` storage.
+  #[inline]
   pub fn get_node(&mut self, index: usize) -> Result<Node, Error> {
     let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
     let node = Node::from_bytes(index, &buf)?;
@@ -221,6 +226,7 @@ where
   /// Write a `Node` to the `tree` storage.
   /// TODO: prevent extra allocs here. Implement a method on node that can reuse
   /// a buffer.
+  #[inline]
   pub fn put_node(&mut self, node: &Node) -> Result<(), Error> {
     let index = node.index();
     let buf = node.to_bytes()?;
@@ -230,6 +236,7 @@ where
   /// Write data to the internal bitfield module.
   /// TODO: Ensure the chunk size is correct.
   /// NOTE: Should we create a bitfield entry type?
+  #[inline]
   pub fn put_bitfield(
     &mut self,
     offset: usize,
@@ -245,6 +252,7 @@ where
 }
 
 /// Get a node from a vector of nodes.
+#[inline]
 fn find_node(nodes: &[Node], index: usize) -> Option<&Node> {
   for node in nodes {
     if node.index() == index {
@@ -255,6 +263,7 @@ fn find_node(nodes: &[Node], index: usize) -> Option<&Node> {
 }
 
 /// Check if a byte slice is not completely zero-filled.
+#[inline]
 fn not_zeroes(bytes: &[u8]) -> bool {
   for byte in bytes {
     if *byte != 0 {
