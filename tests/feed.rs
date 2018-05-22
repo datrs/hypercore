@@ -38,8 +38,8 @@ fn append() {
 }
 
 #[test]
-/// Verify the `.roots()` method returns the right nodes.
-fn roots() {
+/// Verify the `.root_hashes()` method returns the right nodes.
+fn root_hashes() {
   // If no roots exist we should get an error.
   let mut feed = create_feed(50).unwrap();
   let res = feed.root_hashes(0);
@@ -70,7 +70,7 @@ fn verify() {
   let f_bytes = &feed.keypair().to_bytes();
   let keypair = Keypair::from_bytes(f_bytes).unwrap();
 
-  let storage = Storage::new(|_store: Store| ram::Sync::new(50)).unwrap();
+  let storage = Storage::new(|_| ram::Sync::new(50)).unwrap();
   let mut evil_feed = FeedBuilder::new(keypair, storage).build().unwrap();
   let ef_bytes = &feed.keypair().to_bytes();
 

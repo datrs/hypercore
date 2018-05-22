@@ -176,7 +176,7 @@ impl Feed<self::rad::SyncMethods> {
 /// unlikely.
 impl Default for Feed<self::ram::SyncMethods> {
   fn default() -> Self {
-    let create = |_store: Store| ram::Sync::default();
+    let create = |_| ram::Sync::default();
     let storage = ::storage::Storage::new(create).unwrap();
     Self::with_storage(storage).unwrap()
   }
