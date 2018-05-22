@@ -22,9 +22,9 @@ pub mod crypto;
 mod feed_builder;
 pub mod storage;
 
+pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, Storage, Store};
-pub use crypto::Keypair;
 
 use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
@@ -103,9 +103,8 @@ where
 
   /// Retrieve data from the log.
   pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>, Error> {
-    let has = self.bitfield.get(index);
-    if !has {
-      // NOTE: Do network lookup here once we have network code.
+    if !self.bitfield.get(index) {
+      // NOTE: Do (network) lookup here once we have network code.
       return Ok(None);
     }
     Ok(Some(self.storage.get_data(index)?))
@@ -113,7 +112,10 @@ where
 
   /// Get a signature from the store.
   pub fn signature(&mut self, index: usize) -> Result<Signature, Error> {
-    ensure!(index <= self.length, "No signature found");
+    ensure!(
+      index <= self.length,
+      format!("No signature found for {}", index)
+    );
     Ok(self.storage.next_signature(index)?)
   }
 

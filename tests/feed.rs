@@ -3,7 +3,7 @@ extern crate hypercore;
 extern crate random_access_memory as ram;
 
 use failure::Error;
-use hypercore::{Feed, Storage, Store, FeedBuilder, Keypair};
+use hypercore::{Feed, FeedBuilder, Keypair, Storage, Store};
 
 fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
   let create = |_store: Store| ram::Sync::new(page_size);
@@ -58,6 +58,4 @@ fn verify() {
   evil_feed.append(b"t0st").unwrap();
   let res = evil_feed.verify(0, &sig);
   assert!(res.is_err());
-
-  // TODO: .verify is using hashes - not signatures to verify the things.
 }

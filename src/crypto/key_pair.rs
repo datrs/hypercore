@@ -34,3 +34,12 @@ pub fn verify(
   );
   Ok(())
 }
+
+#[test]
+fn can_verify_messages () {
+  let keypair = generate();
+  let from = b"hello";
+  let sig = sign(&keypair, from);
+  verify(&keypair.public, from, &sig).unwrap();
+  verify(&keypair.public, b"oops", &sig).is_err();
+}
