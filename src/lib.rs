@@ -135,7 +135,7 @@ where
     Ok(crypto::verify(&self.keypair.public, message, signature)?)
   }
 
-  /// Get all the roots in the feed.
+  /// Get all root hashes from the feed.
   // In the JavaScript implemenentation this calls to `._getRootsToVerify()`
   // internally. In Rust it seems better to just inline the code.
   pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>, Error> {
