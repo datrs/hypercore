@@ -42,23 +42,23 @@ fn append() {
 fn roots() {
   // If no roots exist we should get an error.
   let mut feed = create_feed(50).unwrap();
-  let res = feed.roots(0);
+  let res = feed.root_hashes(0);
   assert!(res.is_err());
 
   // If 1 entry exists, [0] should be the root.
   feed.append(b"data").unwrap();
-  let roots = feed.roots(0).unwrap();
+  let roots = feed.root_hashes(0).unwrap();
   assert_eq!(roots.len(), 1);
   assert_eq!(roots[0].index(), 0);
 
   // If we query out of bounds, we should get an error.
-  let res = feed.roots(6);
+  let res = feed.root_hashes(6);
   assert!(res.is_err());
 
   // If 3 entries exist, [2,4] should be the roots.
   feed.append(b"data").unwrap();
   feed.append(b"data").unwrap();
-  let roots = feed.roots(2).unwrap();
+  let roots = feed.root_hashes(2).unwrap();
   assert_eq!(roots.len(), 2);
   assert_eq!(roots[0].index(), 1);
   assert_eq!(roots[1].index(), 4);

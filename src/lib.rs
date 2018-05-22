@@ -126,7 +126,7 @@ where
     index: usize,
     signature: &Signature,
   ) -> Result<(), Error> {
-    let roots = self.roots(index)?;
+    let roots = self.root_hashes(index)?;
     let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
 
     let message = Hash::from_roots(&roots);
@@ -138,7 +138,7 @@ where
   /// Get all the roots in the feed.
   // In the JavaScript implemenentation this calls to `._getRootsToVerify()`
   // internally. In Rust it seems better to just inline the code.
-  pub fn roots(&mut self, index: usize) -> Result<Vec<Node>, Error> {
+  pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>, Error> {
     ensure!(
       index <= self.length,
       format!("Root index bounds exceeded {} > {}", index, self.length)
