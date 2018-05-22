@@ -24,7 +24,7 @@ pub mod storage;
 
 pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
-pub use storage::{Node, Storage, Store};
+pub use storage::{Node, Storage, Store, NodeTrait};
 
 use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
@@ -138,12 +138,17 @@ where
   /// Get all the roots in the feed.
   // In the JavaScript implemenentation this calls to `._getRootsToVerify()`
   // internally. In Rust it seems better to just inline the code.
-  pub fn roots(&mut self, verified_by: usize) -> Result<Vec<Node>, Error> {
+  pub fn roots(&mut self, index: usize) -> Result<Vec<Node>, Error> {
+    ensure!(
+      index <= self.length,
+      format!("Root index bounds exceeded {} > {}", index, self.length)
+    );
+    let roots_index = index * 2 + 2;
     let mut indexes = vec![];
-    flat::full_roots(verified_by, &mut indexes);
+    flat::full_roots(roots_index, &mut indexes);
 
     let mut roots = Vec::with_capacity(indexes.len());
-    for index in 0..indexes.len() {
+    for index in indexes {
       let node = self.storage.get_node(index)?;
       roots.push(node);
     }

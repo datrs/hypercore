@@ -16,10 +16,10 @@ mod persist;
 pub use self::data::Data;
 pub use self::node::Node;
 pub use self::persist::Persist;
+pub use self::merkle_stream::Node as NodeTrait;
 
 use self::ed25519_dalek::Signature;
 use self::failure::Error;
-use self::merkle_stream::Node as NodeTrait;
 use self::ras::SyncMethods;
 use self::sleep_parser::*;
 use std::fmt::Debug;

@@ -36,7 +36,7 @@ pub fn verify(
 }
 
 #[test]
-fn can_verify_messages () {
+fn can_verify_messages() {
   let keypair = generate();
   let from = b"hello";
   let sig = sign(&keypair, from);

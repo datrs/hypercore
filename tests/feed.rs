@@ -3,7 +3,7 @@ extern crate hypercore;
 extern crate random_access_memory as ram;
 
 use failure::Error;
-use hypercore::{Feed, FeedBuilder, Keypair, Storage, Store};
+use hypercore::{Feed, FeedBuilder, Keypair, Storage, Store, NodeTrait};
 
 fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
   let create = |_store: Store| ram::Sync::new(page_size);
@@ -39,14 +39,29 @@ fn append() {
 
 #[test]
 /// Verify the `.roots()` method returns the right nodes.
-fn roots () {
+fn roots() {
+  // If no roots exist we should get an error.
   let mut feed = create_feed(50).unwrap();
-  let roots = feed.roots(0).unwrap();
-  assert_eq!(roots.len(), 0);
+  let res = feed.roots(0);
+  assert!(res.is_err());
 
-  feed.append(br#"{"hello":"world"}"#).unwrap();
+  // If 1 entry exists, [0] should be the root.
+  feed.append(b"data").unwrap();
   let roots = feed.roots(0).unwrap();
   assert_eq!(roots.len(), 1);
+  assert_eq!(roots[0].index(), 0);
+
+  // If we query out of bounds, we should get an error.
+  let res = feed.roots(6);
+  assert!(res.is_err());
+
+  // If 3 entries exist, [2,4] should be the roots.
+  feed.append(b"data").unwrap();
+  feed.append(b"data").unwrap();
+  let roots = feed.roots(2).unwrap();
+  assert_eq!(roots.len(), 2);
+  assert_eq!(roots[0].index(), 1);
+  assert_eq!(roots[1].index(), 4);
 }
 
 #[test]
