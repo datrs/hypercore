@@ -25,6 +25,24 @@ println!("{:?}", feed.get(0)); // prints "hello"
 println!("{:?}", feed.get(1)); // prints "world"
 ```
 
+## Networking Vaporware API
+```rust,ignore
+let feed = Feed::default();
+
+feed.append(b"data")?;
+
+for event in feed {
+  match event {
+    Event::Data(data) => {},
+    Event::PeerAdd => {},
+    Event::PeerRemove => {},
+    Event::Download => {},
+    Event::Synchronize => {},
+    Event::Append => {},
+  }
+}
+```
+
 ## Data Structures
 - __feed:__ The main data structure in Hypercore. Append-only log that uses
   multiple data structures and algorithms to safely store data.
