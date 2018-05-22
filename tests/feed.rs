@@ -12,6 +12,7 @@ fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
 }
 
 #[test]
+/// Verify `.append()` and `.get()` work.
 fn set_get() {
   let mut feed = create_feed(50).unwrap();
   feed.append(b"hello").unwrap();
@@ -34,6 +35,18 @@ fn append() {
   assert_eq!(feed.get(0).unwrap(), Some(br#"{"hello":"world"}"#.to_vec()));
   assert_eq!(feed.get(1).unwrap(), Some(br#"{"hello":"mundo"}"#.to_vec()));
   assert_eq!(feed.get(2).unwrap(), Some(br#"{"hello":"welt"}"#.to_vec()));
+}
+
+#[test]
+/// Verify the `.roots()` method returns the right nodes.
+fn roots () {
+  let mut feed = create_feed(50).unwrap();
+  let roots = feed.roots(0).unwrap();
+  assert_eq!(roots.len(), 0);
+
+  feed.append(br#"{"hello":"world"}"#).unwrap();
+  let roots = feed.roots(0).unwrap();
+  assert_eq!(roots.len(), 1);
 }
 
 #[test]

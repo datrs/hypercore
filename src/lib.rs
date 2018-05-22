@@ -128,18 +128,16 @@ where
   ) -> Result<(), Error> {
     let roots = self.roots(index)?;
     let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
-    let checksum = Hash::from_roots(&roots);
-    Ok(crypto::verify(
-      &self.keypair.public,
-      checksum.as_bytes(),
-      signature,
-    )?)
+
+    let message = Hash::from_roots(&roots);
+    let message = message.as_bytes();
+
+    Ok(crypto::verify(&self.keypair.public, message, signature)?)
   }
 
   /// Get all the roots in the feed.
-  // In the JavaScript implemenentation it's possible this calls to
-  // `._getRootsToVerify()` with a bunch of empty arguments. In Rust it seems
-  // better to just inline the code, as it's a lot cheaper.
+  // In the JavaScript implemenentation this calls to `._getRootsToVerify()`
+  // internally. In Rust it seems better to just inline the code.
   pub fn roots(&mut self, verified_by: usize) -> Result<Vec<Node>, Error> {
     let mut indexes = vec![];
     flat::full_roots(verified_by, &mut indexes);
