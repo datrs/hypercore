@@ -64,8 +64,8 @@ impl Masks {
     for i in 0..256 {
       let a = (i & (15 << 4)) >> 4;
       let b = i & 15;
-      // Not sure what this does. Only resource found on this sequence:
-      // https://oeis.org/A000120
+      // Lookup table for how many `1`s exist in a number between 0 and 16 in
+      // binary notation. It's called a "nibble" because it's half an octet.
       let nibble = vec![0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
 
       let left = if a == 15 {
