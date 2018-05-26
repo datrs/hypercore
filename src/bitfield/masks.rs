@@ -108,37 +108,3 @@ impl Masks {
     }
   }
 }
-
-#[cfg(test)]
-mod test {
-  use super::*;
-
-  #[test]
-  fn total_1_bits() {
-    let masks = Masks::new();
-    let total_1_bits: Vec<_> = (0..256)
-      .map(|n| (n as u8).count_ones() as u8)
-      .collect();
-    assert_eq!(masks.total_1_bits, total_1_bits);
-  }
-
-  #[test]
-  fn next_data_0_bit() {
-    let masks = Masks::new();
-    let mut next_data_0_bit: Vec<_> = (0..256)
-      .map(|n| (!n as u8).leading_zeros() as i16)
-      .collect();
-    next_data_0_bit[255] = -1;
-    assert_eq!(masks.next_data_0_bit, next_data_0_bit);
-  }
-
-  #[test]
-  fn next_index_0_bit() {
-    let masks = Masks::new();
-    let mut next_index_0_bit: Vec<_> = (0..256)
-      .map(|n| (!n as u8).leading_zeros() as i16 / 2)
-      .collect();
-    next_index_0_bit[255] = -1;
-    assert_eq!(masks.next_index_0_bit, next_index_0_bit);
-  }
-}
