@@ -38,6 +38,12 @@ pub struct Bitfield {
   iterator: flat::Iterator,
 }
 
+impl Default for Bitfield {
+  fn default() -> Self {
+    Bitfield::new()
+  }
+}
+
 impl Bitfield {
   /// Create a new instance.
   pub fn new() -> Self {
