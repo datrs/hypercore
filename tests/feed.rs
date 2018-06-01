@@ -3,10 +3,12 @@ extern crate hypercore;
 extern crate random_access_memory as ram;
 
 use failure::Error;
-use hypercore::{Feed, FeedBuilder, Keypair, Storage, Store, NodeTrait};
+use hypercore::{Feed, FeedBuilder, Keypair, NodeTrait, Storage, Store};
 
-fn create_feed(page_size: usize) -> Result<Feed<ram::SyncMethods>, Error> {
-  let create = |_store: Store| ram::Sync::new(page_size);
+fn create_feed(
+  page_size: usize,
+) -> Result<Feed<ram::RandomAccessMemoryMethods>, Error> {
+  let create = |_store: Store| ram::RandomAccessMemory::new(page_size);
   let storage = Storage::new(create)?;
   Ok(Feed::with_storage(storage)?)
 }
@@ -70,7 +72,7 @@ fn verify() {
   let f_bytes = &feed.keypair().to_bytes();
   let keypair = Keypair::from_bytes(f_bytes).unwrap();
 
-  let storage = Storage::new(|_| ram::Sync::new(50)).unwrap();
+  let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
   let mut evil_feed = FeedBuilder::new(keypair, storage).build().unwrap();
   let ef_bytes = &feed.keypair().to_bytes();
 

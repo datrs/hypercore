@@ -9,7 +9,7 @@ extern crate tree_index;
 
 use crypto::{Keypair, Merkle};
 use failure::Error;
-use ras::SyncMethods;
+use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use storage::Storage;
@@ -21,7 +21,7 @@ use tree_index::TreeIndex;
 #[derive(Debug)]
 pub struct FeedBuilder<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
   keypair: Keypair,
   storage: Storage<T>,
@@ -29,7 +29,7 @@ where
 
 impl<T> FeedBuilder<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
   /// Create a new instance.
   #[inline]

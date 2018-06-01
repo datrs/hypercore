@@ -7,13 +7,13 @@ extern crate random_access_storage as ras;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
-pub use ::crypto::Keypair;
-pub use ::feed_builder::FeedBuilder;
-pub use ::storage::{Node, Storage, Store, NodeTrait};
+pub use crypto::Keypair;
+pub use feed_builder::FeedBuilder;
+pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
-use ras::SyncMethods;
+use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ use tree_index::TreeIndex;
 /// Append-only log structure.
 pub struct Feed<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
   /// Merkle tree instance.
   pub(crate) merkle: Merkle,
@@ -42,7 +42,7 @@ where
 
 impl<T> Feed<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self, Error> {
@@ -147,7 +147,7 @@ where
   }
 }
 
-impl Feed<self::rad::SyncMethods> {
+impl Feed<self::rad::RandomAccessDiskMethods> {
   /// Create a new instance that persists to disk at the location of `dir`.
   // TODO: Ensure that dir is always a directory.
   // NOTE: Should we `mkdirp` here?
@@ -160,7 +160,7 @@ impl Feed<self::rad::SyncMethods> {
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
       };
-      rad::Sync::new(dir.as_path().join(name))
+      rad::RandomAccessDisk::new(dir.as_path().join(name))
     };
 
     let storage = Storage::new(create)?;
@@ -174,9 +174,9 @@ impl Feed<self::rad::SyncMethods> {
 /// ## Panics
 /// Can panic if constructing the in-memory store fails, which is highly
 /// unlikely.
-impl Default for Feed<self::ram::SyncMethods> {
+impl Default for Feed<self::ram::RandomAccessMemoryMethods> {
   fn default() -> Self {
-    let create = |_| ram::Sync::default();
+    let create = |_| ram::RandomAccessMemory::default();
     let storage = ::storage::Storage::new(create).unwrap();
     Self::with_storage(storage).unwrap()
   }

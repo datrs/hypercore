@@ -19,14 +19,14 @@ extern crate tree_index;
 
 pub mod bitfield;
 pub mod crypto;
+pub mod feed;
 mod feed_builder;
 pub mod storage;
-pub mod feed;
 
 pub use crypto::Keypair;
-pub use feed_builder::FeedBuilder;
-pub use storage::{Node, Storage, Store, NodeTrait};
 pub use feed::Feed;
+pub use feed_builder::FeedBuilder;
+pub use storage::{Node, NodeTrait, Storage, Store};
 
 /// Convenience wrapper to import all of Hypercore's core.
 ///
@@ -41,7 +41,7 @@ pub use feed::Feed;
 /// ```
 pub mod prelude {
   pub use crypto::Keypair;
-  pub use feed_builder::FeedBuilder;
-  pub use storage::{Node, Storage, Store, NodeTrait};
   pub use feed::Feed;
+  pub use feed_builder::FeedBuilder;
+  pub use storage::{Node, NodeTrait, Storage, Store};
 }

@@ -14,13 +14,13 @@ mod node;
 mod persist;
 
 pub use self::data::Data;
+pub use self::merkle_stream::Node as NodeTrait;
 pub use self::node::Node;
 pub use self::persist::Persist;
-pub use self::merkle_stream::Node as NodeTrait;
 
 use self::ed25519_dalek::Signature;
 use self::failure::Error;
-use self::ras::SyncMethods;
+use self::ras::RandomAccessMethods;
 use self::sleep_parser::*;
 use std::fmt::Debug;
 use std::ops::Range;
@@ -44,17 +44,17 @@ pub enum Store {
 #[derive(Debug)]
 pub struct Storage<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
-  tree: ras::Sync<T>,
-  data: ras::Sync<T>,
-  bitfield: ras::Sync<T>,
-  signatures: ras::Sync<T>,
+  tree: ras::RandomAccess<T>,
+  data: ras::RandomAccess<T>,
+  bitfield: ras::RandomAccess<T>,
+  signatures: ras::RandomAccess<T>,
 }
 
 impl<T> Storage<T>
 where
-  T: SyncMethods + Debug,
+  T: RandomAccessMethods + Debug,
 {
   /// Create a new instance. Takes a keypair and a callback to create new
   /// storage instances.
@@ -62,7 +62,7 @@ where
   // requiring a key pair to be initialized before creating a new instance.
   pub fn new<Cb>(create: Cb) -> Result<Self, Error>
   where
-    Cb: Fn(Store) -> ras::Sync<T>,
+    Cb: Fn(Store) -> ras::RandomAccess<T>,
   {
     let mut instance = Self {
       tree: create(Store::Tree),
