@@ -205,8 +205,8 @@ impl Bitfield {
     let masks = &self.masks;
     let mut byte;
 
-    for i in 0..roots.len() {
-      ite.seek(roots[i]);
+    for root in roots {
+      ite.seek(root);
       byte = bf.get_byte(ite.index());
 
       loop {

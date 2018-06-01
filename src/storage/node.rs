@@ -103,12 +103,10 @@ impl Display for Node {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(
       f,
-      "Node {} index: {}, hash: {}, length: {} {}",
-      '{',
+      "Node {{ index: {}, hash: {}, length: {} }}",
       self.index,
       pretty_hash::fmt(&self.hash).unwrap(),
-      self.length,
-      '}'
+      self.length
     )
   }
 }

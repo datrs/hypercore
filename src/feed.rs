@@ -51,8 +51,14 @@ where
   }
 
   /// Get the amount of entries in the feed.
+  #[inline]
   pub fn len(&self) -> usize {
     self.length
+  }
+
+  /// Check if the length is 0.
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
   }
 
   /// Get the total amount of bytes stored in the feed.
@@ -112,12 +118,13 @@ where
     signature: &Signature,
   ) -> Result<(), Error> {
     let roots = self.root_hashes(index)?;
-    let roots = roots.into_iter().map(|i| Rc::new(i)).collect();
+    let roots = roots.into_iter().map(Rc::new).collect();
 
     let message = Hash::from_roots(&roots);
     let message = message.as_bytes();
 
-    Ok(::crypto::verify(&self.keypair.public, message, signature)?)
+    ::crypto::verify(&self.keypair.public, message, signature)?;
+    Ok(())
   }
 
   /// Get all root hashes from the feed.
@@ -152,7 +159,7 @@ impl Feed<self::rad::RandomAccessDiskMethods> {
   // TODO: Ensure that dir is always a directory.
   // NOTE: Should we `mkdirp` here?
   // NOTE: Should we call these `data.bitfield` / `data.tree`?
-  pub fn new(dir: PathBuf) -> Result<Self, Error> {
+  pub fn new(dir: &PathBuf) -> Result<Self, Error> {
     let create = |storage: Store| {
       let name = match storage {
         Store::Tree => "tree",
