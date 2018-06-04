@@ -9,14 +9,14 @@ WIP. Secure, distributed, append-only log structure. Adapted from
 - [Crates.io][2]
 
 ## Usage
-```rust,ignore
+```rust
 extern crate hypercore;
 
 use hypercore::Feed;
 use std::path::PathBuf;
 
 let path = PathBuf::from("./my-first-dataset");
-let mut feed = Feed::new(path).unwrap();
+let mut feed = Feed::new(&path).unwrap();
 
 feed.append(b"hello").unwrap();
 feed.append(b"world").unwrap();

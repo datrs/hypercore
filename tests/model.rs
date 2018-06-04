@@ -12,8 +12,8 @@ const MAX_FILE_SIZE: usize = 5 * 10; // 5mb
 
 #[derive(Clone, Debug)]
 enum Op {
-  Read { index: usize },
-  Write { data: Vec<u8> },
+  Get { index: usize },
+  Append { data: Vec<u8> },
 }
 
 impl Arbitrary for Op {
@@ -21,14 +21,14 @@ impl Arbitrary for Op {
 
     if g.gen::<bool>() {
       let index: usize = g.gen_range(0, MAX_FILE_SIZE);
-      Op::Read { index }
+      Op::Get { index }
     } else {
       let length: usize = g.gen_range(0, MAX_FILE_SIZE / 3);
       let mut data = Vec::with_capacity(length);
       for _ in 0..length {
         data.push(u8::arbitrary(g));
       }
-      Op::Write { data }
+      Op::Append { data }
     }
   }
 }
@@ -43,17 +43,15 @@ quickcheck! {
 
     for op in ops {
       match op {
-        Op::Write { data } => {
+        Op::Append { data } => {
           insta.append(&data).expect("Append should be successful");
           model.push(data);
         },
-        Op::Read { index } => {
-          if index > insta.len() {
-            // assert!(insta.get(index).is_err())
-            let data = insta.get(index).expect("Get should be successful");
+        Op::Get { index } => {
+          let data = insta.get(index).expect("Get should be successful");
+          if index >= insta.len() {
             assert_eq!(data, None);
           } else {
-            let data = insta.get(index).expect("Get should be successful");
             assert_eq!(data, Some(model[index].clone()));
           }
         },
