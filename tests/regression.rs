@@ -4,6 +4,10 @@ mod helpers;
 
 use helpers::create_feed;
 
+// Postmortem: errors were happening correctly, but the error check in
+// `.signature()` was off. Instead of checking for a range (`<`), we were
+// checking inclusively `<=`. All we had to do was fix the check, and we all
+// good.
 #[test]
 fn regression_01() {
   let mut feed = create_feed(50).unwrap();
