@@ -28,4 +28,4 @@ sparse-bitfield = "0.3.2"
 tree-index = "0.1.0"
 
 [dev-dependencies]
-# clippy = "0.0"
+quickcheck = "0.6.2"
