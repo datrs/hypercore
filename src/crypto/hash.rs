@@ -74,7 +74,7 @@ impl Hash {
 
   /// Hash a vector of `Root` nodes.
   // Called `crypto.tree()` in the JS implementation.
-  pub fn from_roots(roots: &Vec<Rc<Node>>) -> Self {
+  pub fn from_roots(roots: &[Rc<Node>]) -> Self {
     let mut hasher = Blake2b::new(32);
     hasher.update(*ROOT_TYPE);
 
