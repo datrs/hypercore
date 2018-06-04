@@ -63,8 +63,14 @@ quickcheck! {
         },
         Op::Verify => {
           let len = insta.len();
-          let sig = insta.signature(len).expect("Signature should exist");
-          insta.verify(len, &sig).expect("Signature should match");
+          if len == 0 {
+            insta.signature(len).is_err();
+          } else {
+            // Always test index of last entry, which is `len - 1`.
+            let len = len - 1;
+            let sig = insta.signature(len).expect("Signature should exist");
+            insta.verify(len, &sig).expect("Signature should match");
+          }
         },
       }
     }

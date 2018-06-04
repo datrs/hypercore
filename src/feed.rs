@@ -104,8 +104,8 @@ where
   /// Get a signature from the store.
   pub fn signature(&mut self, index: usize) -> Result<Signature, Error> {
     ensure!(
-      index <= self.length,
-      format!("No signature found for {}", index)
+      index < self.length,
+      format!("No signature found for index {}", index)
     );
     Ok(self.storage.next_signature(index)?)
   }
