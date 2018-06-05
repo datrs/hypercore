@@ -45,6 +45,12 @@ pub struct Merkle {
   nodes: Vec<Rc<Node>>,
 }
 
+impl Default for Merkle {
+  fn default() -> Self {
+    Merkle::new()
+  }
+}
+
 impl Merkle {
   /// Create a new instance.
   // TODO: figure out the right allocation size for `roots` and `nodes`.

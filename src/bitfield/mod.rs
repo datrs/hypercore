@@ -38,6 +38,12 @@ pub struct Bitfield {
   iterator: flat::Iterator,
 }
 
+impl Default for Bitfield {
+  fn default() -> Self {
+    Bitfield::new()
+  }
+}
+
 impl Bitfield {
   /// Create a new instance.
   pub fn new() -> Self {
@@ -180,8 +186,8 @@ impl Bitfield {
           .index
           .get_byte(self.iterator.sibling()) // FIXME: out of bounds read
           .into();
-        byte = self.masks.map_parent_right[index]
-          | self.masks.map_parent_left[byte as usize];
+        byte = self.masks.map_parent_right[byte as usize]
+          | self.masks.map_parent_left[index];
       }
       self.iterator.parent();
     }

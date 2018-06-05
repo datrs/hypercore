@@ -118,7 +118,7 @@ where
     signature: &Signature,
   ) -> Result<(), Error> {
     let roots = self.root_hashes(index)?;
-    let roots = roots.into_iter().map(Rc::new).collect();
+    let roots: Vec<_> = roots.into_iter().map(Rc::new).collect();
 
     let message = Hash::from_roots(&roots);
     let message = message.as_bytes();
