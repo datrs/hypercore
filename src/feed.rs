@@ -101,6 +101,23 @@ where
     Ok(Some(self.storage.get_data(index)?))
   }
 
+  ///
+  pub fn proof (&mut self, index: usize) -> Result<Vec<Node>, Error> {
+    let proof = match self.tree.proof(2 * index, vec![]) {
+      Some(proof) => proof,
+      None => bail!("No proof available for index {}", index),
+    };
+
+    let mut nodes = Vec::with_capacity(proof.nodes.len());
+    for index in proof.nodes {
+      let node = self.storage.get_node(index)?;
+      nodes.push(node);
+    }
+
+    // TODO: figure out the "needsSig" part. Return Signature too.
+    Ok(nodes)
+  }
+
   /// Insert data into the tree. Useful when replicating data from a remote
   /// host.
   pub fn put(
