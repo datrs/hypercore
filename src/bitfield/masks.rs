@@ -18,7 +18,6 @@ pub(super) struct Masks {
 
 // Masks are underscored at every 8 bytes.
 impl Masks {
-  #![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
   pub fn new() -> Self {
     let index_update = vec![
       0b00_11_11_11, //  63
