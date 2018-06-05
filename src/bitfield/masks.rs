@@ -58,16 +58,10 @@ impl Masks {
 
     let mut map_parent_right = vec![0; 256];
     let mut map_parent_left = vec![0; 256];
-    let mut next_data_0_bit = vec![0; 256];
-    let mut next_index_0_bit = vec![0; 256];
-    let mut total_1_bits = vec![0; 256];
 
     for i in 0..256 {
       let a = (i & (15 << 4)) >> 4;
       let b = i & 15;
-      // Lookup table for how many `1`s exist in a number between 0 and 16 in
-      // binary notation. It's called a "nibble" because it's half an octet.
-      let nibble = vec![0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
 
       let left = if a == 15 {
         3
@@ -87,19 +81,20 @@ impl Masks {
 
       map_parent_right[i] = left | right;
       map_parent_left[i] = map_parent_right[i] << 4;
-
-      next_data_0_bit[i] = if i == 255 {
-        -1
-      } else {
-        // The casting here between numbers is safe because we only operate
-        // between 0..255. Floats are needed for log / ceil operations though.
-        8 - ((256f32 - i as f32).log2() / (2f32).log2()).ceil() as i16
-      };
-
-      next_index_0_bit[i] = if i == 255 { -1 } else { next_data_0_bit[i] / 2 };
-
-      total_1_bits[i] = nibble[i >> 4] + nibble[i & 0x0F];
     }
+
+    let total_1_bits: Vec<_> = (0..256)
+      .map(|n| (n as u8).count_ones() as u8)
+      .collect();
+
+    let mut next_data_0_bit: Vec<_> = (0..256)
+      .map(|n| (!n as u8).leading_zeros() as i16)
+      .collect();
+    next_data_0_bit[255] = -1;
+
+    let mut next_index_0_bit: Vec<_> =
+      next_data_0_bit.iter().map(|n| n / 2).collect();
+    next_index_0_bit[255] = -1;
 
     Self {
       index_update,
