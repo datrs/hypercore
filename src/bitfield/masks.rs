@@ -82,9 +82,8 @@ impl Masks {
       map_parent_left[i] = map_parent_right[i] << 4;
     }
 
-    let total_1_bits: Vec<_> = (0..256)
-      .map(|n| (n as u8).count_ones() as u8)
-      .collect();
+    let total_1_bits: Vec<_> =
+      (0..256).map(|n| (n as u8).count_ones() as u8).collect();
 
     let mut next_data_0_bit: Vec<_> = (0..256)
       .map(|n| (!n as u8).leading_zeros() as i16)

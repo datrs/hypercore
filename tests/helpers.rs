@@ -1,5 +1,5 @@
-extern crate hypercore;
 extern crate failure;
+extern crate hypercore;
 extern crate random_access_memory as ram;
 
 use self::failure::Error;

@@ -24,7 +24,7 @@ impl Arbitrary for Op {
       0 => {
         let index: usize = g.gen_range(0, MAX_FILE_SIZE);
         Op::Get { index }
-      },
+      }
       1 => {
         let length: usize = g.gen_range(0, MAX_FILE_SIZE / 3);
         let mut data = Vec::with_capacity(length);
@@ -32,7 +32,7 @@ impl Arbitrary for Op {
           data.push(u8::arbitrary(g));
         }
         Op::Append { data }
-      },
+      }
       2 => Op::Verify,
       err => panic!("Invalid choice {}", err),
     }
