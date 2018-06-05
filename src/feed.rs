@@ -101,6 +101,30 @@ where
     Ok(Some(self.storage.get_data(index)?))
   }
 
+  /// Insert data into the tree. Useful when replicating data from a remote
+  /// host.
+  pub fn put(
+    &mut self,
+    _index: usize,
+    _data: &[u8],
+    _sig: Signature,
+  ) -> Result<(), Error> {
+    // let mut next = 2 * index;
+    // let mut trusted: Option<usize> = None;
+
+    // loop {
+    //   if self.tree.get(next) {
+    //     trusted = Some(next);
+    //     break;
+    //   }
+
+    //   let sibling = flat::sibling(next);
+    //   next = flat::parent(next);
+    // }
+
+    unimplemented!();
+  }
+
   /// Get a signature from the store.
   pub fn signature(&mut self, index: usize) -> Result<Signature, Error> {
     ensure!(
