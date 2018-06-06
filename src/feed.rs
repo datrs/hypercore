@@ -20,6 +20,16 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tree_index::TreeIndex;
 
+/// A merkle proof for an index, created by the `.proof()` method.
+pub struct Proof {
+  /// The index to which this proof corresponds.
+  pub index: usize,
+  /// Nodes that verify the index you passed.
+  pub nodes: Vec<Node>,
+  /// An `ed25519` signature, guaranteeing the integrity of the nodes.
+  pub signature: Signature,
+}
+
 /// Append-only log structure.
 pub struct Feed<T>
 where
@@ -102,43 +112,79 @@ where
   }
 
   /// Return the Nodes which prove the correctness for the Node at index.
-  pub fn proof (&mut self, index: usize) -> Result<Vec<Node>, Error> {
+  pub fn proof(&mut self, index: usize) -> Result<Proof, Error> {
     let proof = match self.tree.proof(2 * index, vec![]) {
       Some(proof) => proof,
       None => bail!("No proof available for index {}", index),
     };
 
+    let signature = self.storage.get_signature(proof.verified_by / 2 - 1)?;
     let mut nodes = Vec::with_capacity(proof.nodes.len());
     for index in proof.nodes {
       let node = self.storage.get_node(index)?;
       nodes.push(node);
     }
 
-    // TODO: figure out the "needsSig" part. Return Signature too.
-    Ok(nodes)
+    Ok(Proof {
+      nodes,
+      signature,
+      index,
+    })
   }
 
   /// Insert data into the tree. Useful when replicating data from a remote
   /// host.
   pub fn put(
     &mut self,
-    _index: usize,
-    _data: &[u8],
-    _sig: Signature,
+    index: usize,
+    data: &[u8],
+    proof: Proof
   ) -> Result<(), Error> {
-    // let mut next = 2 * index;
-    // let mut trusted: Option<usize> = None;
+    let mut next = 2 * index;
+    let mut trusted: Option<usize> = None;
+    let mut missing = vec![];
+    let mut i = 0;
 
-    // loop {
-    //   if self.tree.get(next) {
-    //     trusted = Some(next);
-    //     break;
-    //   }
+    loop {
+      if self.tree.get(next) {
+        trusted = Some(next);
+        break;
+      }
 
-    //   let sibling = flat::sibling(next);
-    //   next = flat::parent(next);
-    // }
+      let sibling = flat::sibling(next);
+      next = flat::parent(next);
 
+      if i < proof.nodes.len()  && proof.nodes[i].index == sibling {
+        i += 1;
+        continue;
+      }
+
+      if !self.tree.get(sibling) {
+        break;
+      }
+      missing.push(sibling);
+    }
+
+    if let None = trusted {
+      if self.tree.get(next) {
+        trusted = Some(next);
+      }
+    }
+
+    let mut missing_nodes = vec![];
+    for index in missing {
+      let node = self.storage.get_node(index)?;
+      missing_nodes.push(node);
+    }
+
+    let mut trusted_node = None;
+    if let Some(index) = trusted {
+      let node = self.storage.get_node(index)?;
+      trusted_node = Some(node);
+    }
+
+    // Call to js' `self._verifyAndWrite()`.
+    println!("{:?} {:?}", trusted_node, data);
     unimplemented!();
   }
 
