@@ -101,7 +101,7 @@ where
     Ok(Some(self.storage.get_data(index)?))
   }
 
-  ///
+  /// Return the Nodes which prove the correctness for the Node at index.
   pub fn proof (&mut self, index: usize) -> Result<Vec<Node>, Error> {
     let proof = match self.tree.proof(2 * index, vec![]) {
       Some(proof) => proof,

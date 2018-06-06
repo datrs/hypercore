@@ -15,7 +15,7 @@ use std::fmt::Debug;
 use storage::Storage;
 use tree_index::TreeIndex;
 
-/// Create a new `Feed` configuration.
+/// Construct a new `Feed` instance.
 // TODO: make this an actual builder pattern.
 // https://deterministic.space/elegant-apis-in-rust.html#builder-pattern
 #[derive(Debug)]
