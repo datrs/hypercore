@@ -203,7 +203,7 @@ where
 
     // check if we already have the hash for this node
     if verify_node(&trusted_node, &top) {
-      // self.write(index, data, visited); // TODO: `self.write()`
+      self.write(index, Some(data), &visited, None)?;
       return Ok(());
     }
 
@@ -231,8 +231,7 @@ where
       top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 
       if verify_node(&trusted_node, &top) {
-        // index, data, visited, null, from, cb
-        // self.write(index, data, visited); // TODO: `self.write()`
+        self.write(index, Some(data), &visited, None)?;
         return Ok(());
       }
     }
@@ -271,7 +270,7 @@ where
 
     self.tree.set(2 * index);
 
-    if let Some(data) = data {
+    if let Some(_data) = data {
       if self.bitfield.set(index, true) == Change::Changed {
         // TODO: emit "download" event
       }
