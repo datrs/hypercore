@@ -6,10 +6,10 @@ extern crate random_access_memory as ram;
 
 extern crate test;
 
-use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
 use self::test::Bencher;
 use failure::Error;
 use hypercore::{Feed, Storage, Store};
+use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
 
 fn create_feed(
   page_size: usize,

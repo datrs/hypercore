@@ -7,14 +7,14 @@ extern crate random_access_storage as ras;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
-pub use crypto::{self,Keypair};
+pub use crypto::{self, Keypair};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
 use ras::RandomAccessMethods;
-use sparse_bitfield::Bitfield;
+use sparse_bitfield::{Bitfield, Change};
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -139,7 +139,7 @@ where
     &mut self,
     index: usize,
     data: &[u8],
-    proof: Proof
+    proof: Proof,
   ) -> Result<(), Error> {
     let mut next = 2 * index;
     let mut trusted: Option<usize> = None;
@@ -155,7 +155,7 @@ where
       let sibling = flat::sibling(next);
       next = flat::parent(next);
 
-      if i < proof.nodes.len()  && proof.nodes[i].index == sibling {
+      if i < proof.nodes.len() && proof.nodes[i].index == sibling {
         i += 1;
         continue;
       }
@@ -186,14 +186,18 @@ where
 
     let mut visited = vec![];
     let mut remote_nodes = proof.nodes;
-    let mut top = Node::new(2 * index, crypto::Hash::from_leaf(&data).as_bytes().to_owned(), data.len());
+    let mut top = Node::new(
+      2 * index,
+      crypto::Hash::from_leaf(&data).as_bytes().to_owned(),
+      data.len(),
+    );
 
     let verify_node = |trusted: &Option<Node>, node: &Node| -> bool {
       match trusted {
         None => false,
         Some(trusted) => {
           trusted.index == node.index && trusted.hash == node.hash
-        },
+        }
       }
     };
 
@@ -224,13 +228,69 @@ where
       visited.push(top.clone());
       let hash = crypto::Hash::from_hashes(&top.hash, &node.hash);
       let len = top.len() + node.len();
-      top = Node::new(flat::parent(top.index), hash.as_bytes().to_owned(), len);
+      top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 
       if verify_node(&trusted_node, &top) {
+        // index, data, visited, null, from, cb
         // self.write(index, data, visited); // TODO: `self.write()`
         return Ok(());
       }
     }
+  }
+
+  /// Write some data to disk. Usually used in combination with `.put()`.
+  // in JS this calls to:
+  // - ._write()
+  // - ._onwrite() (emit the 'write' event), if it exists
+  // - ._writeAfterHook() (optionally going through writeHookdone())
+  // - ._writeDone()
+  //
+  // Arguments are: (index, data, node, sig, from, cb)
+  fn write(
+    &mut self,
+    index: usize,
+    data: Option<&[u8]>,
+    nodes: &[Node],
+    sig: Option<Signature>,
+  ) -> Result<(), Error> {
+    for node in nodes {
+      self.storage.put_node(node)?;
+    }
+
+    if let Some(data) = data {
+      self.storage.put_data(index, data, &nodes)?;
+    }
+
+    if let Some(sig) = sig {
+      self.storage.put_signature(index, sig)?;
+    }
+
+    for node in nodes {
+      self.tree.set(node.index);
+    }
+
+    self.tree.set(2 * index);
+
+    if let Some(data) = data {
+      if self.bitfield.set(index, true) == Change::Changed {
+        // TODO: emit "download" event
+      }
+      // TODO: check peers.length, call ._announce if peers exist.
+    }
+
+    // TODO: Discern between "primary" and "replica" streams.
+    // if (!this.writable) {
+    //   if (!this._synced) this._synced = this.bitfield.iterator(0, this.length)
+    //   if (this._synced.next() === -1) {
+    //     this._synced.range(0, this.length)
+    //     this._synced.seek(0)
+    //     if (this._synced.next() === -1) {
+    //       this.emit('sync')
+    //     }
+    //   }
+    // }
+
+    Ok(())
   }
 
   /// Get a signature from the store.
