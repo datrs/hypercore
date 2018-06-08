@@ -6,14 +6,15 @@ extern crate random_access_memory as ram;
 
 extern crate test;
 
+use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
 use self::test::Bencher;
 use failure::Error;
 use hypercore::{Feed, Storage, Store};
 
 fn create_feed(
   page_size: usize,
-) -> Result<Feed<ram::RandomAccessMethods>, Error> {
-  let create = |_store: Store| ram::Sync::new(page_size);
+) -> Result<Feed<RandomAccessMemoryMethods>, Error> {
+  let create = |_store: Store| RandomAccessMemory::new(page_size);
   let storage = Storage::new(create)?;
   Ok(Feed::with_storage(storage)?)
 }
