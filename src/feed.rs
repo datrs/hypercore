@@ -184,9 +184,6 @@ where
       trusted_node = Some(node);
     }
 
-    // self._verifyAndWrite(index, data, proof, missingNodes, trustedNode, from, cb)
-    // Feed.prototype._verifyAndWrite = function (index, data, proof, localNodes, trustedNode, from, cb) {
-
     let mut visited = vec![];
     let mut remote_nodes = proof.nodes;
     let mut top = Node::new(2 * index, crypto::Hash::from_leaf(&data).as_bytes().to_owned(), data.len());
@@ -202,8 +199,7 @@ where
 
     // check if we already have the hash for this node
     if verify_node(&trusted_node, &top) {
-      // TODO: impl self.write
-      // self.write(index, data, visited);
+      // self.write(index, data, visited); // TODO: `self.write()`
       return Ok(());
     }
 
@@ -220,6 +216,7 @@ where
       } else {
         // we cannot create another parent, i.e. these nodes must be roots in the tree
         // this._verifyRootsAndWrite(index, data, top, proof, visited, from, cb)
+        // NOTE: should we have `.verify_roots()` and `.write()` ?
         // return
         unimplemented!();
       }
@@ -230,8 +227,7 @@ where
       top = Node::new(flat::parent(top.index), hash.as_bytes().to_owned(), len);
 
       if verify_node(&trusted_node, &top) {
-        // TODO: impl self.write
-        // self.write(index, data, visited, null, from, cb)?;
+        // self.write(index, data, visited); // TODO: `self.write()`
         return Ok(());
       }
     }
