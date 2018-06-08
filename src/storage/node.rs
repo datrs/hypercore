@@ -11,7 +11,7 @@ use std::io::Cursor;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
   pub(crate) index: usize,
   pub(crate) hash: Vec<u8>,

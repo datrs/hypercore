@@ -7,7 +7,7 @@ extern crate random_access_storage as ras;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
-pub use crypto::Keypair;
+pub use crypto::{self,Keypair};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
@@ -132,7 +132,8 @@ where
     })
   }
 
-  /// Insert data into the tree. Useful when replicating data from a remote
+  /// Insert data into the tree at `index`. Verifies the `proof` when inserting
+  /// to make sure data is correct. Useful when replicating data from a remote
   /// host.
   pub fn put(
     &mut self,
@@ -183,9 +184,57 @@ where
       trusted_node = Some(node);
     }
 
-    // Call to js' `self._verifyAndWrite()`.
-    println!("{:?} {:?}", trusted_node, data);
-    unimplemented!();
+    // self._verifyAndWrite(index, data, proof, missingNodes, trustedNode, from, cb)
+    // Feed.prototype._verifyAndWrite = function (index, data, proof, localNodes, trustedNode, from, cb) {
+
+    let mut visited = vec![];
+    let mut remote_nodes = proof.nodes;
+    let mut top = Node::new(2 * index, crypto::Hash::from_leaf(&data).as_bytes().to_owned(), data.len());
+
+    let verify_node = |trusted: &Option<Node>, node: &Node| -> bool {
+      match trusted {
+        None => false,
+        Some(trusted) => {
+          trusted.index == node.index && trusted.hash == node.hash
+        },
+      }
+    };
+
+    // check if we already have the hash for this node
+    if verify_node(&trusted_node, &top) {
+      // TODO: impl self.write
+      // self.write(index, data, visited);
+      return Ok(());
+    }
+
+    // keep hashing with siblings until we reach the end or trusted node
+    loop {
+      let node;
+      let next = flat::sibling(top.index);
+
+      if !remote_nodes.is_empty() && remote_nodes[0].index == next {
+        node = remote_nodes.remove(0);
+        visited.push(node.clone());
+      } else if !missing_nodes.is_empty() && missing_nodes[0].index == next {
+        node = missing_nodes.remove(0);
+      } else {
+        // we cannot create another parent, i.e. these nodes must be roots in the tree
+        // this._verifyRootsAndWrite(index, data, top, proof, visited, from, cb)
+        // return
+        unimplemented!();
+      }
+
+      visited.push(top.clone());
+      let hash = crypto::Hash::from_hashes(&top.hash, &node.hash);
+      let len = top.len() + node.len();
+      top = Node::new(flat::parent(top.index), hash.as_bytes().to_owned(), len);
+
+      if verify_node(&trusted_node, &top) {
+        // TODO: impl self.write
+        // self.write(index, data, visited, null, from, cb)?;
+        return Ok(());
+      }
+    }
   }
 
   /// Get a signature from the store.
