@@ -20,8 +20,9 @@ extern crate tree_index;
 pub mod bitfield;
 pub mod crypto;
 pub mod feed;
-mod feed_builder;
 pub mod storage;
+
+mod feed_builder;
 
 pub use crypto::Keypair;
 pub use feed::Feed;
