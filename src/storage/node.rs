@@ -72,28 +72,34 @@ impl Node {
 }
 
 impl merkle::Node for Node {
+  #[inline]
   fn index(&self) -> usize {
     self.index
   }
 
+  #[inline]
   fn hash(&self) -> &[u8] {
     &self.hash
   }
 
+  #[inline]
   fn len(&self) -> usize {
     self.length
   }
 
+  #[inline]
   fn is_empty(&self) -> bool {
     self.length == 0
   }
 
+  #[inline]
   fn parent(&self) -> usize {
     self.parent
   }
 }
 
 impl AsRef<Node> for Node {
+  #[inline]
   fn as_ref(&self) -> &Self {
     self
   }
