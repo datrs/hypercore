@@ -69,7 +69,7 @@ impl Bitfield {
       self.data.get_byte(index) & self.masks.data_update[o]
     };
 
-    if let Change::Unchanged = self.data.set_byte(index, value) {
+    if self.data.set_byte(index, value).is_unchanged() {
       return Change::Unchanged;
     }
 
@@ -175,7 +175,10 @@ impl Bitfield {
     self.iterator.seek(start);
 
     while self.iterator.index() < max_len
-      && self.index.set_byte(self.iterator.index(), byte) == Change::Changed
+      && self
+        .index
+        .set_byte(self.iterator.index(), byte)
+        .is_changed()
     {
       if self.iterator.is_left() {
         let index: usize = self.index.get_byte(self.iterator.sibling()).into();
@@ -226,7 +229,7 @@ impl Bitfield {
             | masks.map_parent_left[index];
         }
 
-        if let Change::Unchanged = set_byte_no_alloc(bf, ite.parent(), byte) {
+        if set_byte_no_alloc(bf, ite.parent(), byte).is_unchanged() {
           break;
         }
       }

@@ -14,7 +14,7 @@ pub use storage::{Node, NodeTrait, Storage, Store};
 use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
 use failure::Error;
 use ras::RandomAccessMethods;
-use sparse_bitfield::{Bitfield, Change};
+use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -271,7 +271,7 @@ where
     self.tree.set(2 * index);
 
     if let Some(_data) = data {
-      if self.bitfield.set(index, true) == Change::Changed {
+      if self.bitfield.set(index, true).is_changed() {
         // TODO: emit "download" event
       }
       // TODO: check peers.length, call ._announce if peers exist.
