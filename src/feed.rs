@@ -166,10 +166,8 @@ where
       missing.push(sibling);
     }
 
-    if let None = trusted {
-      if self.tree.get(next) {
-        trusted = Some(next);
-      }
+    if trusted.is_none() && self.tree.get(next) {
+      trusted = Some(next);
     }
 
     let mut missing_nodes = vec![];
