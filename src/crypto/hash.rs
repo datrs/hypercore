@@ -10,7 +10,7 @@ use self::byteorder::{BigEndian, WriteBytesExt};
 use self::ed25519_dalek::PublicKey;
 use self::merkle_stream::Node as NodeTrait;
 use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
+use std::convert::AsRef;
 use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
@@ -74,11 +74,12 @@ impl Hash {
 
   /// Hash a vector of `Root` nodes.
   // Called `crypto.tree()` in the JS implementation.
-  pub fn from_roots(roots: &[Rc<Node>]) -> Self {
+  pub fn from_roots(roots: &[impl AsRef<Node>]) -> Self {
     let mut hasher = Blake2b::new(32);
     hasher.update(*ROOT_TYPE);
 
     for node in roots {
+      let node = node.as_ref();
       let mut position = Vec::with_capacity(1); // FIXME: allocate once only.
       position
         .write_u64::<BigEndian>((node.index()) as u64)
