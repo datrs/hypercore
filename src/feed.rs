@@ -11,13 +11,14 @@ pub use crypto::{self, Keypair};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
-use crypto::{generate_keypair, sign, Hash, Merkle, Signature};
+use crypto::{generate_keypair, sign, Hash, Merkle, Signature, verify};
 use failure::Error;
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::cmp;
 use tree_index::TreeIndex;
 
 /// A merkle proof for an index, created by the `.proof()` method.
@@ -139,7 +140,7 @@ where
     &mut self,
     index: usize,
     data: &[u8],
-    proof: Proof,
+    mut proof: Proof,
   ) -> Result<(), Error> {
     let mut next = 2 * index;
     let mut trusted: Option<usize> = None;
@@ -183,7 +184,6 @@ where
     }
 
     let mut visited = vec![];
-    let mut remote_nodes = proof.nodes;
     let mut top = Node::new(
       2 * index,
       crypto::Hash::from_leaf(&data).as_bytes().to_owned(),
@@ -210,8 +210,8 @@ where
       let node;
       let next = flat::sibling(top.index);
 
-      if !remote_nodes.is_empty() && remote_nodes[0].index == next {
-        node = remote_nodes.remove(0);
+      if !proof.nodes.is_empty() && proof.nodes[0].index == next {
+        node = proof.nodes.remove(0);
         visited.push(node.clone());
       } else if !missing_nodes.is_empty() && missing_nodes[0].index == next {
         node = missing_nodes.remove(0);
@@ -220,6 +220,7 @@ where
         // this._verifyRootsAndWrite(index, data, top, proof, visited, from, cb)
         // NOTE: should we have `.verify_roots()` and `.write()` ?
         // return
+        let _roots = self.verify_roots(index, data, top, &mut proof, &visited)?;
         unimplemented!();
       }
 
@@ -248,7 +249,7 @@ where
     index: usize,
     data: Option<&[u8]>,
     nodes: &[Node],
-    sig: Option<Signature>,
+    sig: Option<&Signature>,
   ) -> Result<(), Error> {
     for node in nodes {
       self.storage.put_node(node)?;
@@ -340,6 +341,60 @@ where
   /// Access the keypair.
   pub fn keypair(&self) -> &Keypair {
     &self.keypair
+  }
+
+  fn verify_roots(
+    &mut self,
+    index: usize,
+    data: &[u8],
+    top: Node,
+    proof: &mut Proof,
+    nodes: &[Node],
+  ) -> Result<(), Error> {
+    let last_node = if proof.nodes.len() > 0 {
+      proof.nodes[proof.nodes.len() - 1].index
+    } else {
+      top.index
+    };
+
+    let verified_by = cmp::max(flat::right_span(top.index), flat::right_span(last_node)) + 2;
+
+    // `Feed.prototype._getRootsToVerify in the JS implementation`
+    let mut indexes = vec![];
+    flat::full_roots(verified_by, &mut indexes);
+    let mut roots = Vec::with_capacity(indexes.len());
+    let mut extra_nodes = vec![];
+
+    for index in indexes {
+      if index == top.index {
+        extra_nodes.push(top.clone());
+        roots.push(top.clone()); // TODO: verify this is the right index to push to.
+      } else if !proof.nodes.is_empty() && index == proof.nodes[0].index {
+        extra_nodes.push(proof.nodes[0].clone());
+        roots.push(proof.nodes.remove(0)); // TODO: verify this is the right index to push to.
+      } else if self.tree.get(index) {
+        let node = self.storage.get_node(index)?;
+        roots.push(node);
+      } else {
+        bail!("<hypercore>: Missing tree roots needed for verify");
+      }
+    }
+
+    let checksum = Hash::from_roots(&roots);
+    verify(&self.keypair.public, checksum.as_bytes(), &proof.signature)?;
+
+    // Update the length if we grew the feed.
+    let len = verified_by / 2;
+    if len > self.len() {
+      self.length = len;
+      self.byte_length = roots.iter().fold(0, |acc, root| acc + root.index)
+      // TODO: emit('append')
+    }
+
+    let mut write_nodes = nodes.to_owned();
+    write_nodes.extend_from_slice(&extra_nodes);
+    self.write(index, Some(&data), &write_nodes, Some(&proof.signature))?;
+    unimplemented!();
   }
 }
 

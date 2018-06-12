@@ -24,6 +24,7 @@ use self::ras::RandomAccessMethods;
 use self::sleep_parser::*;
 use std::fmt::Debug;
 use std::ops::Range;
+use std::borrow::Borrow;
 
 const HEADER_OFFSET: usize = 32;
 
@@ -156,8 +157,9 @@ where
   pub fn put_signature(
     &mut self,
     index: usize,
-    signature: Signature,
+    signature: impl Borrow<Signature>,
   ) -> Result<(), Error> {
+    let signature = signature.borrow();
     self
       .signatures
       .write(HEADER_OFFSET + 64 * index, &signature.to_bytes())
