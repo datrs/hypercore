@@ -216,12 +216,10 @@ where
       } else if !missing_nodes.is_empty() && missing_nodes[0].index == next {
         node = missing_nodes.remove(0);
       } else {
-        // we cannot create another parent, i.e. these nodes must be roots in the tree
-        // this._verifyRootsAndWrite(index, data, top, proof, visited, from, cb)
-        // NOTE: should we have `.verify_roots()` and `.write()` ?
-        // return
-        let _roots = self.verify_roots(index, data, top, &mut proof, &visited)?;
-        unimplemented!();
+        let nodes = self.verify_roots(top, &mut proof)?;
+        visited.extend_from_slice(&nodes);
+        self.write(index, Some(&data), &visited, Some(&proof.signature))?;
+        return Ok(());
       }
 
       visited.push(top.clone());
@@ -345,12 +343,9 @@ where
 
   fn verify_roots(
     &mut self,
-    index: usize,
-    data: &[u8],
     top: Node,
     proof: &mut Proof,
-    nodes: &[Node],
-  ) -> Result<(), Error> {
+  ) -> Result<Vec<Node>, Error> {
     let last_node = if proof.nodes.len() > 0 {
       proof.nodes[proof.nodes.len() - 1].index
     } else {
@@ -391,10 +386,7 @@ where
       // TODO: emit('append')
     }
 
-    let mut write_nodes = nodes.to_owned();
-    write_nodes.extend_from_slice(&extra_nodes);
-    self.write(index, Some(&data), &write_nodes, Some(&proof.signature))?;
-    unimplemented!();
+    Ok(extra_nodes)
   }
 }
 
