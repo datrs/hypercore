@@ -56,19 +56,14 @@ impl Merkle {
   /// Create a new instance.
   // TODO: figure out the right allocation size for `roots` and `nodes`.
   pub fn new() -> Self {
-    let roots = Vec::new();
-
     Self {
-      nodes: Vec::new(),
-      stream: MerkleTreeStream::new(H, roots),
+      nodes: vec![],
+      stream: MerkleTreeStream::new(H, vec![]),
     }
   }
 
   /// Access the next item.
   // TODO: remove extra conversion alloc.
-
-  // NOTE: Convert from the Merkle nodes into our own node type. Ideally we
-  // could pass our own node type to the Merkle module.
   pub fn next(&mut self, data: &[u8]) {
     self.stream.next(&data, &mut self.nodes);
   }

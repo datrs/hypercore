@@ -5,10 +5,10 @@ extern crate pretty_hash;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use self::failure::Error;
+use self::merkle_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
-use self::merkle_stream::Node as NodeTrait;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.

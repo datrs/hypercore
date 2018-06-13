@@ -11,14 +11,14 @@ pub use crypto::{self, Keypair};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
-use crypto::{generate_keypair, sign, Hash, Merkle, Signature, verify};
+use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
 use failure::Error;
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
+use std::cmp;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::cmp;
 use tree_index::TreeIndex;
 
 /// A merkle proof for an index, created by the `.proof()` method.
@@ -352,7 +352,8 @@ where
       top.index
     };
 
-    let verified_by = cmp::max(flat::right_span(top.index), flat::right_span(last_node)) + 2;
+    let verified_by =
+      cmp::max(flat::right_span(top.index), flat::right_span(last_node)) + 2;
 
     // `Feed.prototype._getRootsToVerify in the JS implementation`
     let mut indexes = vec![];

@@ -9,8 +9,8 @@ use self::blake2::blake2b::Blake2b;
 use self::byteorder::{BigEndian, WriteBytesExt};
 use self::ed25519_dalek::PublicKey;
 use self::merkle_stream::Node as NodeTrait;
-use std::ops::{Deref, DerefMut};
 use std::convert::AsRef;
+use std::ops::{Deref, DerefMut};
 use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack

@@ -22,9 +22,9 @@ use self::ed25519_dalek::Signature;
 use self::failure::Error;
 use self::ras::RandomAccessMethods;
 use self::sleep_parser::*;
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::Range;
-use std::borrow::Borrow;
 
 const HEADER_OFFSET: usize = 32;
 
