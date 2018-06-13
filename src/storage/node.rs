@@ -1,6 +1,6 @@
 extern crate byteorder;
 extern crate failure;
-extern crate merkle_tree_stream as merkle;
+extern crate merkle_tree_stream as merkle_stream;
 extern crate pretty_hash;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -8,6 +8,7 @@ use self::failure::Error;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
+use self::merkle_stream::Node as NodeTrait;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.
@@ -71,7 +72,7 @@ impl Node {
   }
 }
 
-impl merkle::Node for Node {
+impl NodeTrait for Node {
   #[inline]
   fn index(&self) -> usize {
     self.index

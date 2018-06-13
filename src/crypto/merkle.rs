@@ -8,21 +8,22 @@ use std::rc::Rc;
 use storage::Node;
 
 #[derive(Debug)]
-struct S;
+struct H;
 
-impl HashMethods<Node> for S {
-  // FIXME: remove double (triple?) allocation here.
-  fn leaf(&self, leaf: &PartialNode, _roots: &[Rc<Node>]) -> Vec<u8> {
-    let data = leaf.as_ref().unwrap();
-    Hash::from_leaf(&data).as_bytes().to_vec()
+impl HashMethods for H {
+  type Node = Node;
+  type Hash = Hash;
+
+  fn leaf(&self, leaf: &PartialNode, _roots: &[Rc<Self::Node>]) -> Self::Hash {
+    let data = leaf.as_ref().unwrap(); // TODO: remove the need for unwrap here.
+    Hash::from_leaf(&data)
   }
 
-  fn parent(&self, a: &Node, b: &Node) -> Vec<u8> {
-    let hash = Hash::from_hashes(a.hash(), b.hash());
-    hash.as_bytes().to_vec()
+  fn parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Hash {
+    Hash::from_hashes(left.hash(), right.hash())
   }
 
-  fn node(&self, partial: &PartialNode, hash: Vec<u8>) -> Node {
+  fn node(&self, partial: &PartialNode, hash: Self::Hash) -> Self::Node {
     let data = match partial.data() {
       Some(data) => Some(data.clone()),
       None => None,
@@ -32,8 +33,8 @@ impl HashMethods<Node> for S {
       index: partial.index(),
       parent: partial.parent,
       length: partial.len(),
+      hash: hash.as_bytes().into(),
       data,
-      hash,
     }
   }
 }
@@ -41,7 +42,7 @@ impl HashMethods<Node> for S {
 /// Merkle Tree Stream
 #[derive(Debug)]
 pub struct Merkle {
-  stream: MerkleTreeStream<S, Node>,
+  stream: MerkleTreeStream<H>,
   nodes: Vec<Rc<Node>>,
 }
 
@@ -59,7 +60,7 @@ impl Merkle {
 
     Self {
       nodes: Vec::new(),
-      stream: MerkleTreeStream::new(S, roots),
+      stream: MerkleTreeStream::new(H, roots),
     }
   }
 
