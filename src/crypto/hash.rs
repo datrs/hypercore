@@ -22,7 +22,7 @@ lazy_static! {
 }
 
 /// `BLAKE2b` hash.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Hash {
   hash: Blake2bResult,
 }

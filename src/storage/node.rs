@@ -12,6 +12,9 @@ use std::io::Cursor;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.
+// TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
+// rewriting the Blake2b crate to support `.from_bytes()` to serialize from
+// disk.
 #[derive(Debug, Clone)]
 pub struct Node {
   pub(crate) index: usize,
