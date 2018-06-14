@@ -57,7 +57,7 @@ where
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self, Error> {
-    let keypair = generate_keypair(); // TODO: read keypair from disk;
+    let keypair = generate_keypair(); // TODO: read key pair from disk;
     Ok(FeedBuilder::new(keypair, storage).build()?)
   }
 
@@ -316,7 +316,7 @@ where
   }
 
   /// Get all root hashes from the feed.
-  // In the JavaScript implemenentation this calls to `._getRootsToVerify()`
+  // In the JavaScript implementation this calls to `._getRootsToVerify()`
   // internally. In Rust it seems better to just inline the code.
   pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>, Error> {
     ensure!(
