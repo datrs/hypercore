@@ -8,12 +8,12 @@ extern crate sparse_bitfield;
 extern crate tree_index;
 
 use crypto::{Keypair, Merkle};
-use failure::Error;
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use storage::Storage;
 use tree_index::TreeIndex;
+use Result;
 
 /// Construct a new `Feed` instance.
 // TODO: make this an actual builder pattern.
@@ -39,7 +39,7 @@ where
 
   /// Finalize the builder.
   #[inline]
-  pub fn build(self) -> Result<Feed<T>, Error> {
+  pub fn build(self) -> Result<Feed<T>> {
     Ok(Feed {
       merkle: Merkle::new(),
       byte_length: 0,

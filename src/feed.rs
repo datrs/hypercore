@@ -12,7 +12,6 @@ pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
-use failure::Error;
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::cmp;
@@ -20,6 +19,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tree_index::TreeIndex;
+use Result;
 
 /// A merkle proof for an index, created by the `.proof()` method.
 pub struct Proof {
@@ -56,7 +56,7 @@ where
   T: RandomAccessMethods + Debug,
 {
   /// Create a new instance with a custom storage backend.
-  pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self, Error> {
+  pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self> {
     let keypair = generate_keypair(); // TODO: read key pair from disk;
     Ok(FeedBuilder::new(keypair, storage).build()?)
   }
@@ -78,7 +78,7 @@ where
   }
 
   /// Append data into the log.
-  pub fn append(&mut self, data: &[u8]) -> Result<(), Error> {
+  pub fn append(&mut self, data: &[u8]) -> Result<()> {
     self.merkle.next(data);
     let mut offset = 0;
 
@@ -104,7 +104,7 @@ where
   }
 
   /// Retrieve data from the log.
-  pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>, Error> {
+  pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>> {
     if !self.bitfield.get(index) {
       // NOTE: Do (network) lookup here once we have network code.
       return Ok(None);
@@ -113,7 +113,7 @@ where
   }
 
   /// Return the Nodes which prove the correctness for the Node at index.
-  pub fn proof(&mut self, index: usize) -> Result<Proof, Error> {
+  pub fn proof(&mut self, index: usize) -> Result<Proof> {
     let proof = match self.tree.proof(2 * index, vec![]) {
       Some(proof) => proof,
       None => bail!("No proof available for index {}", index),
@@ -141,7 +141,7 @@ where
     index: usize,
     data: &[u8],
     mut proof: Proof,
-  ) -> Result<(), Error> {
+  ) -> Result<()> {
     let mut next = 2 * index;
     let mut trusted: Option<usize> = None;
     let mut missing = vec![];
@@ -248,7 +248,7 @@ where
     data: Option<&[u8]>,
     nodes: &[Node],
     sig: Option<&Signature>,
-  ) -> Result<(), Error> {
+  ) -> Result<()> {
     for node in nodes {
       self.storage.put_node(node)?;
     }
@@ -290,7 +290,7 @@ where
   }
 
   /// Get a signature from the store.
-  pub fn signature(&mut self, index: usize) -> Result<Signature, Error> {
+  pub fn signature(&mut self, index: usize) -> Result<Signature> {
     ensure!(
       index < self.length,
       format!("No signature found for index {}", index)
@@ -300,11 +300,7 @@ where
 
   /// Verify the entire feed. Checks a signature against the signature of all
   /// root nodes combined.
-  pub fn verify(
-    &mut self,
-    index: usize,
-    signature: &Signature,
-  ) -> Result<(), Error> {
+  pub fn verify(&mut self, index: usize, signature: &Signature) -> Result<()> {
     let roots = self.root_hashes(index)?;
     let roots: Vec<_> = roots.into_iter().map(Rc::new).collect();
 
@@ -318,7 +314,7 @@ where
   /// Get all root hashes from the feed.
   // In the JavaScript implementation this calls to `._getRootsToVerify()`
   // internally. In Rust it seems better to just inline the code.
-  pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>, Error> {
+  pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>> {
     ensure!(
       index <= self.length,
       format!("Root index bounds exceeded {} > {}", index, self.length)
@@ -345,7 +341,7 @@ where
     &mut self,
     top: Node,
     proof: &mut Proof,
-  ) -> Result<Vec<Node>, Error> {
+  ) -> Result<Vec<Node>> {
     let last_node = if proof.nodes.len() > 0 {
       proof.nodes[proof.nodes.len() - 1].index
     } else {
@@ -396,7 +392,7 @@ impl Feed<self::rad::RandomAccessDiskMethods> {
   // TODO: Ensure that dir is always a directory.
   // NOTE: Should we `mkdirp` here?
   // NOTE: Should we call these `data.bitfield` / `data.tree`?
-  pub fn new(dir: &PathBuf) -> Result<Self, Error> {
+  pub fn new(dir: &PathBuf) -> Result<Self> {
     let create = |storage: Store| {
       let name = match storage {
         Store::Tree => "tree",

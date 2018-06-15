@@ -1,14 +1,13 @@
 extern crate byteorder;
-extern crate failure;
 extern crate merkle_tree_stream as merkle_stream;
 extern crate pretty_hash;
 
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use self::failure::Error;
 use self::merkle_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
+use Result;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.
@@ -42,7 +41,7 @@ impl Node {
   /// Convert a vector to a new instance.
   ///
   /// Requires the index at which the buffer was read to be passed.
-  pub fn from_bytes(index: usize, buffer: &[u8]) -> Result<Self, Error> {
+  pub fn from_bytes(index: usize, buffer: &[u8]) -> Result<Self> {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
     let parent = 0; // FIXME: this will screw us over.
@@ -67,7 +66,7 @@ impl Node {
   }
 
   /// Convert to a buffer that can be written to disk.
-  pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+  pub fn to_bytes(&self) -> Result<Vec<u8>> {
     let mut writer = Vec::with_capacity(40);
     writer.extend_from_slice(&self.hash);
     writer.write_u64::<BigEndian>(self.length as u64)?;

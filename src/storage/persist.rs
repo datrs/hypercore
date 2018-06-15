@@ -1,10 +1,7 @@
-extern crate failure;
-extern crate random_access_storage as ras;
-
-use self::ras::RandomAccessMethods;
+use ras::RandomAccessMethods;
 use super::Storage;
-use failure::Error;
 use std::fmt::Debug;
+use Result;
 
 /// Persist data to a `Storage` instance.
 pub trait Persist<T>
@@ -15,8 +12,8 @@ where
   fn from_bytes(index: usize, buf: &[u8]) -> Self;
 
   /// Create a vector.
-  fn to_vec(&self) -> Result<Vec<u8>, Error>;
+  fn to_vec(&self) -> Result<Vec<u8>>;
 
   /// Persist into a storage backend.
-  fn store(&self, index: usize, store: Storage<T>) -> Result<(), Error>;
+  fn store(&self, index: usize, store: Storage<T>) -> Result<()>;
 }

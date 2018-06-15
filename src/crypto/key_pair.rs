@@ -1,15 +1,14 @@
 //! Generate an `Ed25519` keypair.
 
 extern crate ed25519_dalek;
-extern crate failure;
 extern crate rand;
 extern crate sha2;
 
 pub use self::ed25519_dalek::{Keypair, PublicKey, Signature};
 
-use self::failure::Error;
 use self::rand::OsRng;
 use self::sha2::Sha512;
+use Result;
 
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {
@@ -23,11 +22,7 @@ pub fn sign(keypair: &Keypair, msg: &[u8]) -> Signature {
 }
 
 /// Verify a signature on a message with a keypair's public key.
-pub fn verify(
-  public: &PublicKey,
-  msg: &[u8],
-  sig: &Signature,
-) -> Result<(), Error> {
+pub fn verify(public: &PublicKey, msg: &[u8], sig: &Signature) -> Result<()> {
   ensure!(
     public.verify::<Sha512>(msg, sig),
     "Signature verification failed"

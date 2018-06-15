@@ -27,6 +27,8 @@ pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
+use failure::Error;
+
 /// Convenience wrapper to import all of Hypercore's core.
 ///
 /// ```rust
@@ -44,3 +46,6 @@ pub mod prelude {
   pub use feed_builder::FeedBuilder;
   pub use storage::{Node, NodeTrait, Storage, Store};
 }
+
+/// Custom result shorthand for Hypercore.
+pub type Result<T> = std::result::Result<T, Error>;
