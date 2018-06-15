@@ -16,14 +16,14 @@ extern crate sparse_bitfield;
 extern crate tree_index;
 
 pub mod bitfield;
-pub mod crypto;
-pub mod feed;
-pub mod storage;
+mod crypto;
+mod feed;
+mod storage;
 
 mod feed_builder;
 
 pub use crypto::Keypair;
-pub use feed::Feed;
+pub use feed::{Feed, Proof};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 

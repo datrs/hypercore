@@ -8,17 +8,14 @@ extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
 extern crate sleep_parser;
 
-mod data;
 mod node;
 mod persist;
 
-pub use self::data::Data;
 pub use self::merkle_stream::Node as NodeTrait;
 pub use self::node::Node;
 pub use self::persist::Persist;
 
-use self::ed25519_dalek::Signature;
-use self::ras::RandomAccessMethods;
+use self::ed25519_dalek::Signature;use self::ras::RandomAccessMethods;
 use self::sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;

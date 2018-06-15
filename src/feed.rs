@@ -7,7 +7,7 @@ extern crate random_access_storage as ras;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
-pub use crypto::{self, Keypair};
+pub use crypto::{Keypair};
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
@@ -186,7 +186,7 @@ where
     let mut visited = vec![];
     let mut top = Node::new(
       2 * index,
-      crypto::Hash::from_leaf(&data).as_bytes().to_owned(),
+      Hash::from_leaf(&data).as_bytes().to_owned(),
       data.len(),
     );
 
@@ -223,7 +223,7 @@ where
       }
 
       visited.push(top.clone());
-      let hash = crypto::Hash::from_hashes(&top.hash, &node.hash);
+      let hash = Hash::from_hashes(&top.hash, &node.hash);
       let len = top.len() + node.len();
       top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 
@@ -307,7 +307,7 @@ where
     let message = Hash::from_roots(&roots);
     let message = message.as_bytes();
 
-    ::crypto::verify(&self.keypair.public, message, signature)?;
+    verify(&self.keypair.public, message, signature)?;
     Ok(())
   }
 
