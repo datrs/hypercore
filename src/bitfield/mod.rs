@@ -17,25 +17,23 @@
 //! We need to make sure the performance impact of this stays well within
 //! bounds.
 
-extern crate flat_tree as flat;
-extern crate sparse_bitfield;
-
 mod masks;
 
 use self::masks::Masks;
-pub use self::sparse_bitfield::Change;
+use flat::{self, Iterator as FlatIterator};
+pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
 
 /// Bitfield with `{data, tree, index} fields.`
 // #[derive(Debug)]
 pub struct Bitfield {
-  data: sparse_bitfield::Bitfield,
+  data: SparseBitfield,
   /// FIXME: SLEEP protocol tree field.
-  pub tree: sparse_bitfield::Bitfield,
-  index: sparse_bitfield::Bitfield,
+  pub tree: SparseBitfield,
+  index: SparseBitfield,
   page_len: usize,
   length: usize,
   masks: Masks,
-  iterator: flat::Iterator,
+  iterator: FlatIterator,
 }
 
 impl Default for Bitfield {
@@ -48,13 +46,13 @@ impl Bitfield {
   /// Create a new instance.
   pub fn new() -> Self {
     Self {
-      data: sparse_bitfield::Bitfield::new(1024),
-      tree: sparse_bitfield::Bitfield::new(2048),
-      index: sparse_bitfield::Bitfield::new(256),
+      data: SparseBitfield::new(1024),
+      tree: SparseBitfield::new(2048),
+      index: SparseBitfield::new(256),
       page_len: 3328,
       length: 0,
       masks: Masks::new(),
-      iterator: flat::Iterator::new(0),
+      iterator: FlatIterator::new(0),
     }
   }
 
@@ -239,7 +237,7 @@ impl Bitfield {
 
 // NOTE: can we move this into `sparse_bitfield`?
 fn set_byte_no_alloc(
-  bf: &mut sparse_bitfield::Bitfield,
+  bf: &mut SparseBitfield,
   index: usize,
   byte: u8,
 ) -> Change {

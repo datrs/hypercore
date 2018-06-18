@@ -1,17 +1,14 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-extern crate flat_tree as flat;
-extern crate random_access_disk as rad;
-extern crate random_access_memory as ram;
-extern crate random_access_storage as ras;
-extern crate sparse_bitfield;
-extern crate tree_index;
-
 pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
+use flat;
+use proof::Proof;
+use rad::{RandomAccessDisk, RandomAccessDiskMethods};
+use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::cmp;
@@ -19,7 +16,6 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tree_index::TreeIndex;
-use proof::Proof;
 use Result;
 
 /// Append-only log structure.
@@ -378,7 +374,7 @@ where
   }
 }
 
-impl Feed<self::rad::RandomAccessDiskMethods> {
+impl Feed<RandomAccessDiskMethods> {
   /// Create a new instance that persists to disk at the location of `dir`.
   // TODO: Ensure that dir is always a directory.
   // NOTE: Should we `mkdirp` here?
@@ -391,7 +387,7 @@ impl Feed<self::rad::RandomAccessDiskMethods> {
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
       };
-      rad::RandomAccessDisk::new(dir.as_path().join(name))
+      RandomAccessDisk::new(dir.as_path().join(name))
     };
 
     let storage = Storage::new(create)?;
@@ -405,10 +401,10 @@ impl Feed<self::rad::RandomAccessDiskMethods> {
 /// ## Panics
 /// Can panic if constructing the in-memory store fails, which is highly
 /// unlikely.
-impl Default for Feed<self::ram::RandomAccessMemoryMethods> {
+impl Default for Feed<RandomAccessMemoryMethods> {
   fn default() -> Self {
-    let create = |_| ram::RandomAccessMemory::default();
-    let storage = ::storage::Storage::new(create).unwrap();
+    let create = |_| RandomAccessMemory::default();
+    let storage = Storage::new(create).unwrap();
     Self::with_storage(storage).unwrap()
   }
 }

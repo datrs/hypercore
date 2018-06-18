@@ -1,13 +1,9 @@
 //! Generate an `Ed25519` keypair.
 
-extern crate ed25519_dalek;
-extern crate rand;
-extern crate sha2;
+pub use ed25519_dalek::{Keypair, PublicKey, Signature};
 
-pub use self::ed25519_dalek::{Keypair, PublicKey, Signature};
-
-use self::rand::OsRng;
-use self::sha2::Sha512;
+use rand::OsRng;
+use sha2::Sha512;
 use Result;
 
 /// Generate a new `Ed25519` key pair.

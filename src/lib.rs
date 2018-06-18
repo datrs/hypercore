@@ -8,25 +8,33 @@ extern crate lazy_static;
 #[macro_use]
 extern crate failure;
 
+extern crate blake2_rfc as blake2;
+extern crate byteorder;
+extern crate ed25519_dalek;
 extern crate flat_tree as flat;
+extern crate merkle_tree_stream;
+extern crate pretty_hash;
+extern crate rand;
 extern crate random_access_disk as rad;
 extern crate random_access_memory as ram;
 extern crate random_access_storage as ras;
+extern crate sha2;
+extern crate sleep_parser;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
 pub mod bitfield;
 mod crypto;
 mod feed;
-mod storage;
 mod proof;
+mod storage;
 
 mod feed_builder;
 
-pub use proof::Proof;
 pub use crypto::{Keypair, Signature};
 pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
+pub use proof::Proof;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use failure::Error;

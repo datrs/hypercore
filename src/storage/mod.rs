@@ -1,23 +1,17 @@
 //! Save data to a desired storage backend.
 
-extern crate ed25519_dalek;
-extern crate flat_tree as flat;
-extern crate merkle_tree_stream as merkle_stream;
-extern crate random_access_disk as rad;
-extern crate random_access_memory as ram;
-extern crate random_access_storage as ras;
-extern crate sleep_parser;
-
 mod node;
 mod persist;
 
-pub use self::merkle_stream::Node as NodeTrait;
 pub use self::node::Node;
 pub use self::persist::Persist;
+pub use merkle_tree_stream::Node as NodeTrait;
 
-use self::ed25519_dalek::Signature;
-use self::ras::RandomAccessMethods;
-use self::sleep_parser::*;
+use ed25519_dalek::Signature;
+use flat;
+use ras::RandomAccess;
+use ras::RandomAccessMethods;
+use sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::Range;
@@ -44,10 +38,10 @@ pub struct Storage<T>
 where
   T: RandomAccessMethods + Debug,
 {
-  tree: ras::RandomAccess<T>,
-  data: ras::RandomAccess<T>,
-  bitfield: ras::RandomAccess<T>,
-  signatures: ras::RandomAccess<T>,
+  tree: RandomAccess<T>,
+  data: RandomAccess<T>,
+  bitfield: RandomAccess<T>,
+  signatures: RandomAccess<T>,
 }
 
 impl<T> Storage<T>
@@ -60,7 +54,7 @@ where
   // requiring a key pair to be initialized before creating a new instance.
   pub fn new<Cb>(create: Cb) -> Result<Self>
   where
-    Cb: Fn(Store) -> ras::RandomAccess<T>,
+    Cb: Fn(Store) -> RandomAccess<T>,
   {
     let mut instance = Self {
       tree: create(Store::Tree),

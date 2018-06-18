@@ -1,9 +1,6 @@
-extern crate byteorder;
-extern crate merkle_tree_stream as merkle_stream;
-extern crate pretty_hash;
-
-use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use self::merkle_stream::Node as NodeTrait;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use merkle_tree_stream::Node as NodeTrait;
+use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
@@ -114,7 +111,7 @@ impl Display for Node {
       f,
       "Node {{ index: {}, hash: {}, length: {} }}",
       self.index,
-      pretty_hash::fmt(&self.hash).unwrap(),
+      pretty_fmt(&self.hash).unwrap(),
       self.length
     )
   }

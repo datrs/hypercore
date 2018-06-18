@@ -1,14 +1,9 @@
-extern crate blake2_rfc as blake2;
-extern crate byteorder;
-extern crate ed25519_dalek;
-extern crate merkle_tree_stream as merkle_stream;
+pub use blake2::blake2b::Blake2bResult;
 
-pub use self::blake2::blake2b::Blake2bResult;
-
-use self::blake2::blake2b::Blake2b;
-use self::byteorder::{BigEndian, WriteBytesExt};
-// use self::ed25519_dalek::PublicKey;
-use self::merkle_stream::Node as NodeTrait;
+use blake2::blake2b::Blake2b;
+use byteorder::{BigEndian, WriteBytesExt};
+// use ed25519_dalek::PublicKey;
+use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::ops::{Deref, DerefMut};
 use storage::Node;
