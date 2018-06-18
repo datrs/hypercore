@@ -9,9 +9,7 @@
 ///   let feed = Feed::default();
 /// }
 /// ```
-pub mod prelude {
-  pub use crypto::Keypair;
-  pub use feed::Feed;
-  pub use feed_builder::FeedBuilder;
-  pub use storage::{Node, NodeTrait, Storage, Store};
-}
+pub use crypto::Keypair;
+pub use feed::Feed;
+pub use feed_builder::FeedBuilder;
+pub use storage::{Node, NodeTrait, Storage, Store};

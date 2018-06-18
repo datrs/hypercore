@@ -203,7 +203,7 @@ where
       } else if !missing_nodes.is_empty() && missing_nodes[0].index == next {
         node = missing_nodes.remove(0);
       } else {
-        let nodes = self.verify_roots(top, &mut proof)?;
+        let nodes = self.verify_roots(&top, &mut proof)?;
         visited.extend_from_slice(&nodes);
         self.write(index, Some(&data), &visited, Some(&proof.signature))?;
         return Ok(());
@@ -326,10 +326,10 @@ where
 
   fn verify_roots(
     &mut self,
-    top: Node,
+    top: &Node,
     proof: &mut Proof,
   ) -> Result<Vec<Node>> {
-    let last_node = if proof.nodes.len() > 0 {
+    let last_node = if !proof.nodes.is_empty() {
       proof.nodes[proof.nodes.len() - 1].index
     } else {
       top.index
