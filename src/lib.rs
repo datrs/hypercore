@@ -1,7 +1,7 @@
-#![deny(missing_docs)]
+#![cfg_attr(nightly, deny(missing_docs))]
+#![cfg_attr(nightly, feature(external_doc))]
+#![cfg_attr(nightly, doc(include = "../README.md"))]
 #![cfg_attr(test, deny(warnings))]
-#![feature(external_doc)]
-#![doc(include = "../README.md")]
 
 #[macro_use]
 extern crate lazy_static;
