@@ -15,7 +15,8 @@ pub use self::merkle_stream::Node as NodeTrait;
 pub use self::node::Node;
 pub use self::persist::Persist;
 
-use self::ed25519_dalek::Signature;use self::ras::RandomAccessMethods;
+use self::ed25519_dalek::Signature;
+use self::ras::RandomAccessMethods;
 use self::sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;

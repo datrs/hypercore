@@ -1,5 +1,5 @@
-use ras::RandomAccessMethods;
 use super::Storage;
+use ras::RandomAccessMethods;
 use std::fmt::Debug;
 use Result;
 

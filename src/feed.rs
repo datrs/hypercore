@@ -7,7 +7,7 @@ extern crate random_access_storage as ras;
 extern crate sparse_bitfield;
 extern crate tree_index;
 
-pub use crypto::{Keypair};
+pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
