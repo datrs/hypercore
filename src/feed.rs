@@ -19,17 +19,8 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tree_index::TreeIndex;
+use proof::Proof;
 use Result;
-
-/// A merkle proof for an index, created by the `.proof()` method.
-pub struct Proof {
-  /// The index to which this proof corresponds.
-  pub index: usize,
-  /// Nodes that verify the index you passed.
-  pub nodes: Vec<Node>,
-  /// An `ed25519` signature, guaranteeing the integrity of the nodes.
-  pub signature: Signature,
-}
 
 /// Append-only log structure.
 pub struct Feed<T>

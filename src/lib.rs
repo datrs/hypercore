@@ -19,11 +19,13 @@ pub mod bitfield;
 mod crypto;
 mod feed;
 mod storage;
+mod proof;
 
 mod feed_builder;
 
-pub use crypto::Keypair;
-pub use feed::{Feed, Proof};
+pub use proof::Proof;
+pub use crypto::{Keypair, Signature};
+pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
