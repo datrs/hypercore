@@ -83,3 +83,20 @@ fn verify() {
   let res = evil_feed.verify(0, &sig);
   assert!(res.is_err());
 }
+
+#[test]
+fn put() {
+  let mut a = create_feed(50).unwrap();
+  let bytes = &a.keypair().to_bytes();
+  let keypair = Keypair::from_bytes(bytes).unwrap();
+
+  let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
+  let mut b = FeedBuilder::new(keypair, storage).build().unwrap();
+
+  for n in 0..10 {
+    a.append(b"foo").unwrap();
+  }
+
+  let proof = a.proof(0).unwrap();
+  b.put(0, b"", proof).unwrap();
+}
