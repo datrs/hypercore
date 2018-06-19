@@ -28,10 +28,9 @@ pub mod prelude;
 
 mod crypto;
 mod feed;
+mod feed_builder;
 mod proof;
 mod storage;
-
-mod feed_builder;
 
 pub use crypto::{Keypair, Signature};
 pub use feed::Feed;
