@@ -107,6 +107,7 @@ where
       None => bail!("No proof available for index {}", index),
     };
 
+    // FIXME: index overflow can occur here. Number isn't clamped to 0.
     let signature = self.storage.get_signature(proof.verified_by / 2 - 1)?;
     let mut nodes = Vec::with_capacity(proof.nodes.len());
     for index in proof.nodes {
