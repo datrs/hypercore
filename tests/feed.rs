@@ -93,10 +93,10 @@ fn put() {
   let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
   let mut b = FeedBuilder::new(keypair, storage).build().unwrap();
 
-  for n in 0..10 {
+  for _ in 0..10 {
     a.append(b"foo").unwrap();
   }
 
   let proof = a.proof(0).unwrap();
-  b.put(0, b"", proof).unwrap();
+  b.put(0, None, proof).unwrap();
 }

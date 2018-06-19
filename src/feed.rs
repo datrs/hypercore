@@ -11,12 +11,13 @@ use rad::{RandomAccessDisk, RandomAccessDiskMethods};
 use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
 use ras::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
+use tree_index::TreeIndex;
+use Result;
+
 use std::cmp;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::rc::Rc;
-use tree_index::TreeIndex;
-use Result;
 
 /// Append-only log structure.
 pub struct Feed<T>
@@ -126,7 +127,7 @@ where
   pub fn put(
     &mut self,
     index: usize,
-    data: &[u8],
+    data: Option<&[u8]>,
     mut proof: Proof,
   ) -> Result<()> {
     let mut next = 2 * index;
@@ -171,11 +172,14 @@ where
     }
 
     let mut visited = vec![];
-    let mut top = Node::new(
-      2 * index,
-      Hash::from_leaf(&data).as_bytes().to_owned(),
-      data.len(),
-    );
+    let mut top = match data {
+      None => proof.nodes.remove(0),
+      Some(data) => Node::new(
+        2 * index,
+        Hash::from_leaf(&data).as_bytes().to_owned(),
+        data.len(),
+      ),
+    };
 
     let verify_node = |trusted: &Option<Node>, node: &Node| -> bool {
       match trusted {
@@ -188,7 +192,7 @@ where
 
     // check if we already have the hash for this node
     if verify_node(&trusted_node, &top) {
-      self.write(index, Some(data), &visited, None)?;
+      self.write(index, data, &visited, None)?;
       return Ok(());
     }
 
@@ -205,7 +209,7 @@ where
       } else {
         let nodes = self.verify_roots(&top, &mut proof)?;
         visited.extend_from_slice(&nodes);
-        self.write(index, Some(&data), &visited, Some(&proof.signature))?;
+        self.write(index, data, &visited, Some(&proof.signature))?;
         return Ok(());
       }
 
@@ -215,7 +219,7 @@ where
       top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 
       if verify_node(&trusted_node, &top) {
-        self.write(index, Some(data), &visited, None)?;
+        self.write(index, data, &visited, None)?;
         return Ok(());
       }
     }
