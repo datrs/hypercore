@@ -1,6 +1,6 @@
-pub use blake2::blake2b::Blake2bResult;
+pub use blake2_rfc::blake2b::Blake2bResult;
 
-use blake2::blake2b::Blake2b;
+use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 // use ed25519_dalek::PublicKey;
 use merkle_tree_stream::Node as NodeTrait;

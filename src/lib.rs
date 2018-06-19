@@ -8,16 +8,16 @@ extern crate lazy_static;
 #[macro_use]
 extern crate failure;
 
-extern crate blake2_rfc as blake2;
+extern crate blake2_rfc;
 extern crate byteorder;
 extern crate ed25519_dalek;
-extern crate flat_tree as flat;
+extern crate flat_tree;
 extern crate merkle_tree_stream;
 extern crate pretty_hash;
 extern crate rand;
-extern crate random_access_disk as rad;
-extern crate random_access_memory as ram;
-extern crate random_access_storage as ras;
+extern crate random_access_disk;
+extern crate random_access_memory;
+extern crate random_access_storage;
 extern crate sha2;
 extern crate sleep_parser;
 extern crate sparse_bitfield;

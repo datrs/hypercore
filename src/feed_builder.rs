@@ -1,5 +1,5 @@
 use crypto::{Keypair, Merkle};
-use ras::RandomAccessMethods;
+use random_access_storage::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use std::fmt::Debug;
 use storage::Storage;

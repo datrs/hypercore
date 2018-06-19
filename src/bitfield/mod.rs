@@ -20,7 +20,7 @@
 mod masks;
 
 use self::masks::Masks;
-use flat::{self, Iterator as FlatIterator};
+use flat_tree::{self, Iterator as FlatIterator};
 pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
 
 /// Bitfield with `{data, tree, index} fields.`
@@ -206,7 +206,7 @@ impl Bitfield {
 
   fn expand(&mut self, len: usize) {
     let mut roots = vec![]; // FIXME: alloc.
-    flat::full_roots(2 * len, &mut roots);
+    flat_tree::full_roots(2 * len, &mut roots);
     let bf = &mut self.index;
     let ite = &mut self.iterator;
     let masks = &self.masks;

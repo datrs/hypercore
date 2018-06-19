@@ -8,9 +8,8 @@ pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
 use ed25519_dalek::Signature;
-use flat;
-use ras::RandomAccess;
-use ras::RandomAccessMethods;
+use flat_tree as flat;
+use random_access_storage::{RandomAccess, RandomAccessMethods};
 use sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;

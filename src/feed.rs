@@ -5,11 +5,11 @@ pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
-use flat;
+use flat_tree as flat;
 use proof::Proof;
-use rad::{RandomAccessDisk, RandomAccessDiskMethods};
-use ram::{RandomAccessMemory, RandomAccessMemoryMethods};
-use ras::RandomAccessMethods;
+use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
+use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
+use random_access_storage::RandomAccessMethods;
 use sparse_bitfield::Bitfield;
 use tree_index::TreeIndex;
 use Result;
