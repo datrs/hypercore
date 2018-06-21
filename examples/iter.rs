@@ -58,9 +58,15 @@ impl<'b> iter::IntoIterator for &'b BookShelf {
 fn main() {
   let library = BookShelf {
     books: vec![
-      Book { title: "Das Kapital I".into() },
-      Book { title: "Das Kapital II".into() },
-      Book { title: "Das Kapital III".into() },
+      Book {
+        title: "Das Kapital I".into(),
+      },
+      Book {
+        title: "Das Kapital II".into(),
+      },
+      Book {
+        title: "Das Kapital III".into(),
+      },
     ],
   };
 
