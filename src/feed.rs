@@ -102,24 +102,26 @@ where
 
   /// Return the Nodes which prove the correctness for the Node at index.
   pub fn proof(&mut self, index: usize) -> Result<Proof> {
-    let proof = match self.tree.proof(2 * index, vec![]) {
-      Some(proof) => proof,
-      None => bail!("No proof available for index {}", index),
-    };
+    let mut remote_tree = TreeIndex::default();
+    let mut nodes = vec![];
+    let proof = self.tree.proof(2 * index, &mut nodes, &mut remote_tree);
 
-    // FIXME: index overflow can occur here. Number isn't clamped to 0.
-    let signature = self.storage.get_signature(proof.verified_by / 2 - 1)?;
-    let mut nodes = Vec::with_capacity(proof.nodes.len());
-    for index in proof.nodes {
-      let node = self.storage.get_node(index)?;
-      nodes.push(node);
+    if let Some(proof) = proof {
+      let signature = self.storage.get_signature(proof.verified_by() / 2 - 1)?;
+      let mut nodes = Vec::with_capacity(proof.nodes().len());
+      for index in proof.nodes() {
+        let node = self.storage.get_node(*index)?;
+        nodes.push(node);
+      }
+
+      Ok(Proof {
+        nodes,
+        signature,
+        index,
+      })
+    } else {
+      bail!("No proof available for index {}", index);
     }
-
-    Ok(Proof {
-      nodes,
-      signature,
-      index,
-    })
   }
 
   /// Insert data into the tree at `index`. Verifies the `proof` when inserting
