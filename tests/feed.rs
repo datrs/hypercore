@@ -98,5 +98,6 @@ fn put() {
   }
 
   let proof = a.proof(0).unwrap();
-  b.put(0, None, proof).unwrap();
+  println!("proof {:?}", proof);
+  b.put(0, None, proof).expect("no error");
 }

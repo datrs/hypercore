@@ -124,6 +124,11 @@ where
     }
   }
 
+  /// Compute the digest for the index.
+  pub fn digest(&mut self, index: usize) -> usize {
+    self.tree.digest(2 * index)
+  }
+
   /// Insert data into the tree at `index`. Verifies the `proof` when inserting
   /// to make sure data is correct. Useful when replicating data from a remote
   /// host.
@@ -184,15 +189,6 @@ where
       ),
     };
 
-    let verify_node = |trusted: &Option<Node>, node: &Node| -> bool {
-      match trusted {
-        None => false,
-        Some(trusted) => {
-          trusted.index == node.index && trusted.hash == node.hash
-        }
-      }
-    };
-
     // check if we already have the hash for this node
     if verify_node(&trusted_node, &top) {
       self.write(index, data, &visited, None)?;
@@ -224,6 +220,15 @@ where
       if verify_node(&trusted_node, &top) {
         self.write(index, data, &visited, None)?;
         return Ok(());
+      }
+    }
+
+    fn verify_node(trusted: &Option<Node>, node: &Node) -> bool {
+      match trusted {
+        None => false,
+        Some(trusted) => {
+          trusted.index == node.index && trusted.hash == node.hash
+        }
       }
     }
   }
