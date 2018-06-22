@@ -153,6 +153,9 @@ where
 
   /// TODO(yw) docs
   /// Get the offset for the data, return `(offset, size)`.
+  ///
+  /// ## Panics
+  /// A panic can occur if no maximum value is found.
   pub fn data_offset(
     &mut self,
     index: usize,
@@ -199,7 +202,7 @@ where
       return Ok(offset..offset + len);
     }
 
-    panic!("Loop executed without finding max value");
+    unreachable!();
   }
 
   /// Get a `Node` from the `tree` storage.
