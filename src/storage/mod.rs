@@ -113,7 +113,7 @@ where
   // FIXME: data_offset always reads out index 0, length 0
   #[inline]
   pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>> {
-    let cached_nodes = Vec::new(); // FIXME: reuse allocation.
+    let cached_nodes = Vec::new(); // TODO: reuse allocation.
     let range = self.data_offset(index, &cached_nodes)?;
     self.data.read(range.start, range.len())
   }
@@ -161,7 +161,7 @@ where
     index: usize,
     cached_nodes: &[Node],
   ) -> Result<Range<usize>> {
-    let mut roots = Vec::new(); // FIXME: reuse alloc
+    let mut roots = Vec::new(); // TODO: reuse alloc
     flat::full_roots(2 * index, &mut roots);
 
     let mut offset = 0;

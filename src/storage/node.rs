@@ -51,7 +51,7 @@ impl Node {
       hash.push(reader.read_u8()?);
     }
 
-    // FIXME: This will blow up on 32 bit systems, because usize can be 32 bits.
+    // TODO: This will blow up on 32 bit systems, because usize can be 32 bits.
     let length = reader.read_u64::<BigEndian>()? as usize;
     Ok(Self {
       hash,

@@ -25,7 +25,7 @@ pub struct Hash {
 impl Hash {
   /// Hash a `Leaf` node.
   pub fn from_leaf(data: &[u8]) -> Self {
-    let mut size = vec![]; // FIXME: allocate once only.
+    let mut size = vec![]; // TODO: allocate once only.
     size.write_u64::<BigEndian>(data.len() as u64).unwrap();
 
     let mut hasher = Blake2b::new(32);
@@ -40,7 +40,7 @@ impl Hash {
 
   /// Hash two `Leaf` nodes hashes together to form a `Parent` hash.
   pub fn from_hashes(left: &[u8], right: &[u8]) -> Self {
-    let mut size = vec![]; // FIXME: allocate once only.
+    let mut size = vec![]; // TODO: allocate once only.
     size
       .write_u64::<BigEndian>((left.len() + right.len()) as u64)
       .unwrap();
@@ -75,11 +75,11 @@ impl Hash {
 
     for node in roots {
       let node = node.as_ref();
-      let mut position = Vec::with_capacity(1); // FIXME: allocate once only.
+      let mut position = Vec::with_capacity(1); // TODO: allocate once only.
       position
         .write_u64::<BigEndian>((node.index()) as u64)
         .unwrap();
-      let mut len = Vec::with_capacity(1); // FIXME: allocate once only.
+      let mut len = Vec::with_capacity(1); // TODO: allocate once only.
       len.write_u64::<BigEndian>((node.len()) as u64).unwrap();
       hasher.update(node.hash());
       hasher.update(&position);
