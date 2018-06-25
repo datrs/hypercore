@@ -6,6 +6,7 @@ pub use storage::{Node, NodeTrait, Storage, Store};
 
 use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
 use flat_tree as flat;
+use pretty_hash::fmt as pretty_fmt;
 use proof::Proof;
 use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
 use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
@@ -15,7 +16,7 @@ use tree_index::TreeIndex;
 use Result;
 
 use std::cmp;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -418,5 +419,21 @@ impl Default for Feed<RandomAccessMemoryMethods> {
     let create = |_| RandomAccessMemory::default();
     let storage = Storage::new(create).unwrap();
     Self::with_storage(storage).unwrap()
+  }
+}
+
+impl<T: RandomAccessMethods + Debug> Display for Feed<T> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    // TODO: yay, we should find a way to convert this .unwrap() to an error
+    // type that's accepted by `fmt::Result<(), fmt::Error>`.
+    let key = pretty_fmt(&self.keypair.public.to_bytes()).unwrap();
+    let byte_len = self.byte_len();
+    let len = self.len();
+    let peers = 0; // TODO: update once we actually have peers.
+    write!(
+      f,
+      "Hypercore(key=[{}], length={}, byte_length={}, peers={})",
+      key, len, byte_len, peers
+    )
   }
 }
