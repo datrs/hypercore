@@ -8,6 +8,13 @@ use helpers::create_feed;
 use hypercore::{FeedBuilder, Keypair, NodeTrait, Storage};
 
 #[test]
+fn display() {
+  let feed = create_feed(50).unwrap();
+  let output = format!("{}", feed);
+  assert_eq!(output.len(), 61);
+}
+
+#[test]
 /// Verify `.append()` and `.get()` work.
 fn set_get() {
   let mut feed = create_feed(50).unwrap();
