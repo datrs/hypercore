@@ -97,7 +97,7 @@ fn put() {
     a.append(b"foo").unwrap();
   }
 
+  // TODO: fix proof for data 10
   let proof = a.proof(0).unwrap();
-  println!("proof {:?}", proof);
   b.put(0, None, proof).expect("no error");
 }

@@ -110,9 +110,11 @@ where
       let signature = self.storage.get_signature(proof.verified_by() / 2 - 1)?;
       let mut nodes = Vec::with_capacity(proof.nodes().len());
       for index in proof.nodes() {
+        println!("proof.nodes index {}", index);
         let node = self.storage.get_node(*index)?;
         nodes.push(node);
       }
+
 
       Ok(Proof {
         nodes,
@@ -180,13 +182,16 @@ where
     }
 
     let mut visited = vec![];
+    for node in &proof.nodes {
+      println!("index {}", node.index);
+    }
     let mut top = match data {
-      None => proof.nodes.remove(0),
       Some(data) => Node::new(
         2 * index,
         Hash::from_leaf(&data).as_bytes().to_owned(),
         data.len(),
       ),
+      None => proof.nodes.remove(0),
     };
 
     // check if we already have the hash for this node
@@ -356,6 +361,7 @@ where
     let mut roots = Vec::with_capacity(indexes.len());
     let mut extra_nodes = vec![];
 
+    // FIXME: top.index should be 7, is 2
     for index in indexes {
       if index == top.index {
         extra_nodes.push(top.clone());

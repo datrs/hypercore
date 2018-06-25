@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use merkle_tree_stream::Node as NodeTrait;
+use flat_tree;
 use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
@@ -24,15 +25,15 @@ impl Node {
   /// Create a new instance.
   // TODO: ensure sizes are correct.
   pub fn new(index: usize, hash: Vec<u8>, length: usize) -> Self {
-    let parent = 0; // FIXME: parent cannot be hardcoded to zero here.
-
-    Self {
+    let node = Self {
       index,
       hash,
       length,
-      parent,
+      parent: flat_tree::parent(index),
       data: Some(Vec::with_capacity(0)),
-    }
+    };
+    println!("index {}", node.index);
+    node
   }
 
   /// Convert a vector to a new instance.
@@ -41,7 +42,7 @@ impl Node {
   pub fn from_bytes(index: usize, buffer: &[u8]) -> Result<Self> {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
-    let parent = 0; // FIXME: this will screw us over.
+    let parent = flat_tree::parent(index);
     let mut reader = Cursor::new(buffer);
 
     // TODO: subslice directly, move cursor forward.
