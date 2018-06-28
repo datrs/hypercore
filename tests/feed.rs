@@ -104,7 +104,8 @@ fn put() {
     a.append(b"foo").unwrap();
   }
 
-  // TODO: fix proof for data 10
-  let proof = a.proof(0).unwrap();
+  let proof = a.proof(0, true).unwrap();
   b.put(0, None, proof).expect("no error");
+  a.proof_with_digest(4, b.digest(4), true)
+    .expect(".proof() index 4, digest 4");
 }
