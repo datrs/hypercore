@@ -14,6 +14,7 @@ use sparse_bitfield::Bitfield;
 use tree_index::TreeIndex;
 use Result;
 
+use std::borrow::Borrow;
 use std::cmp;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -101,20 +102,41 @@ where
   }
 
   /// Return the Nodes which prove the correctness for the Node at index.
-  pub fn proof(&mut self, index: usize) -> Result<Proof> {
+  pub fn proof(&mut self, index: usize, include_hash: bool) -> Result<Proof> {
+    self.proof_with_digest(index, 0, include_hash)
+  }
+
+  pub fn proof_with_digest(
+    &mut self,
+    index: usize,
+    digest: usize,
+    include_hash: bool,
+  ) -> Result<Proof> {
     let mut remote_tree = TreeIndex::default();
     let mut nodes = vec![];
-    let proof = self.tree.proof(2 * index, &mut nodes, &mut remote_tree);
+    let proof = self.tree.proof_with_digest(
+      2 * index,
+      digest,
+      include_hash,
+      &mut nodes,
+      &mut remote_tree,
+    );
+
+    println!("index -> {}", 2 * index);
 
     if let Some(proof) = proof {
-      let signature = self.storage.get_signature(proof.verified_by() / 2 - 1)?;
+      println!("verified_by {}", proof.verified_by());
+      let signature =
+        match self.storage.get_signature(proof.verified_by() / 2 - 1) {
+          Ok(sig) => Some(sig),
+          Err(_) => None,
+        };
       let mut nodes = Vec::with_capacity(proof.nodes().len());
       for index in proof.nodes() {
         println!("proof.nodes index {}", index);
         let node = self.storage.get_node(*index)?;
         nodes.push(node);
       }
-
 
       Ok(Proof {
         nodes,
@@ -213,7 +235,7 @@ where
       } else {
         let nodes = self.verify_roots(&top, &mut proof)?;
         visited.extend_from_slice(&nodes);
-        self.write(index, data, &visited, Some(&proof.signature))?;
+        self.write(index, data, &visited, proof.signature)?;
         return Ok(());
       }
 
@@ -251,7 +273,7 @@ where
     index: usize,
     data: Option<&[u8]>,
     nodes: &[Node],
-    sig: Option<&Signature>,
+    sig: Option<Signature>,
   ) -> Result<()> {
     for node in nodes {
       self.storage.put_node(node)?;
@@ -262,6 +284,7 @@ where
     }
 
     if let Some(sig) = sig {
+      let sig = sig.borrow();
       self.storage.put_signature(index, sig)?;
     }
 
@@ -311,7 +334,7 @@ where
     let message = Hash::from_roots(&roots);
     let message = message.as_bytes();
 
-    verify(&self.keypair.public, message, signature)?;
+    verify(&self.keypair.public, message, Some(signature))?;
     Ok(())
   }
 
@@ -378,7 +401,7 @@ where
     }
 
     let checksum = Hash::from_roots(&roots);
-    verify(&self.keypair.public, checksum.as_bytes(), &proof.signature)?;
+    verify(&self.keypair.public, checksum.as_bytes(), proof.signature())?;
 
     // Update the length if we grew the feed.
     let len = verified_by / 2;

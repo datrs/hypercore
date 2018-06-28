@@ -18,12 +18,21 @@ pub fn sign(keypair: &Keypair, msg: &[u8]) -> Signature {
 }
 
 /// Verify a signature on a message with a keypair's public key.
-pub fn verify(public: &PublicKey, msg: &[u8], sig: &Signature) -> Result<()> {
-  ensure!(
-    public.verify::<Sha512>(msg, sig),
-    "Signature verification failed"
-  );
-  Ok(())
+pub fn verify(
+  public: &PublicKey,
+  msg: &[u8],
+  sig: Option<&Signature>,
+) -> Result<()> {
+  match sig {
+    None => bail!("Signature verification failed"),
+    Some(sig) => {
+      ensure!(
+        public.verify::<Sha512>(msg, sig),
+        "Signature verification failed"
+      );
+      Ok(())
+    }
+  }
 }
 
 #[test]
@@ -31,6 +40,6 @@ fn can_verify_messages() {
   let keypair = generate();
   let from = b"hello";
   let sig = sign(&keypair, from);
-  verify(&keypair.public, from, &sig).unwrap();
-  verify(&keypair.public, b"oops", &sig).is_err();
+  verify(&keypair.public, from, Some(&sig)).unwrap();
+  verify(&keypair.public, b"oops", Some(&sig)).is_err();
 }

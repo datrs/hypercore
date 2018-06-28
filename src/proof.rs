@@ -9,5 +9,25 @@ pub struct Proof {
   /// Nodes that verify the index you passed.
   pub nodes: Vec<Node>,
   /// An `ed25519` signature, guaranteeing the integrity of the nodes.
-  pub signature: Signature,
+  pub signature: Option<Signature>,
+}
+
+impl Proof {
+  /// Access the `index` field from the proof.
+  pub fn index(&self) -> usize {
+    self.index
+  }
+
+  /// Access the `nodes` field from the proof.
+  pub fn nodes(&self) -> &[Node] {
+    &self.nodes
+  }
+
+  /// Access the `signature` field from the proof.
+  pub fn signature(&self) -> Option<&Signature> {
+    match self.signature {
+      None => None,
+      Some(ref sig) => Some(sig),
+    }
+  }
 }
