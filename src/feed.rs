@@ -126,12 +126,17 @@ where
     println!("index -> {}", 2 * index);
 
     if let Some(proof) = proof {
-      println!("verified_by {}", proof.verified_by());
-      let signature =
-        match self.storage.get_signature(proof.verified_by() / 2 - 1) {
+      let tmp_num = proof.verified_by() / 2;
+      let (sig_index, has_underflow) = tmp_num.overflowing_sub(1);
+      let signature = if has_underflow {
+        None
+      } else {
+        match self.storage.get_signature(sig_index) {
           Ok(sig) => Some(sig),
           Err(_) => None,
-        };
+        }
+      };
+
       let mut nodes = Vec::with_capacity(proof.nodes().len());
       for index in proof.nodes() {
         println!("proof.nodes index {}", index);
