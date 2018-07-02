@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use merkle_tree_stream::Node as NodeTrait;
 use flat_tree;
+use merkle_tree_stream::Node as NodeTrait;
 use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
@@ -25,15 +25,13 @@ impl Node {
   /// Create a new instance.
   // TODO: ensure sizes are correct.
   pub fn new(index: usize, hash: Vec<u8>, length: usize) -> Self {
-    let node = Self {
+    Self {
       index,
       hash,
       length,
       parent: flat_tree::parent(index),
       data: Some(Vec::with_capacity(0)),
-    };
-    println!("index {}", node.index);
-    node
+    }
   }
 
   /// Convert a vector to a new instance.

@@ -115,6 +115,7 @@ where
   ) -> Result<Proof> {
     let mut remote_tree = TreeIndex::default();
     let mut nodes = vec![];
+
     let proof = self.tree.proof_with_digest(
       2 * index,
       digest,
@@ -123,35 +124,33 @@ where
       &mut remote_tree,
     );
 
-    println!("index -> {}", 2 * index);
+    let proof = match proof {
+      Some(proof) => proof,
+      None => bail!("No proof available for index {}", index),
+    };
 
-    if let Some(proof) = proof {
-      let tmp_num = proof.verified_by() / 2;
-      let (sig_index, has_underflow) = tmp_num.overflowing_sub(1);
-      let signature = if has_underflow {
-        None
-      } else {
-        match self.storage.get_signature(sig_index) {
-          Ok(sig) => Some(sig),
-          Err(_) => None,
-        }
-      };
-
-      let mut nodes = Vec::with_capacity(proof.nodes().len());
-      for index in proof.nodes() {
-        println!("proof.nodes index {}", index);
-        let node = self.storage.get_node(*index)?;
-        nodes.push(node);
-      }
-
-      Ok(Proof {
-        nodes,
-        signature,
-        index,
-      })
+    let tmp_num = proof.verified_by() / 2;
+    let (sig_index, has_underflow) = tmp_num.overflowing_sub(1);
+    let signature = if has_underflow {
+      None
     } else {
-      bail!("No proof available for index {}", index);
+      match self.storage.get_signature(sig_index) {
+        Ok(sig) => Some(sig),
+        Err(_) => None,
+      }
+    };
+
+    let mut nodes = Vec::with_capacity(proof.nodes().len());
+    for index in proof.nodes() {
+      let node = self.storage.get_node(*index)?;
+      nodes.push(node);
     }
+
+    Ok(Proof {
+      nodes,
+      signature,
+      index,
+    })
   }
 
   /// Compute the digest for the index.
@@ -171,22 +170,23 @@ where
     let mut next = 2 * index;
     let mut trusted: Option<usize> = None;
     let mut missing = vec![];
-    let mut i = 0;
+
+    let mut i = match data {
+      Some(_) => 0,
+      None => 1,
+    };
 
     loop {
       if self.tree.get(next) {
         trusted = Some(next);
         break;
       }
-
       let sibling = flat::sibling(next);
       next = flat::parent(next);
-
       if i < proof.nodes.len() && proof.nodes[i].index == sibling {
         i += 1;
         continue;
       }
-
       if !self.tree.get(sibling) {
         break;
       }
@@ -210,9 +210,6 @@ where
     }
 
     let mut visited = vec![];
-    for node in &proof.nodes {
-      println!("index {}", node.index);
-    }
     let mut top = match data {
       Some(data) => Node::new(
         2 * index,
@@ -239,6 +236,7 @@ where
       } else if !missing_nodes.is_empty() && missing_nodes[0].index == next {
         node = missing_nodes.remove(0);
       } else {
+        // TODO: panics here
         let nodes = self.verify_roots(&top, &mut proof)?;
         visited.extend_from_slice(&nodes);
         self.write(index, data, &visited, proof.signature)?;
@@ -384,13 +382,11 @@ where
     let verified_by =
       cmp::max(flat::right_span(top.index), flat::right_span(last_node)) + 2;
 
-    // `Feed.prototype._getRootsToVerify in the JS implementation`
     let mut indexes = vec![];
     flat::full_roots(verified_by, &mut indexes);
     let mut roots = Vec::with_capacity(indexes.len());
     let mut extra_nodes = vec![];
 
-    // FIXME: top.index should be 7, is 2
     for index in indexes {
       if index == top.index {
         extra_nodes.push(top.clone());

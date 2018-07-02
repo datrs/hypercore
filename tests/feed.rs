@@ -106,6 +106,8 @@ fn put() {
 
   let proof = a.proof(0, true).unwrap();
   b.put(0, None, proof).expect("no error");
-  a.proof_with_digest(4, b.digest(4), true)
+  let proof = a
+    .proof_with_digest(4, b.digest(4), true)
     .expect(".proof() index 4, digest 4");
+  b.put(4, None, proof).unwrap();
 }

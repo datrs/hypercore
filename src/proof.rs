@@ -25,9 +25,6 @@ impl Proof {
 
   /// Access the `signature` field from the proof.
   pub fn signature(&self) -> Option<&Signature> {
-    match self.signature {
-      None => None,
-      Some(ref sig) => Some(sig),
-    }
+    self.signature.as_ref()
   }
 }
