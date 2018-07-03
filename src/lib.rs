@@ -10,6 +10,7 @@ extern crate failure;
 
 extern crate blake2_rfc;
 extern crate byteorder;
+extern crate crossbeam_channel as channel;
 extern crate ed25519_dalek;
 extern crate flat_tree;
 extern crate merkle_tree_stream;
@@ -30,12 +31,14 @@ mod crypto;
 mod feed;
 mod feed_builder;
 mod proof;
+mod replicate;
 mod storage;
 
 pub use crypto::{Keypair, Signature};
 pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
 pub use proof::Proof;
+pub use replicate::Peer;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use failure::Error;
