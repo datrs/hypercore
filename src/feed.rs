@@ -439,6 +439,16 @@ impl Feed<RandomAccessDiskMethods> {
   }
 }
 
+impl<T> Feed<T>
+where
+  T: RandomAccessMethods + Debug,
+{
+  /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
+  pub fn builder(keypair: Keypair, storage: Storage<T>) -> FeedBuilder<T> {
+    FeedBuilder::new(keypair, storage)
+  }
+}
+
 /// Create a new instance with an in-memory storage backend.
 ///
 /// ## Panics
