@@ -116,10 +116,9 @@ where
 
   /// Return `true` if all data blocks within a range are available locally.
   #[inline]
-  pub fn has_all(&mut self, _range: ::std::ops::Range<usize>) -> bool {
-    // let total = range.len();
-    // total == self.bitfield.total_with_range(range)
-    unimplemented!();
+  pub fn has_all(&mut self, range: ::std::ops::Range<usize>) -> bool {
+    let total = range.len();
+    total == self.bitfield.total_with_range(range) as usize
   }
 
   /// Retrieve data from the log.

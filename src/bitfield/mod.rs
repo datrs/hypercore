@@ -22,6 +22,7 @@ mod masks;
 use self::masks::Masks;
 use flat_tree::{self, Iterator as FlatIterator};
 pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
+use std::ops::Range;
 
 /// Bitfield with `{data, tree, index} fields.`
 // #[derive(Debug)]
@@ -84,22 +85,14 @@ impl Bitfield {
   /// Calculate the total for the whole data.
   pub fn total(&mut self) -> u8 {
     let len = self.data.len();
-    self.total_with_range(0, len)
-  }
-
-  /// Calculate the total from the start value.
-  pub fn total_with_start(&mut self, start: usize) -> u8 {
-    let len = self.data.len();
-    self.total_with_range(start, len)
-  }
-
-  /// Calculate the total up until the end value.
-  pub fn total_with_end(&mut self, end: usize) -> u8 {
-    self.total_with_range(0, end)
+    self.total_with_range(0..len)
   }
 
   /// Calculate the total of ... TODO(yw)
-  pub fn total_with_range(&mut self, start: usize, end: usize) -> u8 {
+  pub fn total_with_range(&mut self, range: Range<usize>) -> u8 {
+    let start = range.start;
+    let end = range.end;
+
     if end < start {
       return 0;
     }
