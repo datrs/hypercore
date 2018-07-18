@@ -102,12 +102,10 @@ where
   /// recently appended block.
   #[inline]
   pub fn head(&mut self) -> Result<Option<Vec<u8>>> {
-    if self.len() == 0 {
-      return Ok(None);
+    match self.len() {
+      0 => Ok(None),
+      len => self.get(len - 1),
     }
-
-    let index = self.len() - 1;
-    self.get(index)
   }
 
   /// Return `true` if a data block is available locally.
