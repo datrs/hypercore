@@ -98,6 +98,17 @@ where
     Ok(())
   }
 
+  /// Get the block of data at the tip of the feed. This will be the most
+  /// recently appended block.
+  pub fn head(&mut self) -> Result<Option<Vec<u8>>> {
+    if self.len() == 0 {
+      return Ok(None);
+    }
+
+    let index = self.len() - 1;
+    self.get(index)
+  }
+
   /// Retrieve data from the log.
   pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>> {
     if !self.bitfield.get(index) {
