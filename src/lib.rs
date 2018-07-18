@@ -10,7 +10,6 @@ extern crate failure;
 
 extern crate blake2_rfc;
 extern crate byteorder;
-extern crate crossbeam_channel as channel;
 extern crate ed25519_dalek;
 extern crate flat_tree;
 extern crate merkle_tree_stream;

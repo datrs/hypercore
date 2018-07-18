@@ -26,7 +26,6 @@ sha2 = "0.7.1"
 sleep-parser = "0.4.0"
 sparse-bitfield = "0.4.0"
 tree-index = "0.4.0"
-crossbeam-channel = "0.2.1"
 
 [dev-dependencies]
 quickcheck = "0.6.2"
