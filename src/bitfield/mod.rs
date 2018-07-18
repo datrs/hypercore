@@ -89,6 +89,12 @@ impl Bitfield {
   }
 
   /// Calculate the total of ... TODO(yw)
+  pub fn total_with_start(&mut self, start: usize) -> u8 {
+    let len = self.data.len();
+    self.total_with_range(start..len)
+  }
+
+  /// Calculate the total of ... TODO(yw)
   pub fn total_with_range(&mut self, range: Range<usize>) -> u8 {
     let start = range.start;
     let end = range.end;

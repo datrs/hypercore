@@ -27,10 +27,10 @@ fn get_total_positive_bits() {
   assert_eq!(b.set(5, true), Changed);
   assert_eq!(b.set(39, true), Changed);
 
-  assert_eq!(b.total_with_range(0, 4), 2);
-  assert_eq!(b.total_with_range(3, 4), 0);
-  assert_eq!(b.total_with_range(3, 5), 1);
-  assert_eq!(b.total_with_range(3, 40), 3);
+  assert_eq!(b.total_with_range(0..4), 2);
+  assert_eq!(b.total_with_range(3..4), 0);
+  assert_eq!(b.total_with_range(3..5), 1);
+  assert_eq!(b.total_with_range(3..40), 3);
   assert_eq!(b.total(), 5);
   assert_eq!(b.total_with_start(7), 1);
 }
