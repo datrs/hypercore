@@ -100,6 +100,7 @@ where
 
   /// Get the block of data at the tip of the feed. This will be the most
   /// recently appended block.
+  #[inline]
   pub fn head(&mut self) -> Result<Option<Vec<u8>>> {
     if self.len() == 0 {
       return Ok(None);
@@ -107,6 +108,20 @@ where
 
     let index = self.len() - 1;
     self.get(index)
+  }
+
+  /// Return `true` if a data block is available locally.
+  #[inline]
+  pub fn has(&mut self, index: usize) -> bool {
+    self.bitfield.get(index)
+  }
+
+  /// Return `true` if all data blocks within a range are available locally.
+  #[inline]
+  pub fn has_all(&mut self, _range: ::std::ops::Range<usize>) -> bool {
+    // let total = range.len();
+    // total == self.bitfield.total_with_range(range)
+    unimplemented!();
   }
 
   /// Retrieve data from the log.
