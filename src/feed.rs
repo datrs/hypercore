@@ -51,6 +51,11 @@ where
     Ok(FeedBuilder::new(keypair, storage).build()?)
   }
 
+  /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
+  pub fn builder(keypair: Keypair, storage: Storage<T>) -> FeedBuilder<T> {
+    FeedBuilder::new(keypair, storage)
+  }
+
   /// Get the amount of entries in the feed.
   #[inline]
   pub fn len(&self) -> usize {
@@ -436,16 +441,6 @@ impl Feed<RandomAccessDiskMethods> {
     let storage = Storage::new(create)?;
     let keypair = generate_keypair(); // TODO: read keypair from disk;
     Ok(FeedBuilder::new(keypair, storage).build()?)
-  }
-}
-
-impl<T> Feed<T>
-where
-  T: RandomAccessMethods + Debug,
-{
-  /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
-  pub fn builder(keypair: Keypair, storage: Storage<T>) -> FeedBuilder<T> {
-    FeedBuilder::new(keypair, storage)
   }
 }
 
