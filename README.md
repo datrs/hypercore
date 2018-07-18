@@ -25,35 +25,6 @@ println!("{:?}", feed.get(0)); // prints "hello"
 println!("{:?}", feed.get(1)); // prints "world"
 ```
 
-## Networking Vaporware API
-```rust,ignore
-let feed = Feed::default();
-
-feed.append(b"data")?;
-
-for event in feed {
-  match event {
-    Event::Data(data) => {},
-    Event::PeerAdd => {},
-    Event::PeerRemove => {},
-    Event::Download => {},
-    Event::Synchronize => {},
-    Event::Append => {},
-  }
-}
-```
-
-## Data Structures
-- __feed:__ The main data structure in Hypercore. Append-only log that uses
-  multiple data structures and algorithms to safely store data.
-- __data:__ Data that's written to the feed by users.
-- __key pair:__ An `Ed25519` key pair used to encrypt data with.
-- __signature:__ A cryptographic certificate of authenticity for a given piece
-  of code.
-- __tree:__ A binary tree mapped as a `flat-tree` to keep an index of the
-  current data.
-- __bitfield:__ ???
-
 ## Installation
 ```sh
 $ cargo add hypercore
