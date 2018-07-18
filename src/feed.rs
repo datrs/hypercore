@@ -4,6 +4,7 @@ pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
+use bitfield::Bitfield;
 use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
@@ -11,7 +12,6 @@ use proof::Proof;
 use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
 use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
 use random_access_storage::RandomAccessMethods;
-use sparse_bitfield::Bitfield;
 use tree_index::TreeIndex;
 use Result;
 
