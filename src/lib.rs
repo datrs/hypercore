@@ -42,5 +42,5 @@ pub use storage::{Node, NodeTrait, Storage, Store};
 
 use failure::Error;
 
-/// Custom result shorthand for Hypercore.
+/// A specialized `Result` type for Hypercore operations.
 pub type Result<T> = std::result::Result<T, Error>;
