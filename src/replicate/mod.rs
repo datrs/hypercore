@@ -1,11 +1,16 @@
 // use sparse_bitfield::Bitfield;
 
+mod message;
+
+pub use self::message::Message;
+
 /// A peer on the network.
 // omitted fields: [
 //  feed,
 //  stream,
 //  inflightRequests,
 // ]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Peer {
   // remote_id: usize,
 // remote_length: usize,
@@ -17,4 +22,10 @@ pub struct Peer {
 // is_downloading: bool,
 // is_uploading: bool,
 // max_requests: u16,
+}
+
+impl Peer {
+  pub fn have(&mut self, _msg: &Message) {
+    unimplemented!();
+  }
 }

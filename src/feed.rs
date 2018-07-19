@@ -2,7 +2,7 @@
 
 pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
-use replicate::Peer;
+use replicate::{Message, Peer};
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use bitfield::Bitfield;
@@ -370,6 +370,15 @@ where
 
     verify(&self.keypair.public, message, Some(signature))?;
     Ok(())
+  }
+
+  /// Announce we have a piece of data to all other peers.
+  pub fn announce(&mut self, message: Message, from: &Peer) {
+    for peer in self.peers.iter_mut() {
+      if peer != from {
+        peer.have(&message)
+      }
+    }
   }
 
   /// Get all root hashes from the feed.
