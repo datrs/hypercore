@@ -41,6 +41,7 @@ where
       tree: TreeIndex::default(),
       keypair: self.keypair,
       storage: self.storage,
+      peers: vec![],
     })
   }
 }

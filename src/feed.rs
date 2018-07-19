@@ -2,6 +2,7 @@
 
 pub use crypto::Keypair;
 pub use feed_builder::FeedBuilder;
+use replicate::Peer;
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use bitfield::Bitfield;
@@ -39,6 +40,7 @@ where
   /// Bitfield to keep track of which data we own.
   pub(crate) bitfield: Bitfield,
   pub(crate) tree: TreeIndex,
+  pub(crate) peers: Vec<Peer>,
 }
 
 impl<T> Feed<T>
