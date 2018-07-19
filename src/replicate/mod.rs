@@ -28,4 +28,8 @@ impl Peer {
   pub fn have(&mut self, _msg: &Message) {
     unimplemented!();
   }
+
+  pub fn unhave(&mut self, _msg: &Message) {
+    unimplemented!();
+  }
 }
