@@ -123,6 +123,11 @@ where
     total == self.bitfield.total_with_range(range) as usize
   }
 
+  /// Get the total amount of chunks downloaded.
+  pub fn downloaded(&mut self, range: ::std::ops::Range<usize>) -> u8 {
+    self.bitfield.total_with_range(range)
+  }
+
   /// Retrieve data from the log.
   pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>> {
     if !self.bitfield.get(index) {
