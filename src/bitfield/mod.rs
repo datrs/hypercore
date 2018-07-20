@@ -142,12 +142,6 @@ impl Bitfield {
     total + self.masks.total_1_bits[index]
   }
 
-  /// Create an iterator that iterates over the bitfield.
-  // Wait with implementing the iterator until the very end.
-  pub fn iterator(&mut self, _start: usize, _end: usize) {
-    unimplemented!();
-  }
-
   /// Set a value at index.
   ///
   ///```txt
