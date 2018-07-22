@@ -379,19 +379,19 @@ where
 
   /// Announce we have a piece of data to all other peers.
   // TODO: probably shouldn't be public
-  pub fn announce(&mut self, message: Message, from: &Peer) {
-    for peer in self.peers.iter_mut() {
+  pub fn announce(&mut self, message: &Message, from: &Peer) {
+    for peer in &mut self.peers {
       if peer != from {
-        peer.have(&message)
+        peer.have(message)
       }
     }
   }
 
   /// Announce we no longer have a piece of data to all other peers.
   // TODO: probably shouldn't be public
-  pub fn unannounce(&mut self, message: Message) {
-    for peer in self.peers.iter_mut() {
-      peer.unhave(&message)
+  pub fn unannounce(&mut self, message: &Message) {
+    for peer in &mut self.peers {
+      peer.unhave(message)
     }
   }
 
