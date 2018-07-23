@@ -5,6 +5,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 // use ed25519_dalek::PublicKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
+use std::mem;
 use std::ops::{Deref, DerefMut};
 use storage::Node;
 
@@ -23,8 +24,7 @@ pub struct Hash {
 impl Hash {
   /// Hash a `Leaf` node.
   pub fn from_leaf(data: &[u8]) -> Self {
-    let mut size = vec![]; // TODO: allocate once only.
-    size.write_u64::<BigEndian>(data.len() as u64).unwrap();
+    let size = u64_as_be(data.len() as u64);
 
     let mut hasher = Blake2b::new(32);
     hasher.update(&LEAF_TYPE);
@@ -44,10 +44,7 @@ impl Hash {
       (right, left)
     };
 
-    let mut size = vec![]; // TODO: allocate once only.
-    size
-      .write_u64::<BigEndian>((node1.length + node2.length) as u64)
-      .unwrap();
+    let size = u64_as_be((node1.length + node2.length) as u64);
 
     let mut hasher = Blake2b::new(32);
     hasher.update(&PARENT_TYPE);
@@ -79,15 +76,9 @@ impl Hash {
 
     for node in roots {
       let node = node.as_ref();
-      let mut position = Vec::with_capacity(1); // TODO: allocate once only.
-      position
-        .write_u64::<BigEndian>((node.index()) as u64)
-        .unwrap();
-      let mut len = Vec::with_capacity(1); // TODO: allocate once only.
-      len.write_u64::<BigEndian>((node.len()) as u64).unwrap();
       hasher.update(node.hash());
-      hasher.update(&position);
-      hasher.update(&len);
+      hasher.update(&u64_as_be((node.index()) as u64));
+      hasher.update(&u64_as_be((node.len()) as u64));
     }
 
     Self {
@@ -99,6 +90,12 @@ impl Hash {
   pub fn as_bytes(&self) -> &[u8] {
     self.hash.as_bytes()
   }
+}
+
+fn u64_as_be(n: u64) -> [u8; 8] {
+  let mut size = [0u8; mem::size_of::<u64>()];
+  size.as_mut().write_u64::<BigEndian>(n).unwrap();
+  size
 }
 
 impl Deref for Hash {
