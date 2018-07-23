@@ -9,12 +9,10 @@ use std::ops::{Deref, DerefMut};
 use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
-lazy_static! {
-  static ref LEAF_TYPE: &'static [u8] = &[0];
-  static ref PARENT_TYPE: &'static [u8] = &[1];
-  static ref ROOT_TYPE: &'static [u8] = &[2];
-  // static ref HYPERCORE: &'static [u8] = b"hypercore";
-}
+const LEAF_TYPE: [u8; 1] = [0; 1];
+const PARENT_TYPE: [u8; 1] = [1; 1];
+const ROOT_TYPE: [u8; 1] = [2; 1];
+//const HYPERCORE: [u8; 9] = *b"hypercore";
 
 /// `BLAKE2b` hash.
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +27,7 @@ impl Hash {
     size.write_u64::<BigEndian>(data.len() as u64).unwrap();
 
     let mut hasher = Blake2b::new(32);
-    hasher.update(*LEAF_TYPE);
+    hasher.update(&LEAF_TYPE);
     hasher.update(&size);
     hasher.update(data);
 
@@ -52,7 +50,7 @@ impl Hash {
       .unwrap();
 
     let mut hasher = Blake2b::new(32);
-    hasher.update(*PARENT_TYPE);
+    hasher.update(&PARENT_TYPE);
     hasher.update(&size);
     hasher.update(node1.hash());
     hasher.update(node2.hash());
@@ -77,7 +75,7 @@ impl Hash {
   // Called `crypto.tree()` in the JS implementation.
   pub fn from_roots(roots: &[impl AsRef<Node>]) -> Self {
     let mut hasher = Blake2b::new(32);
-    hasher.update(*ROOT_TYPE);
+    hasher.update(&ROOT_TYPE);
 
     for node in roots {
       let node = node.as_ref();
