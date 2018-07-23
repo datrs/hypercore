@@ -10,9 +10,9 @@ use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
 lazy_static! {
-  static ref LEAF_TYPE: &'static [u8] = b"0";
-  static ref PARENT_TYPE: &'static [u8] = b"1";
-  static ref ROOT_TYPE: &'static [u8] = b"2";
+  static ref LEAF_TYPE: &'static [u8] = &[0];
+  static ref PARENT_TYPE: &'static [u8] = &[1];
+  static ref ROOT_TYPE: &'static [u8] = &[2];
   // static ref HYPERCORE: &'static [u8] = b"hypercore";
 }
 
@@ -108,5 +108,33 @@ impl Deref for Hash {
 impl DerefMut for Hash {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.hash
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  extern crate data_encoding;
+  use self::data_encoding::HEXLOWER;
+
+  fn hex_bytes(hex: &str) -> Vec<u8> {
+    HEXLOWER.decode(hex.as_bytes()).unwrap()
+  }
+
+  fn check_hash(hash: Hash, hex: &str) {
+    assert_eq!(hash.as_bytes(), &hex_bytes(hex)[..]);
+  }
+
+  #[test]
+  fn leaf_hash() {
+    check_hash(
+      Hash::from_leaf(&[]),
+      "5187b7a8021bf4f2c004ea3a54cfece1754f11c7624d2363c7f4cf4fddd1441e",
+    );
+    check_hash(
+      Hash::from_leaf(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+      "e1001bb0bb9322b6b202b2f737dc12181b11727168d33ca48ffe361c66cd1abe",
+    );
   }
 }
