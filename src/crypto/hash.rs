@@ -39,17 +39,23 @@ impl Hash {
   }
 
   /// Hash two `Leaf` nodes hashes together to form a `Parent` hash.
-  pub fn from_hashes(left: &[u8], right: &[u8]) -> Self {
+  pub fn from_hashes(left: &Node, right: &Node) -> Self {
+    let (node1, node2) = if left.index <= right.index {
+      (left, right)
+    } else {
+      (right, left)
+    };
+
     let mut size = vec![]; // TODO: allocate once only.
     size
-      .write_u64::<BigEndian>((left.len() + right.len()) as u64)
+      .write_u64::<BigEndian>((node1.length + node2.length) as u64)
       .unwrap();
 
     let mut hasher = Blake2b::new(32);
     hasher.update(*PARENT_TYPE);
     hasher.update(&size);
-    hasher.update(left);
-    hasher.update(right);
+    hasher.update(node1.hash());
+    hasher.update(node2.hash());
 
     Self {
       hash: hasher.finalize(),
@@ -135,6 +141,22 @@ mod tests {
     check_hash(
       Hash::from_leaf(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
       "e1001bb0bb9322b6b202b2f737dc12181b11727168d33ca48ffe361c66cd1abe",
+    );
+  }
+
+  #[test]
+  fn parent_hash() {
+    let d1: &[u8] = &[0, 1, 2, 3, 4];
+    let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
+    let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
+    let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+    check_hash(
+      Hash::from_hashes(&node1, &node2),
+      "6fac58578fa385f25a54c0637adaca71fdfddcea885d561f33d80c4487149a14",
+    );
+    check_hash(
+      Hash::from_hashes(&node2, &node1),
+      "6fac58578fa385f25a54c0637adaca71fdfddcea885d561f33d80c4487149a14",
     );
   }
 }

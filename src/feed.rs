@@ -279,7 +279,7 @@ where
       }
 
       visited.push(top.clone());
-      let hash = Hash::from_hashes(&top.hash, &node.hash);
+      let hash = Hash::from_hashes(&top, &node);
       let len = top.len() + node.len();
       top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 

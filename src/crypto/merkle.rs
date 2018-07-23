@@ -1,7 +1,5 @@
 use crypto::Hash;
-use merkle_tree_stream::{
-  HashMethods, MerkleTreeStream, Node as NodeTrait, PartialNode,
-};
+use merkle_tree_stream::{HashMethods, MerkleTreeStream, PartialNode};
 use std::rc::Rc;
 use storage::Node;
 
@@ -18,7 +16,7 @@ impl HashMethods for H {
   }
 
   fn parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Hash {
-    Hash::from_hashes(left.hash(), right.hash())
+    Hash::from_hashes(left, right)
   }
 
   fn node(&self, partial: &PartialNode, hash: Self::Hash) -> Self::Node {
