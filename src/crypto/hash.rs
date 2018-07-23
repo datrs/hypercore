@@ -159,4 +159,20 @@ mod tests {
       "6fac58578fa385f25a54c0637adaca71fdfddcea885d561f33d80c4487149a14",
     );
   }
+
+  #[test]
+  fn root_hash() {
+    let d1: &[u8] = &[0, 1, 2, 3, 4];
+    let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
+    let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
+    let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+    check_hash(
+      Hash::from_roots(&[&node1, &node2]),
+      "2d117e0bb15c6e5236b6ce764649baed1c41890da901a015341503146cc20bcd",
+    );
+    check_hash(
+      Hash::from_roots(&[&node2, &node1]),
+      "9826c8c2d28fc309cce73a4b6208e83e5e4b0433d2369bfbf8858272153849f1",
+    );
+  }
 }
