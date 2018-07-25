@@ -4,8 +4,6 @@
 #![cfg_attr(test, deny(warnings))]
 
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate failure;
 
 extern crate blake2_rfc;
