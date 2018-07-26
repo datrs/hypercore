@@ -19,6 +19,7 @@ use Result;
 use std::borrow::Borrow;
 use std::cmp;
 use std::fmt::{self, Debug, Display};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -467,6 +468,16 @@ where
     }
 
     Ok(extra_nodes)
+  }
+
+  /// (unimplemented) Provide a range of data to download.
+  pub fn download(&mut self, _range: Range<usize>) -> Result<()> {
+    unimplemented!();
+  }
+
+  /// (unimplemented) Provide a range of data to remove from the local storage.
+  pub fn undownload(&mut self, _range: Range<usize>) -> Result<()> {
+    unimplemented!();
   }
 }
 
