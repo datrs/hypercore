@@ -481,6 +481,16 @@ where
     unimplemented!();
   }
 
+  /// (unimplemented) End the feed.
+  pub fn finalize(&mut self) -> Result<()> {
+    // if (!this.key) {
+    //   this.key = crypto.tree(this._merkle.roots)
+    //   this.discoveryKey = crypto.discoveryKey(this.key)
+    // }
+    // this._storage.key.write(0, this.key, cb)
+    unimplemented!();
+  }
+
   /// Update all peers.
   pub fn update_peers(&mut self) {
     for peer in &mut self.peers {

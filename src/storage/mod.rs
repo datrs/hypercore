@@ -213,7 +213,6 @@ where
     Ok(node)
   }
 
-  /// TODO(yw) docs
   /// Write a `Node` to the `tree` storage.
   /// TODO: prevent extra allocs here. Implement a method on node that can reuse
   /// a buffer.
