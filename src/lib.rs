@@ -1,3 +1,4 @@
+#![deny(missing_debug_implementations)]
 #![cfg_attr(nightly, deny(missing_docs))]
 #![cfg_attr(nightly, feature(external_doc))]
 #![cfg_attr(nightly, doc(include = "../README.md"))]

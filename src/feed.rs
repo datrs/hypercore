@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 /// Append-only log structure.
+#[derive(Debug)]
 pub struct Feed<T>
 where
   T: RandomAccessMethods + Debug,

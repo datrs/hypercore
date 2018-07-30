@@ -25,7 +25,7 @@ pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
 use std::ops::Range;
 
 /// Bitfield with `{data, tree, index} fields.`
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct Bitfield {
   data: SparseBitfield,
   /// FIXME: SLEEP protocol tree field.
