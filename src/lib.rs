@@ -1,8 +1,9 @@
-#![deny(missing_debug_implementations)]
 #![cfg_attr(nightly, deny(missing_docs))]
 #![cfg_attr(nightly, feature(external_doc))]
 #![cfg_attr(nightly, doc(include = "../README.md"))]
 #![cfg_attr(test, deny(warnings))]
+#![deny(missing_debug_implementations)]
+#![forbid(unsafe_code)]
 
 #[macro_use]
 extern crate failure;
