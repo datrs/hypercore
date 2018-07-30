@@ -67,16 +67,19 @@ where
   }
 
   /// Check if the length is 0.
+  #[inline]
   pub fn is_empty(&self) -> bool {
     self.len() == 0
   }
 
   /// Get the total amount of bytes stored in the feed.
+  #[inline]
   pub fn byte_len(&self) -> usize {
     self.byte_length
   }
 
   /// Append data into the log.
+  #[inline]
   pub fn append(&mut self, data: &[u8]) -> Result<()> {
     self.merkle.next(data);
     let mut offset = 0;
@@ -126,11 +129,13 @@ where
   }
 
   /// Get the total amount of chunks downloaded.
+  #[inline]
   pub fn downloaded(&mut self, range: ::std::ops::Range<usize>) -> u8 {
     self.bitfield.total_with_range(range)
   }
 
   /// Retrieve data from the log.
+  #[inline]
   pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>> {
     if !self.bitfield.get(index) {
       // NOTE: Do (network) lookup here once we have network code.
@@ -140,6 +145,7 @@ where
   }
 
   /// Return the Nodes which prove the correctness for the Node at index.
+  #[inline]
   pub fn proof(&mut self, index: usize, include_hash: bool) -> Result<Proof> {
     self.proof_with_digest(index, 0, include_hash)
   }
