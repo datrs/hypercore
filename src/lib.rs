@@ -27,6 +27,7 @@ pub mod bitfield;
 pub mod prelude;
 
 mod crypto;
+mod event;
 mod feed;
 mod feed_builder;
 mod proof;
@@ -34,6 +35,7 @@ mod replicate;
 mod storage;
 
 pub use crypto::{Keypair, Signature};
+pub use event::Event;
 pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
 pub use proof::Proof;
