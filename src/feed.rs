@@ -479,6 +479,13 @@ where
   pub fn undownload(&mut self, _range: Range<usize>) -> Result<()> {
     unimplemented!();
   }
+
+  /// Update all peers.
+  pub fn update_peers(&mut self) {
+    for mut peer in self.peers.iter_mut() {
+      peer.update();
+    }
+  }
 }
 
 impl Feed<RandomAccessDiskMethods> {
