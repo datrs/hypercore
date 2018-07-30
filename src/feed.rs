@@ -437,7 +437,7 @@ where
   }
 
   /// Access the secret key.
-  pub fn secret(&self) -> &Option<SecretKey> {
+  pub fn secret_key(&self) -> &Option<SecretKey> {
     &self.secret_key
   }
 

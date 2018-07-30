@@ -4,8 +4,8 @@ extern crate random_access_memory as ram;
 
 mod helpers;
 
-use helpers::create_feed;
-use hypercore::{Feed, Keypair, NodeTrait, Storage};
+use helpers::{copy_keys, create_feed};
+use hypercore::{Feed, NodeTrait, Storage};
 
 #[test]
 fn create_with_key() {
@@ -75,15 +75,21 @@ fn root_hashes() {
 #[test]
 fn verify() {
   let mut feed = create_feed(50).unwrap();
-  let f_bytes = &feed.keypair().to_bytes();
-  let keypair = Keypair::from_bytes(f_bytes).unwrap();
-
+  let (public, secret) = copy_keys(&feed);
+  let feed_bytes = secret.to_bytes().to_vec();
   let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
-  let mut evil_feed = Feed::builder(keypair, storage).build().unwrap();
-  let ef_bytes = &feed.keypair().to_bytes();
+  let mut evil_feed = Feed::builder(public, storage)
+    .secret_key(secret)
+    .build()
+    .unwrap();
+
+  let evil_bytes = match &feed.secret_key() {
+    Some(key) => key.to_bytes(),
+    None => panic!("no secret key found"),
+  };
 
   // Verify the keys are the same.
-  assert_eq!(&f_bytes.to_vec(), &ef_bytes.to_vec());
+  assert_eq!(&feed_bytes, &evil_bytes.to_vec());
 
   // Verify that the signature on a single feed is correct.
   feed.append(b"test").unwrap();
@@ -99,11 +105,12 @@ fn verify() {
 #[test]
 fn put() {
   let mut a = create_feed(50).unwrap();
-  let bytes = &a.keypair().to_bytes();
-  let keypair = Keypair::from_bytes(bytes).unwrap();
-
+  let (public, secret) = copy_keys(&a);
   let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
-  let mut b = Feed::builder(keypair, storage).build().unwrap();
+  let mut b = Feed::builder(public, storage)
+    .secret_key(secret)
+    .build()
+    .unwrap();
 
   for _ in 0..10 {
     a.append(b"foo").unwrap();

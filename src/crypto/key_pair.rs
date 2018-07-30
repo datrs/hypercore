@@ -43,7 +43,7 @@ pub fn verify(
 fn can_verify_messages() {
   let keypair = generate();
   let from = b"hello";
-  let sig = sign(&keypair, from);
+  let sig = sign(&keypair.public, &keypair.secret, from);
   verify(&keypair.public, from, Some(&sig)).unwrap();
   verify(&keypair.public, b"oops", Some(&sig)).is_err();
 }

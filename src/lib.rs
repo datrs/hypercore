@@ -35,6 +35,7 @@ mod replicate;
 mod storage;
 
 pub use crypto::Signature;
+pub use ed25519_dalek::{PublicKey, SecretKey};
 pub use event::Event;
 pub use feed::Feed;
 pub use feed_builder::FeedBuilder;
