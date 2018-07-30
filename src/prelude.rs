@@ -9,7 +9,6 @@
 //!   let feed = Feed::default();
 //! }
 //! ```
-pub use crypto::Keypair;
 pub use feed::Feed;
-pub use feed_builder::FeedBuilder;
+// pub use feed_builder::FeedBuilder;
 pub use storage::{Node, NodeTrait, Storage, Store};

@@ -34,7 +34,7 @@ mod proof;
 mod replicate;
 mod storage;
 
-pub use crypto::{Keypair, Signature};
+pub use crypto::Signature;
 pub use event::Event;
 pub use feed::Feed;
 pub use feed_builder::FeedBuilder;

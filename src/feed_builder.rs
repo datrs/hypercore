@@ -1,5 +1,7 @@
+use ed25519_dalek::{PublicKey, SecretKey};
+
 use bitfield::Bitfield;
-use crypto::{Keypair, Merkle};
+use crypto::Merkle;
 use random_access_storage::RandomAccessMethods;
 use std::fmt::Debug;
 use storage::Storage;
@@ -16,8 +18,9 @@ pub struct FeedBuilder<T>
 where
   T: RandomAccessMethods + Debug,
 {
-  keypair: Keypair,
   storage: Storage<T>,
+  public_key: PublicKey,
+  secret_key: Option<SecretKey>,
 }
 
 impl<T> FeedBuilder<T>
@@ -26,8 +29,18 @@ where
 {
   /// Create a new instance.
   #[inline]
-  pub fn new(keypair: Keypair, storage: Storage<T>) -> Self {
-    Self { keypair, storage }
+  pub fn new(public_key: PublicKey, storage: Storage<T>) -> Self {
+    Self {
+      storage,
+      public_key,
+      secret_key: None,
+    }
+  }
+
+  /// Set the secret key.
+  pub fn secret_key(mut self, secret_key: SecretKey) -> Self {
+    self.secret_key = Some(secret_key);
+    self
   }
 
   /// Finalize the builder.
@@ -39,7 +52,8 @@ where
       length: 0,
       bitfield: Bitfield::default(),
       tree: TreeIndex::default(),
-      keypair: self.keypair,
+      public_key: self.public_key,
+      secret_key: self.secret_key,
       storage: self.storage,
       peers: vec![],
     })

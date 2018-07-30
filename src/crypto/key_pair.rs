@@ -1,6 +1,6 @@
 //! Generate an `Ed25519` keypair.
 
-pub use ed25519_dalek::{Keypair, PublicKey, Signature};
+pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 
 use rand::OsRng;
 use sha2::Sha512;
@@ -13,8 +13,12 @@ pub fn generate() -> Keypair {
 }
 
 /// Sign a byte slice using a keypair's private key.
-pub fn sign(keypair: &Keypair, msg: &[u8]) -> Signature {
-  keypair.sign::<Sha512>(msg)
+pub fn sign(
+  public_key: &PublicKey,
+  secret: &SecretKey,
+  msg: &[u8],
+) -> Signature {
+  secret.expand::<Sha512>().sign::<Sha512>(msg, public_key)
 }
 
 /// Verify a signature on a message with a keypair's public key.

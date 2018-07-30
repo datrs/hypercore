@@ -1,12 +1,13 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-pub use crypto::Keypair;
-pub use feed_builder::FeedBuilder;
+// use feed_builder::FeedBuilder;
+use feed_builder::FeedBuilder;
 use replicate::{Message, Peer};
 pub use storage::{Node, NodeTrait, Storage, Store};
 
 use bitfield::Bitfield;
-use crypto::{generate_keypair, sign, verify, Hash, Merkle, Signature};
+use crypto::{generate_keypair, sign, verify, Hash, Merkle};
+use ed25519_dalek::{PublicKey, SecretKey, Signature};
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
 use proof::Proof;
@@ -31,9 +32,8 @@ where
 {
   /// Merkle tree instance.
   pub(crate) merkle: Merkle,
-  /// Ed25519 key pair.
-  pub(crate) keypair: Keypair,
-  /// Struct that saves data to a `random-access-storage` backend.
+  pub(crate) public_key: PublicKey,
+  pub(crate) secret_key: Option<SecretKey>,
   pub(crate) storage: Storage<T>,
   /// Total length of data stored.
   pub(crate) byte_length: usize,
@@ -52,12 +52,15 @@ where
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self> {
     let keypair = generate_keypair(); // TODO: read key pair from disk;
-    Ok(FeedBuilder::new(keypair, storage).build()?)
+    let feed = FeedBuilder::new(keypair.public, storage)
+      .secret_key(keypair.secret)
+      .build()?;
+    Ok(feed)
   }
 
   /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
-  pub fn builder(keypair: Keypair, storage: Storage<T>) -> FeedBuilder<T> {
-    FeedBuilder::new(keypair, storage)
+  pub fn builder(public_key: PublicKey, storage: Storage<T>) -> FeedBuilder<T> {
+    FeedBuilder::new(public_key, storage)
   }
 
   /// Get the amount of entries in the feed.
@@ -81,6 +84,10 @@ where
   /// Append data into the log.
   #[inline]
   pub fn append(&mut self, data: &[u8]) -> Result<()> {
+    let key = match &self.secret_key {
+      Some(key) => key,
+      None => bail!("no secret key, cannot append."),
+    };
     self.merkle.next(data);
     let mut offset = 0;
 
@@ -89,7 +96,7 @@ where
 
     let hash = Hash::from_roots(self.merkle.roots());
     let index = self.length;
-    let signature = sign(&self.keypair, hash.as_bytes());
+    let signature = sign(&self.public_key, key, hash.as_bytes());
     self.storage.put_signature(index, signature)?;
 
     for node in self.merkle.nodes() {
@@ -381,7 +388,7 @@ where
     let message = Hash::from_roots(&roots);
     let message = message.as_bytes();
 
-    verify(&self.keypair.public, message, Some(signature))?;
+    verify(&self.public_key, message, Some(signature))?;
     Ok(())
   }
 
@@ -424,9 +431,14 @@ where
     Ok(roots)
   }
 
-  /// Access the keypair.
-  pub fn keypair(&self) -> &Keypair {
-    &self.keypair
+  /// Access the public key.
+  pub fn public_key(&self) -> &PublicKey {
+    &self.public_key
+  }
+
+  /// Access the secret key.
+  pub fn secret(&self) -> &Option<SecretKey> {
+    &self.secret_key
   }
 
   fn verify_roots(
@@ -464,7 +476,7 @@ where
     }
 
     let checksum = Hash::from_roots(&roots);
-    verify(&self.keypair.public, checksum.as_bytes(), proof.signature())?;
+    verify(&self.public_key, checksum.as_bytes(), proof.signature())?;
 
     // Update the length if we grew the feed.
     let len = verified_by / 2;
@@ -523,7 +535,10 @@ impl Feed<RandomAccessDiskMethods> {
 
     let storage = Storage::new(create)?;
     let keypair = generate_keypair(); // TODO: read keypair from disk;
-    Ok(FeedBuilder::new(keypair, storage).build()?)
+    let feed = FeedBuilder::new(keypair.public, storage)
+      .secret_key(keypair.secret)
+      .build()?;
+    Ok(feed)
   }
 }
 
@@ -544,7 +559,7 @@ impl<T: RandomAccessMethods + Debug> Display for Feed<T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     // TODO: yay, we should find a way to convert this .unwrap() to an error
     // type that's accepted by `fmt::Result<(), fmt::Error>`.
-    let key = pretty_fmt(&self.keypair.public.to_bytes()).unwrap();
+    let key = pretty_fmt(&self.public_key.to_bytes()).unwrap();
     let byte_len = self.byte_len();
     let len = self.len();
     let peers = 0; // TODO: update once we actually have peers.

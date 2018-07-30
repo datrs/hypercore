@@ -5,7 +5,12 @@ extern crate random_access_memory as ram;
 mod helpers;
 
 use helpers::create_feed;
-use hypercore::{FeedBuilder, Keypair, NodeTrait, Storage};
+use hypercore::{Feed, Keypair, NodeTrait, Storage};
+
+#[test]
+fn create_with_key() {
+  // let feed =
+}
 
 #[test]
 fn display() {
@@ -74,7 +79,7 @@ fn verify() {
   let keypair = Keypair::from_bytes(f_bytes).unwrap();
 
   let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
-  let mut evil_feed = FeedBuilder::new(keypair, storage).build().unwrap();
+  let mut evil_feed = Feed::builder(keypair, storage).build().unwrap();
   let ef_bytes = &feed.keypair().to_bytes();
 
   // Verify the keys are the same.
@@ -98,7 +103,7 @@ fn put() {
   let keypair = Keypair::from_bytes(bytes).unwrap();
 
   let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
-  let mut b = FeedBuilder::new(keypair, storage).build().unwrap();
+  let mut b = Feed::builder(keypair, storage).build().unwrap();
 
   for _ in 0..10 {
     a.append(b"foo").unwrap();
