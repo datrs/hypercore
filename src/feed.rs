@@ -483,7 +483,7 @@ where
 
   /// Update all peers.
   pub fn update_peers(&mut self) {
-    for mut peer in self.peers.iter_mut() {
+    for peer in &mut self.peers {
       peer.update();
     }
   }
