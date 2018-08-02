@@ -11,8 +11,8 @@ use ed25519_dalek::{PublicKey, SecretKey, Signature};
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
 use proof::Proof;
-use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
-use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
+use random_access_disk::RandomAccessDiskMethods;
+use random_access_memory::RandomAccessMemoryMethods;
 use random_access_storage::RandomAccessMethods;
 use tree_index::TreeIndex;
 use Result;
@@ -523,17 +523,7 @@ impl Feed<RandomAccessDiskMethods> {
   // NOTE: Should we `mkdirp` here?
   // NOTE: Should we call these `data.bitfield` / `data.tree`?
   pub fn new(dir: &PathBuf) -> Result<Self> {
-    let create = |storage: Store| {
-      let name = match storage {
-        Store::Tree => "tree",
-        Store::Data => "data",
-        Store::Bitfield => "bitfield",
-        Store::Signatures => "signatures",
-      };
-      RandomAccessDisk::new(dir.as_path().join(name))
-    };
-
-    let storage = Storage::new(create)?;
+    let storage = Storage::new_disk(&dir)?;
     let keypair = generate_keypair(); // TODO: read keypair from disk;
     let feed = FeedBuilder::new(keypair.public, storage)
       .secret_key(keypair.secret)
@@ -549,8 +539,7 @@ impl Feed<RandomAccessDiskMethods> {
 /// unlikely.
 impl Default for Feed<RandomAccessMemoryMethods> {
   fn default() -> Self {
-    let create = |_| RandomAccessMemory::default();
-    let storage = Storage::new(create).unwrap();
+    let storage = Storage::new_memory().unwrap();
     Self::with_storage(storage).unwrap()
   }
 }

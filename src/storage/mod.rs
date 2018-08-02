@@ -9,11 +9,14 @@ pub use merkle_tree_stream::Node as NodeTrait;
 
 use ed25519_dalek::Signature;
 use flat_tree as flat;
+use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
+use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
 use random_access_storage::{RandomAccess, RandomAccessMethods};
 use sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::Range;
+use std::path::PathBuf;
 use Result;
 
 const HEADER_OFFSET: usize = 32;
@@ -234,6 +237,28 @@ where
   /// TODO(yw) docs
   pub fn open_key(&mut self) {
     unimplemented!();
+  }
+}
+
+impl Storage<RandomAccessMemoryMethods> {
+  pub fn new_memory() -> Result<Self> {
+    let create = |_| RandomAccessMemory::default();
+    Ok(Self::new(create)?)
+  }
+}
+
+impl Storage<RandomAccessDiskMethods> {
+  pub fn new_disk(dir: &PathBuf) -> Result<Self> {
+    let storage = |storage: Store| {
+      let name = match storage {
+        Store::Tree => "tree",
+        Store::Data => "data",
+        Store::Bitfield => "bitfield",
+        Store::Signatures => "signatures",
+      };
+      RandomAccessDisk::new(dir.as_path().join(name))
+    };
+    Ok(Self::new(storage)?)
   }
 }
 

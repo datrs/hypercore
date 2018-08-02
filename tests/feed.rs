@@ -5,11 +5,16 @@ extern crate random_access_memory as ram;
 mod helpers;
 
 use helpers::{copy_keys, create_feed};
-use hypercore::{Feed, NodeTrait, Storage};
+use hypercore::{generate_keypair, Feed, NodeTrait, Storage};
 
 #[test]
 fn create_with_key() {
-  // let feed =
+  let keypair = generate_keypair();
+  let storage = Storage::new_memory().unwrap();
+  let _feed = Feed::builder(keypair.public, storage)
+    .secret_key(keypair.secret)
+    .build()
+    .unwrap();
 }
 
 #[test]
