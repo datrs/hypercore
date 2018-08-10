@@ -2,6 +2,7 @@ use ed25519_dalek::{PublicKey, SecretKey};
 
 use bitfield::Bitfield;
 use crypto::Merkle;
+use failure::Error;
 use random_access_storage::RandomAccessMethods;
 use std::fmt::Debug;
 use storage::Storage;
@@ -25,7 +26,7 @@ where
 
 impl<T> FeedBuilder<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccessMethods<Error = Error> + Debug,
 {
   /// Create a new instance.
   #[inline]

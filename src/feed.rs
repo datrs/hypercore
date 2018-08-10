@@ -8,6 +8,7 @@ pub use storage::{Node, NodeTrait, Storage, Store};
 use bitfield::Bitfield;
 use crypto::{generate_keypair, sign, verify, Hash, Merkle};
 use ed25519_dalek::{PublicKey, SecretKey, Signature};
+use failure::Error;
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
 use proof::Proof;
@@ -28,7 +29,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct Feed<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccessMethods<Error = Error> + Debug,
 {
   /// Merkle tree instance.
   pub(crate) merkle: Merkle,
@@ -47,7 +48,7 @@ where
 
 impl<T> Feed<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccessMethods<Error = Error> + Debug,
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self> {
@@ -544,7 +545,7 @@ impl Default for Feed<RandomAccessMemoryMethods> {
   }
 }
 
-impl<T: RandomAccessMethods + Debug> Display for Feed<T> {
+impl<T: RandomAccessMethods<Error = Error> + Debug> Display for Feed<T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     // TODO: yay, we should find a way to convert this .unwrap() to an error
     // type that's accepted by `fmt::Result<(), fmt::Error>`.
