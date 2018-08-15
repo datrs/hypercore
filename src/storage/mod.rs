@@ -12,9 +12,9 @@ use ed25519_dalek::{
 };
 use failure::Error;
 use flat_tree as flat;
-use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
-use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
-use random_access_storage::{RandomAccess, RandomAccessMethods};
+use random_access_disk::RandomAccessDisk;
+use random_access_memory::RandomAccessMemory;
+use random_access_storage::RandomAccess;
 use sleep_parser::*;
 use std::borrow::Borrow;
 use std::fmt::Debug;
@@ -49,18 +49,18 @@ pub enum Store {
 #[derive(Debug)]
 pub struct Storage<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccess + Debug,
 {
-  tree: RandomAccess<T>,
-  data: RandomAccess<T>,
-  bitfield: RandomAccess<T>,
-  signatures: RandomAccess<T>,
-  keypair: RandomAccess<T>,
+  tree: T,
+  data: T,
+  bitfield: T,
+  signatures: T,
+  keypair: T,
 }
 
 impl<T> Storage<T>
 where
-  T: RandomAccessMethods<Error = Error> + Debug,
+  T: RandomAccess<Error = Error> + Debug,
 {
   /// Create a new instance. Takes a keypair and a callback to create new
   /// storage instances.
@@ -68,14 +68,14 @@ where
   // requiring a key pair to be initialized before creating a new instance.
   pub fn new<Cb>(create: Cb) -> Result<Self>
   where
-    Cb: Fn(Store) -> RandomAccess<T>,
+    Cb: Fn(Store) -> Result<T>,
   {
     let mut instance = Self {
-      tree: create(Store::Tree),
-      data: create(Store::Data),
-      bitfield: create(Store::Bitfield),
-      signatures: create(Store::Signatures),
-      keypair: create(Store::Keypair),
+      tree: create(Store::Tree)?,
+      data: create(Store::Data)?,
+      bitfield: create(Store::Bitfield)?,
+      signatures: create(Store::Signatures)?,
+      keypair: create(Store::Keypair)?,
     };
 
     let header = create_bitfield();
@@ -291,14 +291,14 @@ where
   }
 }
 
-impl Storage<RandomAccessMemoryMethods> {
+impl Storage<RandomAccessMemory> {
   pub fn new_memory() -> Result<Self> {
-    let create = |_| RandomAccessMemory::default();
+    let create = |_| Ok(RandomAccessMemory::default());
     Ok(Self::new(create)?)
   }
 }
 
-impl Storage<RandomAccessDiskMethods> {
+impl Storage<RandomAccessDisk> {
   pub fn new_disk(dir: &PathBuf) -> Result<Self> {
     let storage = |storage: Store| {
       let name = match storage {
@@ -308,7 +308,7 @@ impl Storage<RandomAccessDiskMethods> {
         Store::Signatures => "signatures",
         Store::Keypair => "key",
       };
-      RandomAccessDisk::new(dir.as_path().join(name))
+      RandomAccessDisk::open(dir.as_path().join(name))
     };
     Ok(Self::new(storage)?)
   }

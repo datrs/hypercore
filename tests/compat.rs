@@ -16,7 +16,7 @@ use data_encoding::HEXLOWER;
 use ed25519_dalek::Keypair;
 use hypercore::Feed;
 use hypercore::{Storage, Store};
-use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
+use random_access_disk::RandomAccessDisk;
 use remove_dir_all::remove_dir_all;
 
 #[test]
@@ -120,11 +120,11 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
   dir.as_ref().join(filename)
 }
 
-fn mk_storage() -> (PathBuf, Storage<RandomAccessDiskMethods>) {
+fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
   let temp_dir = tempfile::tempdir().unwrap();
   let dir = temp_dir.into_path();
   let storage =
-    Storage::new(|s| RandomAccessDisk::new(storage_path(dir.clone(), s)))
+    Storage::new(|s| RandomAccessDisk::open(storage_path(dir.clone(), s)))
       .unwrap();
   (dir, storage)
 }
