@@ -7,7 +7,9 @@ pub use self::node::Node;
 pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
-use ed25519_dalek::Signature;
+use ed25519_dalek::{
+  PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
+};
 use failure::Error;
 use flat_tree as flat;
 use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
@@ -33,6 +35,8 @@ pub enum Store {
   Bitfield,
   /// Signatures
   Signatures,
+  /// Keypair
+  Keypair,
 }
 
 /// Save data to a desired storage backend.
@@ -45,6 +49,7 @@ where
   data: RandomAccess<T>,
   bitfield: RandomAccess<T>,
   signatures: RandomAccess<T>,
+  keypair: RandomAccess<T>,
 }
 
 impl<T> Storage<T>
@@ -64,6 +69,7 @@ where
       data: create(Store::Data),
       bitfield: create(Store::Bitfield),
       signatures: create(Store::Signatures),
+      keypair: create(Store::Keypair),
     };
 
     let header = create_bitfield();
@@ -235,9 +241,30 @@ where
     self.bitfield.write(HEADER_OFFSET + offset, data)
   }
 
-  /// TODO(yw) docs
-  pub fn open_key(&mut self) {
-    unimplemented!();
+  /// Read a public key from storage
+  pub fn read_public_key(&mut self) -> Result<PublicKey> {
+    let buf = self.keypair.read(0, PUBLIC_KEY_LENGTH)?;
+    let public_key = PublicKey::from_bytes(&buf)?;
+    Ok(public_key)
+  }
+
+  /// Read a secret key from storage
+  pub fn read_secret_key(&mut self) -> Result<SecretKey> {
+    let buf = self.keypair.read(PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH)?;
+    let secret_key = SecretKey::from_bytes(&buf)?;
+    Ok(secret_key)
+  }
+
+  /// Write a public key to the storage
+  pub fn write_public_key(&mut self, public_key: &PublicKey) -> Result<()> {
+    let buf: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
+    self.keypair.write(0, &buf)
+  }
+
+  /// Write a secret key to the storage
+  pub fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
+    let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
+    self.keypair.write(PUBLIC_KEY_LENGTH, &buf)
   }
 }
 
@@ -256,6 +283,7 @@ impl Storage<RandomAccessDiskMethods> {
         Store::Data => "data",
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
+        Store::Keypair => "key",
       };
       RandomAccessDisk::new(dir.as_path().join(name))
     };
@@ -292,4 +320,34 @@ fn should_detect_zeroes() {
 
   let nums = vec![1; 10];
   assert!(not_zeroes(&nums));
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+  use crypto::{generate_keypair, sign, verify};
+  use ed25519_dalek::PublicKey;
+
+  #[test]
+  fn should_write_and_read_keypair() {
+    let keypair = generate_keypair();
+    let msg = b"hello";
+    // prepare a signature
+    let sig: Signature = sign(&keypair.public, &keypair.secret, msg);
+
+    let mut storage = Storage::new_memory().unwrap();
+    assert!(
+      storage.write_secret_key(&keypair.secret).is_ok(),
+      "Can not store secret key."
+    );
+    assert!(
+      storage.write_public_key(&keypair.public).is_ok(),
+      "Can not store public key."
+    );
+
+    let read = storage.read_public_key();
+    assert!(read.is_ok(), "Can not read public key");
+    let public_key: PublicKey = read.unwrap();
+    assert!(verify(&public_key, msg, Some(&sig)).is_ok());
+  }
 }
