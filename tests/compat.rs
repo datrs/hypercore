@@ -122,9 +122,9 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
 fn mk_storage() -> (PathBuf, Storage<RandomAccessDiskMethods>) {
   let temp_dir = tempfile::tempdir().unwrap();
   let dir = temp_dir.into_path();
-  let storage = Storage::new(|s| {
-    RandomAccessDisk::new(storage_path(dir.clone(), s))
-  }).unwrap();
+  let storage =
+    Storage::new(|s| RandomAccessDisk::new(storage_path(dir.clone(), s)))
+      .unwrap();
   (dir, storage)
 }
 
