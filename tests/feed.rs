@@ -128,3 +128,35 @@ fn put() {
     .expect(".proof() index 4, digest 4");
   b.put(4, None, proof).unwrap();
 }
+
+#[test]
+fn create_with_storage() {
+  let storage = Storage::new_memory().unwrap();
+  assert!(
+    Feed::with_storage(storage).is_ok(),
+    "Could not create a feed with a storage."
+  );
+}
+
+#[test]
+fn create_with_stored_public_key() {
+  let mut storage = Storage::new_memory().unwrap();
+  let keypair = generate_keypair();
+  storage.write_public_key(&keypair.public);
+  assert!(
+    Feed::with_storage(storage).is_ok(),
+    "Could not create a feed with a stored public key."
+  );
+}
+
+#[test]
+fn create_with_stored_keys() {
+  let mut storage = Storage::new_memory().unwrap();
+  let keypair = generate_keypair();
+  storage.write_public_key(&keypair.public);
+  storage.write_secret_key(&keypair.secret);
+  assert!(
+    Feed::with_storage(storage).is_ok(),
+    "Could not create a feed with a stored keypair."
+  );
+}

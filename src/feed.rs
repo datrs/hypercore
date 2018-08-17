@@ -1,6 +1,5 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-// use feed_builder::FeedBuilder;
 use feed_builder::FeedBuilder;
 use replicate::{Message, Peer};
 pub use storage::{Node, NodeTrait, Storage, Store};
@@ -51,12 +50,35 @@ where
   T: RandomAccessMethods<Error = Error> + Debug,
 {
   /// Create a new instance with a custom storage backend.
-  pub fn with_storage(storage: ::storage::Storage<T>) -> Result<Self> {
-    let keypair = generate_keypair(); // TODO: read key pair from disk;
-    let feed = FeedBuilder::new(keypair.public, storage)
-      .secret_key(keypair.secret)
-      .build()?;
-    Ok(feed)
+  pub fn with_storage(mut storage: ::storage::Storage<T>) -> Result<Self> {
+    match storage.read_partial_keypair() {
+      Some(partial_keypair) => {
+        let builder = FeedBuilder::new(partial_keypair.public, storage);
+
+        // return early without secret key
+        if partial_keypair.secret.is_none() {
+          return Ok(builder.build()?);
+        }
+
+        Ok(
+          builder
+            .secret_key(partial_keypair.secret.unwrap())
+            .build()?,
+        )
+      }
+      None => {
+        // we have no keys, generate a pair and save them to the storage
+        let keypair = generate_keypair();
+        storage.write_public_key(&keypair.public)?;
+        storage.write_secret_key(&keypair.secret)?;
+
+        Ok(
+          FeedBuilder::new(keypair.public, storage)
+            .secret_key(keypair.secret)
+            .build()?,
+        )
+      }
+    }
   }
 
   /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
@@ -525,11 +547,7 @@ impl Feed<RandomAccessDiskMethods> {
   // NOTE: Should we call these `data.bitfield` / `data.tree`?
   pub fn new(dir: &PathBuf) -> Result<Self> {
     let storage = Storage::new_disk(&dir)?;
-    let keypair = generate_keypair(); // TODO: read keypair from disk;
-    let feed = FeedBuilder::new(keypair.public, storage)
-      .secret_key(keypair.secret)
-      .build()?;
-    Ok(feed)
+    Ok(Self::with_storage(storage)?)
   }
 }
 

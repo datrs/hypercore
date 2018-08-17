@@ -34,7 +34,7 @@ mod proof;
 mod replicate;
 mod storage;
 
-pub use crypto::{generate_keypair, Signature};
+pub use crypto::{generate_keypair, sign, verify, Signature};
 pub use ed25519_dalek::{PublicKey, SecretKey};
 pub use event::Event;
 pub use feed::Feed;

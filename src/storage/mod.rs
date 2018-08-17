@@ -24,6 +24,12 @@ use Result;
 
 const HEADER_OFFSET: usize = 32;
 
+#[derive(Debug)]
+pub struct PartialKeypair {
+  pub public: PublicKey,
+  pub secret: Option<SecretKey>,
+}
+
 /// The types of stores that can be created.
 #[derive(Debug)]
 pub enum Store {
@@ -266,6 +272,23 @@ where
     let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
     self.keypair.write(PUBLIC_KEY_LENGTH, &buf)
   }
+
+  /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage
+  pub fn read_partial_keypair(&mut self) -> Option<PartialKeypair> {
+    match self.read_public_key() {
+      Ok(public) => match self.read_secret_key() {
+        Ok(secret) => Some(PartialKeypair {
+          public,
+          secret: Some(secret),
+        }),
+        Err(_) => Some(PartialKeypair {
+          public,
+          secret: None,
+        }),
+      },
+      Err(_) => None,
+    }
+  }
 }
 
 impl Storage<RandomAccessMemoryMethods> {
@@ -320,34 +343,4 @@ fn should_detect_zeroes() {
 
   let nums = vec![1; 10];
   assert!(not_zeroes(&nums));
-}
-
-#[cfg(test)]
-mod test {
-  use super::*;
-  use crypto::{generate_keypair, sign, verify};
-  use ed25519_dalek::PublicKey;
-
-  #[test]
-  fn should_write_and_read_keypair() {
-    let keypair = generate_keypair();
-    let msg = b"hello";
-    // prepare a signature
-    let sig: Signature = sign(&keypair.public, &keypair.secret, msg);
-
-    let mut storage = Storage::new_memory().unwrap();
-    assert!(
-      storage.write_secret_key(&keypair.secret).is_ok(),
-      "Can not store secret key."
-    );
-    assert!(
-      storage.write_public_key(&keypair.public).is_ok(),
-      "Can not store public key."
-    );
-
-    let read = storage.read_public_key();
-    assert!(read.is_ok(), "Can not read public key");
-    let public_key: PublicKey = read.unwrap();
-    assert!(verify(&public_key, msg, Some(&sig)).is_ok());
-  }
 }
