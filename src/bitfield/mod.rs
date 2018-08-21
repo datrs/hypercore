@@ -165,11 +165,10 @@ impl Bitfield {
 
     self.iterator.seek(start);
 
-    while self.iterator.index() < max_len
-      && self
-        .index
-        .set_byte(self.iterator.index(), byte)
-        .is_changed()
+    while self.iterator.index() < max_len && self
+      .index
+      .set_byte(self.iterator.index(), byte)
+      .is_changed()
     {
       if self.iterator.is_left() {
         let index: usize = self.index.get_byte(self.iterator.sibling()).into();
