@@ -17,7 +17,7 @@ pub fn create_feed(
 }
 
 pub fn copy_keys(
-  feed: &Feed<impl RandomAccessMethods + Debug>,
+  feed: &Feed<impl RandomAccessMethods<Error = Error> + Debug>,
 ) -> (PublicKey, SecretKey) {
   match &feed.secret_key() {
     Some(secret) => {

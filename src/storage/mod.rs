@@ -8,6 +8,7 @@ pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
 use ed25519_dalek::Signature;
+use failure::Error;
 use flat_tree as flat;
 use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
 use random_access_memory::{RandomAccessMemory, RandomAccessMemoryMethods};
@@ -48,7 +49,7 @@ where
 
 impl<T> Storage<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccessMethods<Error = Error> + Debug,
 {
   /// Create a new instance. Takes a keypair and a callback to create new
   /// storage instances.
