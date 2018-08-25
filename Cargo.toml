@@ -11,7 +11,7 @@ authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
 [dependencies]
 blake2-rfc = "0.2.18"
 byteorder = "1.2.2"
-ed25519-dalek = "0.6.2"
+ed25519-dalek = "0.8.0"
 failure = "0.1.1"
 flat-tree = "3.3.0"
 lazy_static = "1.0.0"
