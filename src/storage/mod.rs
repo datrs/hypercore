@@ -7,7 +7,9 @@ pub use self::node::Node;
 pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
-use ed25519_dalek::Signature;
+use ed25519_dalek::{
+  PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
+};
 use failure::Error;
 use flat_tree as flat;
 use random_access_disk::{RandomAccessDisk, RandomAccessDiskMethods};
@@ -22,6 +24,12 @@ use Result;
 
 const HEADER_OFFSET: usize = 32;
 
+#[derive(Debug)]
+pub struct PartialKeypair {
+  pub public: PublicKey,
+  pub secret: Option<SecretKey>,
+}
+
 /// The types of stores that can be created.
 #[derive(Debug)]
 pub enum Store {
@@ -33,6 +41,8 @@ pub enum Store {
   Bitfield,
   /// Signatures
   Signatures,
+  /// Keypair
+  Keypair,
 }
 
 /// Save data to a desired storage backend.
@@ -45,6 +55,7 @@ where
   data: RandomAccess<T>,
   bitfield: RandomAccess<T>,
   signatures: RandomAccess<T>,
+  keypair: RandomAccess<T>,
 }
 
 impl<T> Storage<T>
@@ -64,6 +75,7 @@ where
       data: create(Store::Data),
       bitfield: create(Store::Bitfield),
       signatures: create(Store::Signatures),
+      keypair: create(Store::Keypair),
     };
 
     let header = create_bitfield();
@@ -235,9 +247,47 @@ where
     self.bitfield.write(HEADER_OFFSET + offset, data)
   }
 
-  /// TODO(yw) docs
-  pub fn open_key(&mut self) {
-    unimplemented!();
+  /// Read a public key from storage
+  pub fn read_public_key(&mut self) -> Result<PublicKey> {
+    let buf = self.keypair.read(0, PUBLIC_KEY_LENGTH)?;
+    let public_key = PublicKey::from_bytes(&buf)?;
+    Ok(public_key)
+  }
+
+  /// Read a secret key from storage
+  pub fn read_secret_key(&mut self) -> Result<SecretKey> {
+    let buf = self.keypair.read(PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH)?;
+    let secret_key = SecretKey::from_bytes(&buf)?;
+    Ok(secret_key)
+  }
+
+  /// Write a public key to the storage
+  pub fn write_public_key(&mut self, public_key: &PublicKey) -> Result<()> {
+    let buf: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
+    self.keypair.write(0, &buf)
+  }
+
+  /// Write a secret key to the storage
+  pub fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
+    let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
+    self.keypair.write(PUBLIC_KEY_LENGTH, &buf)
+  }
+
+  /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage
+  pub fn read_partial_keypair(&mut self) -> Option<PartialKeypair> {
+    match self.read_public_key() {
+      Ok(public) => match self.read_secret_key() {
+        Ok(secret) => Some(PartialKeypair {
+          public,
+          secret: Some(secret),
+        }),
+        Err(_) => Some(PartialKeypair {
+          public,
+          secret: None,
+        }),
+      },
+      Err(_) => None,
+    }
   }
 }
 
@@ -256,6 +306,7 @@ impl Storage<RandomAccessDiskMethods> {
         Store::Data => "data",
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
+        Store::Keypair => "key",
       };
       RandomAccessDisk::new(dir.as_path().join(name))
     };
