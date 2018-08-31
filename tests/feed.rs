@@ -82,7 +82,7 @@ fn verify() {
   let mut feed = create_feed(50).unwrap();
   let (public, secret) = copy_keys(&feed);
   let feed_bytes = secret.to_bytes().to_vec();
-  let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
+  let storage = Storage::new(|_| Ok(ram::RandomAccessMemory::new(50))).unwrap();
   let mut evil_feed = Feed::builder(public, storage)
     .secret_key(secret)
     .build()
@@ -111,7 +111,7 @@ fn verify() {
 fn put() {
   let mut a = create_feed(50).unwrap();
   let (public, secret) = copy_keys(&a);
-  let storage = Storage::new(|_| ram::RandomAccessMemory::new(50)).unwrap();
+  let storage = Storage::new(|_| Ok(ram::RandomAccessMemory::new(50))).unwrap();
   let mut b = Feed::builder(public, storage)
     .secret_key(secret)
     .build()
@@ -142,7 +142,7 @@ fn create_with_storage() {
 fn create_with_stored_public_key() {
   let mut storage = Storage::new_memory().unwrap();
   let keypair = generate_keypair();
-  storage.write_public_key(&keypair.public);
+  storage.write_public_key(&keypair.public).unwrap();
   assert!(
     Feed::with_storage(storage).is_ok(),
     "Could not create a feed with a stored public key."
@@ -153,8 +153,8 @@ fn create_with_stored_public_key() {
 fn create_with_stored_keys() {
   let mut storage = Storage::new_memory().unwrap();
   let keypair = generate_keypair();
-  storage.write_public_key(&keypair.public);
-  storage.write_secret_key(&keypair.secret);
+  storage.write_public_key(&keypair.public).unwrap();
+  storage.write_secret_key(&keypair.secret).unwrap();
   assert!(
     Feed::with_storage(storage).is_ok(),
     "Could not create a feed with a stored keypair."

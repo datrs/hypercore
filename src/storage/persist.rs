@@ -1,12 +1,12 @@
 use super::Storage;
-use random_access_storage::RandomAccessMethods;
+use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use Result;
 
 /// Persist data to a `Storage` instance.
 pub trait Persist<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccess + Debug,
 {
   /// Create an instance from a byte vector.
   fn from_bytes(index: usize, buf: &[u8]) -> Self;

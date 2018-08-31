@@ -3,7 +3,7 @@ use ed25519_dalek::{PublicKey, SecretKey};
 use bitfield::Bitfield;
 use crypto::Merkle;
 use failure::Error;
-use random_access_storage::RandomAccessMethods;
+use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use storage::Storage;
 use tree_index::TreeIndex;
@@ -17,7 +17,7 @@ use Result;
 #[derive(Debug)]
 pub struct FeedBuilder<T>
 where
-  T: RandomAccessMethods + Debug,
+  T: RandomAccess + Debug,
 {
   storage: Storage<T>,
   public_key: PublicKey,
@@ -26,7 +26,7 @@ where
 
 impl<T> FeedBuilder<T>
 where
-  T: RandomAccessMethods<Error = Error> + Debug,
+  T: RandomAccess<Error = Error> + Debug,
 {
   /// Create a new instance.
   #[inline]
