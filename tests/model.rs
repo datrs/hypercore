@@ -1,11 +1,13 @@
 #[macro_use]
 extern crate quickcheck;
 extern crate hypercore;
+extern crate rand;
 
 mod helpers;
 
 use helpers::create_feed;
 use quickcheck::{Arbitrary, Gen};
+use rand::Rng;
 use std::u8;
 
 const MAX_FILE_SIZE: usize = 5 * 10; // 5mb
