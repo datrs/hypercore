@@ -9,7 +9,7 @@ use Result;
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {
   let mut cspring: OsRng = OsRng::new().unwrap();
-  Keypair::generate::<Sha512>(&mut cspring)
+  Keypair::generate::<Sha512, _>(&mut cspring)
 }
 
 /// Sign a byte slice using a keypair's private key.
@@ -31,7 +31,7 @@ pub fn verify(
     None => bail!("Signature verification failed"),
     Some(sig) => {
       ensure!(
-        public.verify::<Sha512>(msg, sig),
+        public.verify::<Sha512>(msg, sig).is_ok(),
         "Signature verification failed"
       );
       Ok(())
