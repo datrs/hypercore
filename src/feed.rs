@@ -11,9 +11,9 @@ use failure::Error;
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
 use proof::Proof;
-use random_access_disk::RandomAccessDiskMethods;
-use random_access_memory::RandomAccessMemoryMethods;
-use random_access_storage::RandomAccessMethods;
+use random_access_disk::RandomAccessDisk;
+use random_access_memory::RandomAccessMemory;
+use random_access_storage::RandomAccess;
 use tree_index::TreeIndex;
 use Result;
 
@@ -28,7 +28,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct Feed<T>
 where
-  T: RandomAccessMethods<Error = Error> + Debug,
+  T: RandomAccess<Error = Error> + Debug,
 {
   /// Merkle tree instance.
   pub(crate) merkle: Merkle,
@@ -47,7 +47,7 @@ where
 
 impl<T> Feed<T>
 where
-  T: RandomAccessMethods<Error = Error> + Debug,
+  T: RandomAccess<Error = Error> + Debug,
 {
   /// Create a new instance with a custom storage backend.
   pub fn with_storage(mut storage: ::storage::Storage<T>) -> Result<Self> {
@@ -540,7 +540,7 @@ where
   }
 }
 
-impl Feed<RandomAccessDiskMethods> {
+impl Feed<RandomAccessDisk> {
   /// Create a new instance that persists to disk at the location of `dir`.
   // TODO: Ensure that dir is always a directory.
   // NOTE: Should we `mkdirp` here?
@@ -556,14 +556,14 @@ impl Feed<RandomAccessDiskMethods> {
 /// ## Panics
 /// Can panic if constructing the in-memory store fails, which is highly
 /// unlikely.
-impl Default for Feed<RandomAccessMemoryMethods> {
+impl Default for Feed<RandomAccessMemory> {
   fn default() -> Self {
     let storage = Storage::new_memory().unwrap();
     Self::with_storage(storage).unwrap()
   }
 }
 
-impl<T: RandomAccessMethods<Error = Error> + Debug> Display for Feed<T> {
+impl<T: RandomAccess<Error = Error> + Debug> Display for Feed<T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     // TODO: yay, we should find a way to convert this .unwrap() to an error
     // type that's accepted by `fmt::Result<(), fmt::Error>`.
