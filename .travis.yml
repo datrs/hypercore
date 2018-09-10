@@ -7,7 +7,7 @@ before_script: |
   rustup component add clippy-preview
 script: |
   cargo fmt -- --check &&
-  cargo clippy -- -D clippy &&
+  cargo clippy -- -D clippy::all &&
   cargo build --verbose &&
   cargo test  --verbose
 cache: cargo
