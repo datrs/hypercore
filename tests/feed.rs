@@ -4,7 +4,7 @@ extern crate random_access_memory as ram;
 
 mod common;
 
-use common::{copy_keys, create_feed};
+use common::create_feed;
 use hypercore::{generate_keypair, Feed, NodeTrait, Storage};
 
 #[test]
@@ -159,4 +159,21 @@ fn create_with_stored_keys() {
     Feed::with_storage(storage).is_ok(),
     "Could not create a feed with a stored keypair."
   );
+}
+
+fn copy_keys(
+  feed: &Feed<impl RandomAccess<Error = Error> + Debug>,
+) -> (PublicKey, SecretKey) {
+  match &feed.secret_key() {
+    Some(secret) => {
+      let secret = secret.to_bytes();
+      let public = &feed.public_key().to_bytes();
+
+      let public = PublicKey::from_bytes(public).unwrap();
+      let secret = SecretKey::from_bytes(&secret).unwrap();
+
+      return (public, secret);
+    }
+    _ => panic!("<tests/common>: Could not access secret key"),
+  }
 }
