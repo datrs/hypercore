@@ -15,20 +15,3 @@ pub fn create_feed(
   let storage = Storage::new(create)?;
   Ok(Feed::with_storage(storage)?)
 }
-
-pub fn copy_keys(
-  feed: &Feed<impl RandomAccess<Error = Error> + Debug>,
-) -> (PublicKey, SecretKey) {
-  match &feed.secret_key() {
-    Some(secret) => {
-      let secret = secret.to_bytes();
-      let public = &feed.public_key().to_bytes();
-
-      let public = PublicKey::from_bytes(public).unwrap();
-      let secret = SecretKey::from_bytes(&secret).unwrap();
-
-      return (public, secret);
-    }
-    _ => panic!("<tests/helpers>: Could not access secret key"),
-  }
-}
