@@ -3,9 +3,9 @@ extern crate quickcheck;
 extern crate hypercore;
 extern crate rand;
 
-mod helpers;
+mod common;
 
-use helpers::create_feed;
+use common::create_feed;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 use std::u8;
