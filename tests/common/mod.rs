@@ -29,6 +29,6 @@ pub fn copy_keys(
 
       return (public, secret);
     }
-    _ => panic!("<tests/helpers>: Could not access secret key"),
+    _ => panic!("<tests/common>: Could not access secret key"),
   }
 }

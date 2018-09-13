@@ -2,9 +2,9 @@ extern crate failure;
 extern crate hypercore;
 extern crate random_access_memory as ram;
 
-mod helpers;
+mod common;
 
-use helpers::{copy_keys, create_feed};
+use common::{copy_keys, create_feed};
 use hypercore::{generate_keypair, Feed, NodeTrait, Storage};
 
 #[test]

@@ -2,9 +2,9 @@
 extern crate quickcheck;
 extern crate hypercore;
 
-mod helpers;
+mod common;
 
-use helpers::create_feed;
+use common::create_feed;
 use quickcheck::{Arbitrary, Gen};
 use std::u8;
 

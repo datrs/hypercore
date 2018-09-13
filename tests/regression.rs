@@ -1,8 +1,8 @@
 extern crate hypercore;
 
-mod helpers;
+mod common;
 
-use helpers::create_feed;
+use common::create_feed;
 
 // Postmortem: errors were happening correctly, but the error check in
 // `.signature()` was off. Instead of checking for a range (`<`), we were
