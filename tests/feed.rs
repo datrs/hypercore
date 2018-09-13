@@ -1,11 +1,17 @@
 extern crate failure;
 extern crate hypercore;
 extern crate random_access_memory as ram;
+extern crate random_access_storage;
 
 mod common;
 
+use self::failure::Error;
+use self::random_access_storage::RandomAccess;
 use common::create_feed;
-use hypercore::{generate_keypair, Feed, NodeTrait, Storage};
+use hypercore::{
+  generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage,
+};
+use std::fmt::Debug;
 
 #[test]
 fn create_with_key() {
