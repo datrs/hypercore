@@ -1,0 +1,9 @@
+header = "/* c bindings to the hypercore library */"
+include_guard = "HYPERCORE_BINDINGS_H"
+language = "C"
+
+#[parse]
+#expand = ["hypercore"]
+
+[enum]
+rename_variants = "QualifiedScreamingSnakeCase"

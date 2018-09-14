@@ -37,6 +37,7 @@ extern crate sparse_bitfield;
 extern crate tree_index;
 
 pub mod bitfield;
+pub mod ffi;
 pub mod prelude;
 
 mod crypto;
