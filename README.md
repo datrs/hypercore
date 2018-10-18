@@ -30,6 +30,20 @@ println!("{:?}", feed.get(1)); // prints "world"
 $ cargo add hypercore
 ```
 
+## Safety
+This crate uses ``#![deny(unsafe_code)]`` to ensure everything is implemented in
+100% Safe Rust.
+
+## Contributing
+Want to join us? Check out our ["Contributing" guide][contributing] and take a
+look at some of these issues:
+
+- [Issues labeled "good first issue"][good-first-issue]
+- [Issues labeled "help wanted"][help-wanted]
+
+## References
+- [github.com/mafintosh/hypercore](https://github.com/mafintosh/hypercore)
+
 ## License
 [MIT](./LICENSE-MIT) OR [Apache-2.0](./LICENSE-APACHE)
 
