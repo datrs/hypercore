@@ -292,6 +292,7 @@ where
 }
 
 impl Storage<RandomAccessMemory> {
+  /// Create a new instance backed by a `RandomAccessMemory` instance.
   pub fn new_memory() -> Result<Self> {
     let create = |_| Ok(RandomAccessMemory::default());
     Ok(Self::new(create)?)
@@ -299,6 +300,7 @@ impl Storage<RandomAccessMemory> {
 }
 
 impl Storage<RandomAccessDisk> {
+  /// Create a new instance backed by a `RandomAccessDisk` instance.
   pub fn new_disk(dir: &PathBuf) -> Result<Self> {
     let storage = |storage: Store| {
       let name = match storage {

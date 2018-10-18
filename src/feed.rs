@@ -180,6 +180,8 @@ where
     self.proof_with_digest(index, 0, include_hash)
   }
 
+  /// Return the Nodes which prove the correctness for the Node at index with a
+  /// digest.
   pub fn proof_with_digest(
     &mut self,
     index: usize,

@@ -23,10 +23,12 @@ pub struct Peer {
 }
 
 impl Peer {
+  /// Check if the peer has a message.
   pub fn have(&mut self, _msg: &Message) {
     unimplemented!();
   }
 
+  /// Tell a peer you no longer have a message.
   pub fn unhave(&mut self, _msg: &Message) {
     unimplemented!();
   }
