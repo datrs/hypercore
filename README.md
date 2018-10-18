@@ -49,9 +49,9 @@ look at some of these issues:
 
 [1]: https://img.shields.io/crates/v/hypercore.svg?style=flat-square
 [2]: https://crates.io/crates/hypercore
-[3]: https://img.shields.io/travis/datrs/hypercore.svg?style=flat-square
+[3]: https://img.shields.io/travis/datrs/hypercore/master.svg?style=flat-square
 [4]: https://travis-ci.org/datrs/hypercore
-[5]: https://img.shields.io/crates/d/hypercore/master.svg?style=flat-square
+[5]: https://img.shields.io/crates/d/hypercore.svg?style=flat-square
 [6]: https://crates.io/crates/hypercore
 [7]: https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square
 [8]: https://docs.rs/hypercore
