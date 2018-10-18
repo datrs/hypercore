@@ -1,9 +1,22 @@
-#![cfg_attr(nightly, deny(missing_docs))]
-#![cfg_attr(nightly, feature(external_doc))]
-#![cfg_attr(nightly, doc(include = "../README.md"))]
+#![forbid(unsafe_code, missing_debug_implementations, missing_docs)]
 #![cfg_attr(test, deny(warnings))]
-#![deny(missing_debug_implementations)]
-#![forbid(unsafe_code)]
+
+//! ## Example
+//! ```rust
+//! extern crate hypercore;
+//!
+//! use hypercore::Feed;
+//! use std::path::PathBuf;
+//!
+//! let path = PathBuf::from("./my-first-dataset");
+//! let mut feed = Feed::new(&path).unwrap();
+//!
+//! feed.append(b"hello").unwrap();
+//! feed.append(b"world").unwrap();
+//!
+//! println!("{:?}", feed.get(0)); // prints "hello"
+//! println!("{:?}", feed.get(1)); // prints "world"
+//! ```
 
 #[macro_use]
 extern crate failure;
