@@ -1,4 +1,4 @@
-#![forbid(unsafe_code, missing_debug_implementations, missing_docs)]
+#![forbid(unsafe_code, missing_debug_implementations)]
 #![cfg_attr(test, deny(warnings))]
 
 //! ## Example
