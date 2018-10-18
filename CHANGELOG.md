@@ -1,3 +1,36 @@
+## 2018-10-18, Version 0.8.0
+### Commits
+- [[`048921b077`](https://github.com/datrs/hypercore/commit/048921b077d02963e70a881fa780e6e96c347d50)] (cargo-release) version 0.8.0 (Yoshua Wuyts)
+- [[`54ceb55e7b`](https://github.com/datrs/hypercore/commit/54ceb55e7bf6c5c037b3849c53bc082bc57e0ee4)] travis master only builds (Yoshua Wuyts)
+- [[`1a06b5862d`](https://github.com/datrs/hypercore/commit/1a06b5862d371120dc2e1695e5d1764721707e29)] upgrade (#43) (Yoshua Wuyts)
+- [[`2fda376767`](https://github.com/datrs/hypercore/commit/2fda376767efe3b61fe2f3bc46a431340cf984a2)] tests/helpers -> tests/common (#38) (Yoshua Wuyts)
+- [[`d48e5570fa`](https://github.com/datrs/hypercore/commit/d48e5570fa659b38519a54288b6019205cb48276)] Keep up with modern times in clippy invocation (#35) (Szabolcs Berecz)
+- [[`a62a21b249`](https://github.com/datrs/hypercore/commit/a62a21b24953f6b1da5cfc902abef6914f0b7950)] Update quickcheck requirement from 0.6.2 to 0.7.1 (#33) (Szabolcs Berecz)
+- [[`3bbe87db8d`](https://github.com/datrs/hypercore/commit/3bbe87db8d448e8fbc7a73a99b07ff39ec09c1e9)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ .github/ISSUE_TEMPLATE.md                 | 40 +++---------------------------
+ .github/ISSUE_TEMPLATE/bug_report.md      | 23 +++++++++++++++++-
+ .github/ISSUE_TEMPLATE/feature_request.md | 43 ++++++++++++++++++++++++++++++++-
+ .github/ISSUE_TEMPLATE/question.md        | 18 +++++++++++++-
+ .travis.yml                               | 24 +++++++++---------
+ CHANGELOG.md                              | 25 +++++++++++++++++++-
+ Cargo.toml                                | 28 ++++++++++-----------
+ README.md                                 | 23 +++++++++++++++--
+ src/feed.rs                               |  2 +-
+ src/lib.rs                                | 23 +++++++++++++----
+ src/replicate/peer.rs                     |  2 +-
+ src/storage/mod.rs                        |  2 +-
+ tests/common/mod.rs                       | 15 +++++++++++-
+ tests/feed.rs                             | 29 +++++++++++++++++++---
+ tests/helpers.rs                          | 34 +-------------------------
+ tests/model.rs                            |  6 ++--
+ tests/regression.rs                       |  4 +--
+ 17 files changed, 232 insertions(+), 109 deletions(-)
+```
+
+
 ## 2018-09-03, Version 0.7.1
 ### Commits
 - [[`43ad5d3c9a`](https://github.com/datrs/hypercore/commit/43ad5d3c9accd9e4faa63fc5fe35b5c74997d503)] (cargo-release) version 0.7.1 (Yoshua Wuyts)
