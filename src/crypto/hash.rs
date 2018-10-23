@@ -10,9 +10,9 @@ use std::ops::{Deref, DerefMut};
 use storage::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
-const LEAF_TYPE: [u8; 1] = [0; 1];
-const PARENT_TYPE: [u8; 1] = [1; 1];
-const ROOT_TYPE: [u8; 1] = [2; 1];
+const LEAF_TYPE: [u8; 1] = [0x00];
+const PARENT_TYPE: [u8; 1] = [0x01];
+const ROOT_TYPE: [u8; 1] = [0x02];
 //const HYPERCORE: [u8; 9] = *b"hypercore";
 
 /// `BLAKE2b` hash.
