@@ -1,4 +1,7 @@
-#![forbid(unsafe_code, missing_debug_implementations, missing_docs)]
+#![forbid(unsafe_code, bad_style, future_incompatible)]
+#![forbid(rust_2018_idioms, rust_2018_compatibility)]
+#![forbid(missing_debug_implementations)]
+#![forbid(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
 //! ## Example
