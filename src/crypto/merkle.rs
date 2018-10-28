@@ -1,7 +1,7 @@
-use crypto::Hash;
+use crate::crypto::Hash;
+use crate::storage::Node;
 use merkle_tree_stream::{HashMethods, MerkleTreeStream, PartialNode};
 use std::rc::Rc;
-use storage::Node;
 
 #[derive(Debug)]
 struct H;

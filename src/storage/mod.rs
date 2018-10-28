@@ -7,6 +7,7 @@ pub use self::node::Node;
 pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
+use crate::Result;
 use ed25519_dalek::{
   PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
 };
@@ -20,7 +21,6 @@ use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::PathBuf;
-use Result;
 
 const HEADER_OFFSET: usize = 32;
 

@@ -1,21 +1,21 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-use feed_builder::FeedBuilder;
-use replicate::{Message, Peer};
-pub use storage::{Node, NodeTrait, Storage, Store};
+use crate::feed_builder::FeedBuilder;
+use crate::replicate::{Message, Peer};
+pub use crate::storage::{Node, NodeTrait, Storage, Store};
 
-use bitfield::Bitfield;
-use crypto::{generate_keypair, sign, verify, Hash, Merkle};
+use crate::bitfield::Bitfield;
+use crate::crypto::{generate_keypair, sign, verify, Hash, Merkle};
+use crate::proof::Proof;
+use crate::Result;
 use ed25519_dalek::{PublicKey, SecretKey, Signature};
 use failure::Error;
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
-use proof::Proof;
 use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
 use random_access_storage::RandomAccess;
 use tree_index::TreeIndex;
-use Result;
 
 use std::borrow::Borrow;
 use std::cmp;
@@ -50,7 +50,7 @@ where
   T: RandomAccess<Error = Error> + Debug,
 {
   /// Create a new instance with a custom storage backend.
-  pub fn with_storage(mut storage: ::storage::Storage<T>) -> Result<Self> {
+  pub fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
     match storage.read_partial_keypair() {
       Some(partial_keypair) => {
         let builder = FeedBuilder::new(partial_keypair.public, storage);
@@ -566,7 +566,7 @@ impl Default for Feed<RandomAccessMemory> {
 }
 
 impl<T: RandomAccess<Error = Error> + Debug> Display for Feed<T> {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     // TODO: yay, we should find a way to convert this .unwrap() to an error
     // type that's accepted by `fmt::Result<(), fmt::Error>`.
     let key = pretty_fmt(&self.public_key.to_bytes()).unwrap();

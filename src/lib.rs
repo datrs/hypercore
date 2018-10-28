@@ -1,4 +1,7 @@
-#![forbid(unsafe_code, missing_debug_implementations, missing_docs)]
+#![forbid(unsafe_code, bad_style, future_incompatible)]
+#![forbid(rust_2018_idioms, rust_2018_compatibility)]
+#![forbid(missing_debug_implementations)]
+#![forbid(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
 //! ## Example
@@ -47,14 +50,14 @@ mod proof;
 mod replicate;
 mod storage;
 
-pub use crypto::{generate_keypair, sign, verify, Signature};
+pub use crate::crypto::{generate_keypair, sign, verify, Signature};
+pub use crate::event::Event;
+pub use crate::feed::Feed;
+pub use crate::feed_builder::FeedBuilder;
+pub use crate::proof::Proof;
+pub use crate::replicate::Peer;
+pub use crate::storage::{Node, NodeTrait, Storage, Store};
 pub use ed25519_dalek::{PublicKey, SecretKey};
-pub use event::Event;
-pub use feed::Feed;
-pub use feed_builder::FeedBuilder;
-pub use proof::Proof;
-pub use replicate::Peer;
-pub use storage::{Node, NodeTrait, Storage, Store};
 
 use failure::Error;
 

@@ -7,6 +7,14 @@ documentation = "https://docs.rs/hypercore"
 repository = "https://github.com/datrs/hypercore"
 readme = "README.md"
 authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
+keywords = ["dat", "p2p", "stream", "feed", "merkle"]
+categories = [
+  "asynchronous",
+  "concurrency",
+  "cryptography",
+  "data-structures",
+  "encoding",
+]
 
 [dependencies]
 blake2-rfc = "0.2.18"

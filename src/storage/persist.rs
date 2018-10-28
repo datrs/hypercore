@@ -1,7 +1,7 @@
 use super::Storage;
+use crate::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
-use Result;
 
 /// Persist data to a `Storage` instance.
 pub trait Persist<T>
