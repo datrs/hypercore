@@ -1,3 +1,29 @@
+## 2018-10-28, Version 0.8.1
+### Commits
+- [[`938d2816cc`](https://github.com/datrs/hypercore/commit/938d2816cc63e4dd8964139baa56be2dd28e72d5)] (cargo-release) version 0.8.1 (Yoshua Wuyts)
+- [[`79fd7a8141`](https://github.com/datrs/hypercore/commit/79fd7a8141096606b4124c7d59dede2a4021b3fb)] Stricter lints (#45) (Yoshua Wuyts)
+- [[`96b3af825d`](https://github.com/datrs/hypercore/commit/96b3af825ddc5c69364fe92c71d8498f4a00a2dc)] use spec compatible constants (#44) (Yoshua Wuyts)
+- [[`ac8ef53b0c`](https://github.com/datrs/hypercore/commit/ac8ef53b0cd45f0b935ab83dde4f750eb91a07e8)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md           | 33 +++++++++++++++++++++++++++++++++
+ Cargo.toml             | 10 +++++++++-
+ src/crypto/hash.rs     |  8 ++++----
+ src/crypto/key_pair.rs |  2 +-
+ src/crypto/merkle.rs   |  4 ++--
+ src/feed.rs            | 20 ++++++++++----------
+ src/feed_builder.rs    | 10 +++++-----
+ src/lib.rs             | 19 +++++++++++--------
+ src/prelude.rs         |  4 ++--
+ src/proof.rs           |  4 ++--
+ src/storage/mod.rs     |  2 +-
+ src/storage/node.rs    |  4 ++--
+ src/storage/persist.rs |  2 +-
+ 13 files changed, 83 insertions(+), 39 deletions(-)
+```
+
+
 ## 2018-10-18, Version 0.8.0
 ### Commits
 - [[`048921b077`](https://github.com/datrs/hypercore/commit/048921b077d02963e70a881fa780e6e96c347d50)] (cargo-release) version 0.8.0 (Yoshua Wuyts)
