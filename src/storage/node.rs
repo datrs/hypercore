@@ -1,11 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use crate::Result;
 use flat_tree;
 use merkle_tree_stream::Node as NodeTrait;
 use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
-use Result;
 
 /// Nodes that are persisted to disk.
 // TODO: derive Ord, PartialOrd based on index.
@@ -105,7 +105,7 @@ impl AsRef<Node> for Node {
 }
 
 impl Display for Node {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
       f,
       "Node {{ index: {}, hash: {}, length: {} }}",

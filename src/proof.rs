@@ -1,5 +1,5 @@
-use Node;
-use Signature;
+use crate::Node;
+use crate::Signature;
 
 /// A merkle proof for an index, created by the `.proof()` method.
 #[derive(Debug, PartialEq, Clone)]

@@ -50,14 +50,14 @@ mod proof;
 mod replicate;
 mod storage;
 
-pub use crypto::{generate_keypair, sign, verify, Signature};
+pub use crate::crypto::{generate_keypair, sign, verify, Signature};
+pub use crate::event::Event;
+pub use crate::feed::Feed;
+pub use crate::feed_builder::FeedBuilder;
+pub use crate::proof::Proof;
+pub use crate::replicate::Peer;
+pub use crate::storage::{Node, NodeTrait, Storage, Store};
 pub use ed25519_dalek::{PublicKey, SecretKey};
-pub use event::Event;
-pub use feed::Feed;
-pub use feed_builder::FeedBuilder;
-pub use proof::Proof;
-pub use replicate::Peer;
-pub use storage::{Node, NodeTrait, Storage, Store};
 
 use failure::Error;
 

@@ -1,15 +1,15 @@
 use ed25519_dalek::{PublicKey, SecretKey};
 
-use bitfield::Bitfield;
-use crypto::Merkle;
+use crate::bitfield::Bitfield;
+use crate::crypto::Merkle;
+use crate::storage::Storage;
 use failure::Error;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
-use storage::Storage;
 use tree_index::TreeIndex;
 
-use Feed;
-use Result;
+use crate::Feed;
+use crate::Result;
 
 /// Construct a new `Feed` instance.
 // TODO: make this an actual builder pattern.

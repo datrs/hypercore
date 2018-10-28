@@ -9,6 +9,6 @@
 //!   let feed = Feed::default();
 //! }
 //! ```
-pub use feed::Feed;
+pub use crate::feed::Feed;
 // pub use feed_builder::FeedBuilder;
-pub use storage::{Node, NodeTrait, Storage, Store};
+pub use crate::storage::{Node, NodeTrait, Storage, Store};
