@@ -1,6 +1,8 @@
 use crate::crypto::Hash;
 use crate::storage::Node;
-use merkle_tree_stream::{HashMethods, MerkleTreeStream, PartialNode};
+use merkle_tree_stream::{
+  HashMethods, MerkleTreeStream, NodeKind, PartialNode,
+};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -11,8 +13,10 @@ impl HashMethods for H {
   type Hash = Hash;
 
   fn leaf(&self, leaf: &PartialNode, _roots: &[Rc<Self::Node>]) -> Self::Hash {
-    let data = leaf.as_ref().unwrap(); // TODO: remove the need for unwrap here.
-    Hash::from_leaf(&data)
+    match leaf.data() {
+      NodeKind::Leaf(data) => Hash::from_leaf(&data),
+      NodeKind::Parent => unreachable!(),
+    }
   }
 
   fn parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Hash {
@@ -21,8 +25,8 @@ impl HashMethods for H {
 
   fn node(&self, partial: &PartialNode, hash: Self::Hash) -> Self::Node {
     let data = match partial.data() {
-      Some(data) => Some(data.clone()),
-      None => None,
+      NodeKind::Leaf(data) => Some(data.clone()),
+      NodeKind::Parent => None,
     };
 
     Node {
