@@ -155,10 +155,10 @@ impl Bitfield {
     let o = index & 3;
     index = (index - o) / 4;
 
-    let start = 2 * index;
+    let start = tree_index(index);
 
     let left = self.index.get_byte(start) & self.masks.index_update[o];
-    let right = get_index_value(value) >> (2 * o);
+    let right = get_index_value(value) >> tree_index(o);
     let mut byte = left | right;
     let len = self.index.len();
     let max_len = self.page_len * 256;
@@ -198,7 +198,7 @@ impl Bitfield {
 
   fn expand(&mut self, len: usize) {
     let mut roots = vec![]; // FIXME: alloc.
-    flat_tree::full_roots(2 * len, &mut roots);
+    flat_tree::full_roots(tree_index(len), &mut roots);
     let bf = &mut self.index;
     let ite = &mut self.iterator;
     let masks = &self.masks;
@@ -251,4 +251,10 @@ fn get_index_value(index: u8) -> u8 {
 #[inline]
 fn mask_8b(num: usize) -> usize {
   num & 7
+}
+
+/// Convert the index to the index in the tree.
+#[inline]
+fn tree_index(index: usize) -> usize {
+  2 * index
 }

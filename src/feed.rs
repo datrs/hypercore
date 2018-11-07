@@ -129,7 +129,7 @@ where
     self.byte_length += offset;
 
     self.bitfield.set(self.length, true);
-    self.tree.set(2 * self.length);
+    self.tree.set(tree_index(self.length));
     self.length += 1;
 
     Ok(())
@@ -192,7 +192,7 @@ where
     let mut nodes = vec![];
 
     let proof = self.tree.proof_with_digest(
-      2 * index,
+      tree_index(index),
       digest,
       include_hash,
       &mut nodes,
@@ -230,7 +230,7 @@ where
 
   /// Compute the digest for the index.
   pub fn digest(&mut self, index: usize) -> usize {
-    self.tree.digest(2 * index)
+    self.tree.digest(tree_index(index))
   }
 
   /// Insert data into the tree at `index`. Verifies the `proof` when inserting
@@ -242,7 +242,7 @@ where
     data: Option<&[u8]>,
     mut proof: Proof,
   ) -> Result<()> {
-    let mut next = 2 * index;
+    let mut next = tree_index(index);
     let mut trusted: Option<usize> = None;
     let mut missing = vec![];
 
@@ -287,7 +287,7 @@ where
     let mut visited = vec![];
     let mut top = match data {
       Some(data) => Node::new(
-        2 * index,
+        tree_index(index),
         Hash::from_leaf(&data).as_bytes().to_owned(),
         data.len(),
       ),
@@ -371,7 +371,7 @@ where
       self.tree.set(node.index);
     }
 
-    self.tree.set(2 * index);
+    self.tree.set(tree_index(index));
 
     if let Some(_data) = data {
       if self.bitfield.set(index, true).is_changed() {
@@ -443,7 +443,7 @@ where
       index <= self.length,
       format!("Root index bounds exceeded {} > {}", index, self.length)
     );
-    let roots_index = index * 2 + 2;
+    let roots_index = tree_index(index) + 2;
     let mut indexes = vec![];
     flat::full_roots(roots_index, &mut indexes);
 
@@ -579,4 +579,10 @@ impl<T: RandomAccess<Error = Error> + Debug> Display for Feed<T> {
       key, len, byte_len, peers
     )
   }
+}
+
+/// Convert the index to the index in the tree.
+#[inline]
+fn tree_index(index: usize) -> usize {
+  2 * index
 }

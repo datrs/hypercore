@@ -178,11 +178,11 @@ where
     cached_nodes: &[Node],
   ) -> Result<Range<usize>> {
     let mut roots = Vec::new(); // TODO: reuse alloc
-    flat::full_roots(2 * index, &mut roots);
+    flat::full_roots(tree_index(index), &mut roots);
 
     let mut offset = 0;
     let mut pending = roots.len();
-    let block_index = 2 * index;
+    let block_index = tree_index(index);
 
     if pending == 0 {
       let len = match find_node(&cached_nodes, block_index) {
@@ -336,6 +336,12 @@ fn not_zeroes(bytes: &[u8]) -> bool {
     }
   }
   false
+}
+
+/// Convert the index to the index in the tree.
+#[inline]
+fn tree_index(index: usize) -> usize {
+  2 * index
 }
 
 #[test]
