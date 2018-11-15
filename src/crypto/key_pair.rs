@@ -3,7 +3,7 @@
 pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
 
 use crate::Result;
-use rand::OsRng;
+use rand::rngs::OsRng;
 use sha2::Sha512;
 
 /// Generate a new `Ed25519` key pair.
