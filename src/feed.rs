@@ -514,6 +514,28 @@ where
     Ok(extra_nodes)
   }
 
+  /// Audit all data in the feed. Checks that all current data matches
+  /// the hashes in the merkle tree, and clears the bitfield if not.
+  /// The tuple returns is (valid_blocks, invalid_blocks)
+  pub fn audit(&mut self) -> Result<(usize, usize)> {
+    let mut valid_blocks = 0;
+    let mut invalid_blocks = 0;
+    for index in 0..self.length {
+      if self.bitfield.get(index) {
+        let node = self.storage.get_node(2 * index)?;
+        let data = self.storage.get_data(index)?;
+        let data_hash = Hash::from_leaf(&data);
+        if node.hash == data_hash.as_bytes() {
+          valid_blocks += 1;
+        } else {
+          invalid_blocks += 1;
+          self.bitfield.set(index, false);
+        }
+      }
+    }
+    Ok((valid_blocks, invalid_blocks))
+  }
+
   /// (unimplemented) Provide a range of data to download.
   pub fn download(&mut self, _range: Range<usize>) -> Result<()> {
     unimplemented!();

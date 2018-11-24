@@ -183,3 +183,47 @@ fn copy_keys(
     _ => panic!("<tests/common>: Could not access secret key"),
   }
 }
+
+#[test]
+fn audit() {
+  let mut feed = create_feed(50).unwrap();
+  feed.append(b"hello").unwrap();
+  feed.append(b"world").unwrap();
+  match feed.audit() {
+    Ok((valid, invalid)) => {
+      assert_eq!(valid, 2);
+      assert_eq!(invalid, 0);
+    }
+    Err(e) => {
+      panic!(e);
+    }
+  }
+}
+
+//#[test]
+//fn audit_bad_data() {
+//  let mut storage = Storage::new_memory().unwrap();
+//  storage.write_data(0, b"H").unwrap();
+//  let mut feed = Feed::with_storage(storage).unwrap();
+//  feed.append(b"hello").unwrap();
+//  feed.append(b"world").unwrap();
+//  match feed.audit() {
+//    Ok((valid, invalid)) => {
+//      assert_eq!(valid, 1);
+//      assert_eq!(invalid, 1);
+//      // Ensure that audit has cleared up the invalid block
+//      match feed.audit() {
+//        Ok((valid, invalid)) => {
+//          assert_eq!(valid, 1, "Audit did not clean up the invalid block!");
+//          assert_eq!(invalid, 0, "Audit did not clean up the invalid block!");
+//        }
+//        Err(e) => {
+//          panic!(e);
+//        }
+//      }
+//    }
+//    Err(e) => {
+//      panic!(e);
+//    }
+//  }
+//}
