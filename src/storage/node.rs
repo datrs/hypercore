@@ -1,5 +1,5 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::Result;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flat_tree;
 use merkle_tree_stream::Node as NodeTrait;
 use pretty_hash::fmt as pretty_fmt;
