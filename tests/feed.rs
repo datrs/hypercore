@@ -193,9 +193,9 @@ fn audit() {
   feed.append(b"hello").unwrap();
   feed.append(b"world").unwrap();
   match feed.audit() {
-    Ok((valid, invalid)) => {
-      assert_eq!(valid, 2);
-      assert_eq!(invalid, 0);
+    Ok(audit_report) => {
+      assert_eq!(audit_report.valid_blocks, 2);
+      assert_eq!(audit_report.invalid_blocks, 0);
     }
     Err(e) => {
       panic!(e);
@@ -221,14 +221,20 @@ fn audit_bad_data() {
     .expect("Unable to corrupt the hypercore data file!");
 
   match feed.audit() {
-    Ok((valid, invalid)) => {
-      assert_eq!(valid, 1);
-      assert_eq!(invalid, 1);
+    Ok(audit_report) => {
+      assert_eq!(audit_report.valid_blocks, 1);
+      assert_eq!(audit_report.invalid_blocks, 1);
       // Ensure that audit has cleared up the invalid block
       match feed.audit() {
-        Ok((valid, invalid)) => {
-          assert_eq!(valid, 1, "Audit did not clean up the invalid block!");
-          assert_eq!(invalid, 0, "Audit did not clean up the invalid block!");
+        Ok(audit_report) => {
+          assert_eq!(
+            audit_report.valid_blocks, 1,
+            "Audit did not clean up the invalid block!"
+          );
+          assert_eq!(
+            audit_report.invalid_blocks, 0,
+            "Audit did not clean up the invalid block!"
+          );
           fs::remove_dir_all(dir)
             .expect("Should be able to remove our temporary directory");
         }
@@ -240,9 +246,9 @@ fn audit_bad_data() {
       }
     }
     Err(e) => {
-      panic!(e);
       fs::remove_dir_all(dir)
         .expect("Should be able to remove our temporary directory");
+      panic!(e);
     }
   }
 }

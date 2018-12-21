@@ -4,6 +4,7 @@ use crate::feed_builder::FeedBuilder;
 use crate::replicate::{Message, Peer};
 pub use crate::storage::{Node, NodeTrait, Storage, Store};
 
+use crate::audit::Audit;
 use crate::bitfield::Bitfield;
 use crate::crypto::{generate_keypair, sign, verify, Hash, Merkle};
 use crate::proof::Proof;
@@ -517,7 +518,7 @@ where
   /// Audit all data in the feed. Checks that all current data matches
   /// the hashes in the merkle tree, and clears the bitfield if not.
   /// The tuple returns is (valid_blocks, invalid_blocks)
-  pub fn audit(&mut self) -> Result<(usize, usize)> {
+  pub fn audit(&mut self) -> Result<Audit> {
     let mut valid_blocks = 0;
     let mut invalid_blocks = 0;
     for index in 0..self.length {
@@ -533,7 +534,10 @@ where
         }
       }
     }
-    Ok((valid_blocks, invalid_blocks))
+    Ok(Audit {
+      valid_blocks: valid_blocks,
+      invalid_blocks: invalid_blocks,
+    })
   }
 
   /// (unimplemented) Provide a range of data to download.

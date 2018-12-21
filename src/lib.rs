@@ -42,6 +42,7 @@ extern crate tree_index;
 pub mod bitfield;
 pub mod prelude;
 
+mod audit;
 mod crypto;
 mod event;
 mod feed;
