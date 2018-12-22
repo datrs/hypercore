@@ -11,7 +11,10 @@ use common::create_feed;
 use hypercore::{
   generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage,
 };
+use std::env::temp_dir;
 use std::fmt::Debug;
+use std::fs;
+use std::io::Write;
 
 #[test]
 fn create_with_key() {
@@ -181,5 +184,71 @@ fn copy_keys(
       return (public, secret);
     }
     _ => panic!("<tests/common>: Could not access secret key"),
+  }
+}
+
+#[test]
+fn audit() {
+  let mut feed = create_feed(50).unwrap();
+  feed.append(b"hello").unwrap();
+  feed.append(b"world").unwrap();
+  match feed.audit() {
+    Ok(audit_report) => {
+      assert_eq!(audit_report.valid_blocks, 2);
+      assert_eq!(audit_report.invalid_blocks, 0);
+    }
+    Err(e) => {
+      panic!(e);
+    }
+  }
+}
+
+#[test]
+fn audit_bad_data() {
+  let mut dir = temp_dir();
+  dir.push("audit_bad_data");
+  let storage = Storage::new_disk(&dir).unwrap();
+  let mut feed = Feed::with_storage(storage).unwrap();
+  feed.append(b"hello").unwrap();
+  feed.append(b"world").unwrap();
+  let datapath = dir.join("data");
+  let mut hypercore_data = fs::OpenOptions::new()
+    .write(true)
+    .open(datapath)
+    .expect("Unable to open the hypercore's data file!");
+  hypercore_data
+    .write("yello".as_bytes())
+    .expect("Unable to corrupt the hypercore data file!");
+
+  match feed.audit() {
+    Ok(audit_report) => {
+      assert_eq!(audit_report.valid_blocks, 1);
+      assert_eq!(audit_report.invalid_blocks, 1);
+      // Ensure that audit has cleared up the invalid block
+      match feed.audit() {
+        Ok(audit_report) => {
+          assert_eq!(
+            audit_report.valid_blocks, 1,
+            "Audit did not clean up the invalid block!"
+          );
+          assert_eq!(
+            audit_report.invalid_blocks, 0,
+            "Audit did not clean up the invalid block!"
+          );
+          fs::remove_dir_all(dir)
+            .expect("Should be able to remove our temporary directory");
+        }
+        Err(e) => {
+          fs::remove_dir_all(dir)
+            .expect("Should be able to remove our temporary directory");
+          panic!(e);
+        }
+      }
+    }
+    Err(e) => {
+      fs::remove_dir_all(dir)
+        .expect("Should be able to remove our temporary directory");
+      panic!(e);
+    }
   }
 }
