@@ -18,6 +18,28 @@ fn set_and_get() {
 }
 
 #[test]
+fn set_and_get_tree() {
+  let mut b = Bitfield::new();
+
+  {
+    let tree = &mut b.tree;
+
+    assert_eq!(tree.get(0), false);
+    assert_eq!(tree.set(0, true), Changed);
+    assert_eq!(tree.set(0, true), Unchanged);
+    assert_eq!(tree.get(0), true);
+
+    assert_eq!(tree.get(1_424_244), false);
+    assert_eq!(tree.set(1_424_244, true), Changed);
+    assert_eq!(tree.set(1_424_244, true), Unchanged);
+    assert_eq!(tree.get(1_424_244), true);
+  }
+
+  assert_eq!(b.get(0), false);
+  assert_eq!(b.get(1_424_244), false);
+}
+
+#[test]
 fn get_total_positive_bits() {
   let mut b = Bitfield::new();
 
