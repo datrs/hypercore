@@ -17,6 +17,7 @@
 //! We need to make sure the performance impact of this stays well within
 //! bounds.
 
+mod iterator;
 mod masks;
 
 use self::masks::Masks;
@@ -55,6 +56,11 @@ impl Bitfield {
       masks: Masks::new(),
       iterator: FlatIterator::new(0),
     }
+  }
+
+  /// Get the current length
+  pub fn length(&self) -> usize {
+    self.length
   }
 
   /// Set a value at an index.
@@ -225,6 +231,25 @@ impl Bitfield {
         }
       }
     }
+  }
+
+  /// Constructs an iterator from start to end
+  pub fn iterator(&mut self) -> iterator::Iterator<'_> {
+    let len = self.length;
+    self.iterator_with_range(0, len)
+  }
+
+  /// Constructs an iterator from `start` to `end`
+  pub fn iterator_with_range(
+    &mut self,
+    start: usize,
+    end: usize,
+  ) -> iterator::Iterator<'_> {
+    let mut iter = iterator::Iterator::new(self);
+    iter.range(start, end);
+    iter.seek(0);
+
+    iter
   }
 }
 
