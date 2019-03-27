@@ -11,10 +11,10 @@ fn set_and_get() {
   assert_eq!(b.set(0, true), Unchanged);
   assert_eq!(b.get(0), true);
 
-  assert_eq!(b.get(1424244), false);
-  assert_eq!(b.set(1424244, true), Changed);
-  assert_eq!(b.set(1424244, true), Unchanged);
-  assert_eq!(b.get(1424244), true);
+  assert_eq!(b.get(1_424_244), false);
+  assert_eq!(b.set(1_424_244, true), Changed);
+  assert_eq!(b.set(1_424_244, true), Unchanged);
+  assert_eq!(b.get(1_424_244), true);
 }
 
 #[test]

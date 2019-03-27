@@ -535,8 +535,8 @@ where
       }
     }
     Ok(Audit {
-      valid_blocks: valid_blocks,
-      invalid_blocks: invalid_blocks,
+      valid_blocks,
+      invalid_blocks,
     })
   }
 

@@ -67,7 +67,7 @@ quickcheck! {
         Op::Verify => {
           let len = insta.len();
           if len == 0 {
-            insta.signature(len).is_err();
+            insta.signature(len).unwrap_err();
           } else {
             // Always test index of last entry, which is `len - 1`.
             let len = len - 1;

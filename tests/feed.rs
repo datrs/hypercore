@@ -181,7 +181,7 @@ fn copy_keys(
       let public = PublicKey::from_bytes(public).unwrap();
       let secret = SecretKey::from_bytes(&secret).unwrap();
 
-      return (public, secret);
+      (public, secret)
     }
     _ => panic!("<tests/common>: Could not access secret key"),
   }
@@ -217,7 +217,7 @@ fn audit_bad_data() {
     .open(datapath)
     .expect("Unable to open the hypercore's data file!");
   hypercore_data
-    .write("yello".as_bytes())
+    .write_all(b"yello")
     .expect("Unable to corrupt the hypercore data file!");
 
   match feed.audit() {
