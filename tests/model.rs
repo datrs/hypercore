@@ -7,6 +7,7 @@ mod common;
 
 use common::create_feed;
 use quickcheck::{Arbitrary, Gen};
+use rand::seq::SliceRandom;
 use rand::Rng;
 use std::u8;
 
@@ -22,7 +23,7 @@ enum Op {
 impl Arbitrary for Op {
   fn arbitrary<G: Gen>(g: &mut G) -> Self {
     let choices = [0, 1, 2];
-    match g.choose(&choices).expect("Value should exist") {
+    match choices.choose(g).expect("Value should exist") {
       0 => {
         let index: usize = g.gen_range(0, MAX_FILE_SIZE);
         Op::Get { index }
