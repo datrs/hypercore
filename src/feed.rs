@@ -25,7 +25,35 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-/// Append-only log structure.
+/// Feed is an append-only log structure.
+///
+/// To read an entry from a `Feed` you only need to know its [PublicKey], to write to a `Feed`
+/// you must also have its [SecretKey]. The [SecretKey] should not be shared unless you know
+/// what you're doing as only one client should be able to write to a single `Feed`.
+/// If 2 seperate clients write conflicting information to the same `Feed` it will become corupted.
+/// The feed needs an implementation of RandomAccess as a storage backing for the entrys added to it.
+///
+/// There are several ways to construct a `Feed`
+///
+/// __If you have a `Feed`'s [PublicKey], but have not opened a given `Feed` before__
+/// Use [builder] to initalize a new local `Feed` instance. You will not be able to write to this
+/// feed.
+///
+/// __If you want to create a new `Feed`__
+/// Use [with_storage] and `Feed` will create a new [SecretKey]/[PublicKey] keypair and store it
+/// in the [Storage]
+///
+/// __If you want to reopen a `Feed` you have previously opened__
+/// Use [with_storage], giving it a [Storage] that contains the previously opened `Feed`
+///
+/// these references can be changed to the +nightly version, as docs.rs uses +nightly
+///
+/// [SecretKey]: ed25519_dalek::SecretKey
+/// [PublicKey]: ed25519_dalek::PublicKey
+/// [RandomAccess]: random_access_storage::RandomAccess
+/// [Storage]: crate::storage::Storage
+/// [builder]: crate::feed_builder::FeedBuilder
+/// [with_storage]: crate::feed::Feed::with_storage
 #[derive(Debug)]
 pub struct Feed<T>
 where
@@ -36,9 +64,9 @@ where
   pub(crate) public_key: PublicKey,
   pub(crate) secret_key: Option<SecretKey>,
   pub(crate) storage: Storage<T>,
-  /// Total length of data stored.
+  /// Total length of raw data stored in bytes.
   pub(crate) byte_length: usize,
-  /// TODO: description. Length of... roots?
+  /// Total number of entries stored in the `Feed`
   pub(crate) length: usize,
   /// Bitfield to keep track of which data we own.
   pub(crate) bitfield: Bitfield,
@@ -82,12 +110,12 @@ where
     }
   }
 
-  /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
+  /// Starts a `FeedBuilder` with the provided `PublicKey` and `Storage`.
   pub fn builder(public_key: PublicKey, storage: Storage<T>) -> FeedBuilder<T> {
     FeedBuilder::new(public_key, storage)
   }
 
-  /// Get the amount of entries in the feed.
+  /// Get the number of entries in the feed.
   #[inline]
   pub fn len(&self) -> usize {
     self.length
@@ -106,17 +134,24 @@ where
   }
 
   /// Append data into the log.
+  ///
+  /// `append` will return an Err if this feed was not initalized with a [SecretKey].
+  ///
+  /// It inserts the inputed data, it's signature, and a new [Merkle] node into [Storage].
+  ///
+  /// [SecretKey]: ed25519_dalek::SecretKey
+  /// [Merkle]: crate::crypto::Merkle
+  /// [Storage]: crate::storage::Storage
   #[inline]
   pub fn append(&mut self, data: &[u8]) -> Result<()> {
     let key = match &self.secret_key {
       Some(key) => key,
       None => bail!("no secret key, cannot append."),
     };
-    self.merkle.next(data);
-    let mut offset = 0;
 
-    self.storage.write_data(self.byte_length + offset, &data)?;
-    offset += data.len();
+    self.merkle.next(data);
+
+    self.storage.write_data(self.byte_length, &data)?;
 
     let hash = Hash::from_roots(self.merkle.roots());
     let index = self.length;
@@ -127,7 +162,7 @@ where
       self.storage.put_node(node)?;
     }
 
-    self.byte_length += offset;
+    self.byte_length += data.len();
 
     self.bitfield.set(self.length, true);
     self.tree.set(tree_index(self.length));
