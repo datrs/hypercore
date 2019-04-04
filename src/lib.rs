@@ -4,6 +4,13 @@
 #![forbid(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
+//! ## Introduction
+//! Hypercore is a secure, distributed append-only log. Built for sharing
+//! large datasets and streams of real time data as part of the [Dat] project.
+//! This is a rust port of [the original node version][dat-node]
+//! aiming for interoperability. The primary way to use this crate is through the [Feed] struct.
+//!
+//!
 //! ## Example
 //! ```rust
 //! extern crate hypercore;
@@ -20,6 +27,10 @@
 //! println!("{:?}", feed.get(0)); // prints "hello"
 //! println!("{:?}", feed.get(1)); // prints "world"
 //! ```
+//!
+//! [dat-node]: https://github.com/mafintosh/hypercore
+//! [Dat]: https://github.com/datrs
+//! [Feed]: crate::feed::Feed
 
 #[macro_use]
 extern crate failure;
