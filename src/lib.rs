@@ -6,7 +6,7 @@
 
 //! ## Introduction
 //! Hypercore is a secure, distributed append-only log. Built for sharing
-//! large datasets and streams of real time data as part of the [Dat] project. 
+//! large datasets and streams of real time data as part of the [Dat] project.
 //! This is a rust port of [the original node version][dat-node]
 //! aiming for interoperability. The primary way to use this crate is through the [Feed] struct.
 //!
