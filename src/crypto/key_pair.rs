@@ -45,5 +45,5 @@ fn can_verify_messages() {
   let from = b"hello";
   let sig = sign(&keypair.public, &keypair.secret, from);
   verify(&keypair.public, from, Some(&sig)).unwrap();
-  verify(&keypair.public, b"oops", Some(&sig)).is_err();
+  verify(&keypair.public, b"oops", Some(&sig)).unwrap_err();
 }
