@@ -3,12 +3,12 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flat_tree;
 use merkle_tree_stream::Node as NodeTrait;
 use pretty_hash::fmt as pretty_fmt;
+use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
 
 /// Nodes that are persisted to disk.
-// TODO: derive Ord, PartialOrd based on index.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
 // rewriting the Blake2b crate to support `.from_bytes()` to serialize from
 // disk.
@@ -113,5 +113,17 @@ impl Display for Node {
       pretty_fmt(&self.hash).unwrap(),
       self.length
     )
+  }
+}
+
+impl PartialOrd for Node {
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.index.cmp(&other.index))
+  }
+}
+
+impl Ord for Node {
+  fn cmp(&self, other: &Self) -> Ordering {
+    self.index.cmp(&other.index)
   }
 }
