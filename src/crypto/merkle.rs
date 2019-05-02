@@ -6,9 +6,9 @@ use merkle_tree_stream::{
 use std::rc::Rc;
 
 #[derive(Debug)]
-struct H;
+struct Hasher;
 
-impl HashMethods for H {
+impl HashMethods for Hasher {
   type Node = Node;
   type Hash = Hash;
 
@@ -33,7 +33,7 @@ impl HashMethods for H {
       index: partial.index(),
       parent: partial.parent,
       length: partial.len(),
-      hash: hash.as_bytes().into(),
+      hash: hash,
       data,
     }
   }
@@ -42,7 +42,7 @@ impl HashMethods for H {
 /// Merkle Tree Stream
 #[derive(Debug)]
 pub struct Merkle {
-  stream: MerkleTreeStream<H>,
+  stream: MerkleTreeStream<Hasher>,
   nodes: Vec<Rc<Node>>,
 }
 
@@ -58,7 +58,7 @@ impl Merkle {
   pub fn new() -> Self {
     Self {
       nodes: vec![],
-      stream: MerkleTreeStream::new(H, vec![]),
+      stream: MerkleTreeStream::new(Hasher, vec![]),
     }
   }
 

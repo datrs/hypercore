@@ -1,12 +1,12 @@
+use crate::crypto::Hash;
 use crate::Result;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flat_tree;
 use merkle_tree_stream::Node as NodeTrait;
-use pretty_hash::fmt as pretty_fmt;
 use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
-use std::io::Cursor;
+use std::io::{Cursor, Seek, SeekFrom};
 
 /// Nodes that are persisted to disk.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
@@ -15,7 +15,7 @@ use std::io::Cursor;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
   pub(crate) index: usize,
-  pub(crate) hash: Vec<u8>,
+  pub(crate) hash: Hash,
   pub(crate) length: usize,
   pub(crate) parent: usize,
   pub(crate) data: Option<Vec<u8>>,
@@ -24,7 +24,7 @@ pub struct Node {
 impl Node {
   /// Create a new instance.
   // TODO: ensure sizes are correct.
-  pub fn new(index: usize, hash: Vec<u8>, length: usize) -> Self {
+  pub fn new(index: usize, hash: Hash, length: usize) -> Self {
     Self {
       index,
       hash,
@@ -41,16 +41,15 @@ impl Node {
     ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
     let parent = flat_tree::parent(index);
-    let mut reader = Cursor::new(buffer);
 
     // TODO: subslice directly, move cursor forward.
     let capacity = 32;
-    let mut hash = Vec::with_capacity(capacity);
-    for _ in 0..capacity {
-      hash.push(reader.read_u8()?);
-    }
+    let hash = Hash::from_bytes(&buffer[..capacity]);
 
+    let mut reader = Cursor::new(buffer);
+    reader.seek(SeekFrom::Start(capacity as u64))?;
     // TODO: This will blow up on 32 bit systems, because usize can be 32 bits.
+    // Note: we could stop using usize on any protocol specific parts of code?
     let length = reader.read_u64::<BigEndian>()? as usize;
     Ok(Self {
       hash,
@@ -64,7 +63,7 @@ impl Node {
   /// Convert to a buffer that can be written to disk.
   pub fn to_bytes(&self) -> Result<Vec<u8>> {
     let mut writer = Vec::with_capacity(40);
-    writer.extend_from_slice(&self.hash);
+    writer.extend_from_slice(&self.hash.as_bytes());
     writer.write_u64::<BigEndian>(self.length as u64)?;
     Ok(writer)
   }
@@ -78,7 +77,7 @@ impl NodeTrait for Node {
 
   #[inline]
   fn hash(&self) -> &[u8] {
-    &self.hash
+    &self.hash.as_bytes()
   }
 
   #[inline]
@@ -109,9 +108,7 @@ impl Display for Node {
     write!(
       f,
       "Node {{ index: {}, hash: {}, length: {} }}",
-      self.index,
-      pretty_fmt(&self.hash).unwrap(),
-      self.length
+      self.index, self.hash, self.length
     )
   }
 }
