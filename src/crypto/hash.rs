@@ -5,6 +5,7 @@ use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 // use ed25519_dalek::PublicKey;
 use merkle_tree_stream::Node as NodeTrait;
+use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
 use std::fmt;
 use std::mem;
@@ -142,7 +143,7 @@ impl DerefMut for Hash {
 
 impl fmt::Display for Hash {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{:x?}", self.hash)
+    write!(f, "{}", pretty_fmt(&self.hash[..]).unwrap())
   }
 }
 
