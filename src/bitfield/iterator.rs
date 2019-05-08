@@ -57,14 +57,9 @@ impl<'a> Iterator<'a> {
 
     let pos = offset / 8;
     self.pos = Some(pos);
-    let left = self.bitfield.data.get_byte(pos);
-    let right = if o == 0 {
-      0
-    } else {
-      self.bitfield.masks.data_iterate[o - 1]
-    };
 
-    self.byte = left | right;
+    self.byte =
+      self.bitfield.data.get_byte(pos) | self.bitfield.masks.data_iterate[o];
 
     self
   }
@@ -96,7 +91,7 @@ impl<'a> Iterator<'a> {
     }
     self.pos = Some(pos);
 
-    self.byte |= self.bitfield.masks.data_iterate[free as usize];
+    self.byte |= self.bitfield.masks.data_iterate[free as usize + 1];
 
     let n = 8 * pos + free as usize;
     if n < self.end {
