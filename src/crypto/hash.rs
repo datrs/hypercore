@@ -4,6 +4,7 @@ use crate::storage::Node;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 // use ed25519_dalek::PublicKey;
+use constant_time_eq::constant_time_eq;
 use merkle_tree_stream::Node as NodeTrait;
 use pretty_hash::fmt as pretty_fmt;
 use std::convert::AsRef;
@@ -22,7 +23,7 @@ type StoredHash = [u8; BLAKE_2_HASH_SIZE];
 /// `BLAKE2b` hash.
 /// uses [blake2_rfc::blake2b::Blake2bResult] to hash its inputs on initalisation, the calculated
 /// hash is then constant and can not be changed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Hash {
   hash: StoredHash,
 }
@@ -146,6 +147,14 @@ impl fmt::Display for Hash {
     write!(f, "{}", pretty_fmt(&self.hash[..]).unwrap())
   }
 }
+
+impl PartialEq for Hash {
+  fn eq(&self, other: &Self) -> bool {
+    constant_time_eq(&self.hash[..], &other.hash[..])
+  }
+}
+
+impl Eq for Hash {}
 
 #[cfg(test)]
 mod tests {
