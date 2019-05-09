@@ -65,11 +65,7 @@ impl<'a> Iterator<'a> {
   }
 
   pub fn next(&mut self) -> Option<usize> {
-    let mut pos = if let Some(p) = self.pos {
-      p
-    } else {
-      return None;
-    };
+    let mut pos = self.pos?;
 
     let mut free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
 
@@ -79,11 +75,7 @@ impl<'a> Iterator<'a> {
       free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
 
       if free == -1 {
-        pos = if let Some(p) = self.skip_ahead(pos) {
-          p
-        } else {
-          return None;
-        };
+        pos = self.skip_ahead(pos)?;
 
         self.byte = self.bitfield.data.get_byte(pos);
         free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
