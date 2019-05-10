@@ -81,7 +81,7 @@ fn set_and_index() {
     assert_eq!(iter.seek(0).next(), Some(4));
   }
 
-  let len = b.length();
+  let len = b.len();
   for i in 0..len {
     b.set(i, true);
   }
@@ -112,7 +112,7 @@ fn set_and_index_random() {
   assert!(check(&mut b), "index validates");
 
   fn check(b: &mut Bitfield) -> bool {
-    let mut all = vec![true; b.length()];
+    let mut all = vec![true; b.len()];
 
     {
       let mut iter = b.iterator();

@@ -59,8 +59,13 @@ impl Bitfield {
   }
 
   /// Get the current length
-  pub fn length(&self) -> usize {
+  pub fn len(&self) -> usize {
     self.length
+  }
+
+  /// Returns `true` if the bitfield is empty
+  pub fn is_empty(&self) -> bool {
+    self.length == 0
   }
 
   /// Set a value at an index.
