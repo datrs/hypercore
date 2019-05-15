@@ -19,7 +19,7 @@ categories = [
 [dependencies]
 blake2-rfc = "0.2.18"
 byteorder = "1.2.6"
-ed25519-dalek = "0.8.1"
+ed25519-dalek = "0.9.1"
 failure = "0.1.2"
 flat-tree = "4.1"
 lazy_static = "1.1.0"
