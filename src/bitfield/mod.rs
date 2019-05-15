@@ -17,6 +17,7 @@
 //! We need to make sure the performance impact of this stays well within
 //! bounds.
 
+mod iterator;
 mod masks;
 
 use self::masks::Masks;
@@ -55,6 +56,16 @@ impl Bitfield {
       masks: Masks::new(),
       iterator: FlatIterator::new(0),
     }
+  }
+
+  /// Get the current length
+  pub fn len(&self) -> usize {
+    self.length
+  }
+
+  /// Returns `true` if the bitfield is empty
+  pub fn is_empty(&self) -> bool {
+    self.length == 0
   }
 
   /// Set a value at an index.
@@ -113,17 +124,8 @@ impl Bitfield {
     let pos = (start - o) / 8;
     let last = (end - e) / 8;
 
-    let left_mask = if o == 0 {
-      255
-    } else {
-      255 - self.masks.data_iterate[o - 1]
-    };
-
-    let right_mask = if e == 0 {
-      0
-    } else {
-      self.masks.data_iterate[e - 1]
-    };
+    let left_mask = 255 - self.masks.data_iterate[o];
+    let right_mask = self.masks.data_iterate[e];
 
     let byte = self.data.get_byte(pos);
     if pos == last {
@@ -225,6 +227,25 @@ impl Bitfield {
         }
       }
     }
+  }
+
+  /// Constructs an iterator from start to end
+  pub fn iterator(&mut self) -> iterator::Iterator<'_> {
+    let len = self.length;
+    self.iterator_with_range(0, len)
+  }
+
+  /// Constructs an iterator from `start` to `end`
+  pub fn iterator_with_range(
+    &mut self,
+    start: usize,
+    end: usize,
+  ) -> iterator::Iterator<'_> {
+    let mut iter = iterator::Iterator::new(self);
+    iter.range(start, end);
+    iter.seek(0);
+
+    iter
   }
 }
 

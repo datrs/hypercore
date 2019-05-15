@@ -7,6 +7,7 @@ mod common;
 
 use common::create_feed;
 use quickcheck::{Arbitrary, Gen};
+use rand::seq::SliceRandom;
 use rand::Rng;
 use std::u8;
 
@@ -22,7 +23,7 @@ enum Op {
 impl Arbitrary for Op {
   fn arbitrary<G: Gen>(g: &mut G) -> Self {
     let choices = [0, 1, 2];
-    match g.choose(&choices).expect("Value should exist") {
+    match choices.choose(g).expect("Value should exist") {
       0 => {
         let index: usize = g.gen_range(0, MAX_FILE_SIZE);
         Op::Get { index }
@@ -66,7 +67,7 @@ quickcheck! {
         Op::Verify => {
           let len = insta.len();
           if len == 0 {
-            insta.signature(len).is_err();
+            insta.signature(len).unwrap_err();
           } else {
             // Always test index of last entry, which is `len - 1`.
             let len = len - 1;
