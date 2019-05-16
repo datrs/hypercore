@@ -287,11 +287,9 @@ where
 
     let mut visited = vec![];
     let mut top = match data {
-      Some(data) => Node::new(
-        tree_index(index),
-        Hash::from_leaf(&data).as_bytes().to_owned(),
-        data.len(),
-      ),
+      Some(data) => {
+        Node::new(tree_index(index), Hash::from_leaf(&data), data.len())
+      }
       None => proof.nodes.remove(0),
     };
 
@@ -322,7 +320,7 @@ where
       visited.push(top.clone());
       let hash = Hash::from_hashes(&top, &node);
       let len = top.len() + node.len();
-      top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
+      top = Node::new(flat::parent(top.index), hash, len);
 
       if verify_node(&trusted_node, &top) {
         self.write(index, data, &visited, None)?;
@@ -526,7 +524,7 @@ where
         let node = self.storage.get_node(2 * index)?;
         let data = self.storage.get_data(index)?;
         let data_hash = Hash::from_leaf(&data);
-        if node.hash == data_hash.as_bytes() {
+        if node.hash == data_hash {
           valid_blocks += 1;
         } else {
           invalid_blocks += 1;
