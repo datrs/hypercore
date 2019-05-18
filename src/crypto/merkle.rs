@@ -32,7 +32,7 @@ impl HashMethods for H {
     Node {
       index: partial.index(),
       parent: partial.parent,
-      length: partial.len(),
+      length: partial.len() as u64,
       hash: hash.as_bytes().into(),
       data,
     }
