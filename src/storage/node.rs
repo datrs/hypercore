@@ -16,7 +16,7 @@ use std::io::Cursor;
 pub struct Node {
   pub(crate) index: usize,
   pub(crate) hash: Vec<u8>,
-  pub(crate) length: usize,
+  pub(crate) length: u64,
   pub(crate) parent: usize,
   pub(crate) data: Option<Vec<u8>>,
 }
@@ -28,7 +28,7 @@ impl Node {
     Self {
       index,
       hash,
-      length,
+      length: length as u64,
       parent: flat_tree::parent(index),
       data: Some(Vec::with_capacity(0)),
     }
@@ -50,8 +50,7 @@ impl Node {
       hash.push(reader.read_u8()?);
     }
 
-    // TODO: This will blow up on 32 bit systems, because usize can be 32 bits.
-    let length = reader.read_u64::<BigEndian>()? as usize;
+    let length = reader.read_u64::<BigEndian>()?;
     Ok(Self {
       hash,
       length,
@@ -83,7 +82,7 @@ impl NodeTrait for Node {
 
   #[inline]
   fn len(&self) -> usize {
-    self.length
+    self.length as usize
   }
 
   #[inline]
