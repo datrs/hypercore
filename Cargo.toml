@@ -16,6 +16,9 @@ categories = [
   "encoding",
 ]
 
+[build-dependencies]
+cbindgen = "0.6.3"
+
 [dependencies]
 blake2-rfc = "0.2.18"
 byteorder = "1.2.6"
@@ -40,3 +43,6 @@ quickcheck = "0.8.0"
 data-encoding = "2.1.1"
 remove_dir_all = "0.5.1"
 tempfile = "3.0.4"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
