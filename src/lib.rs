@@ -13,19 +13,13 @@
 //!
 //! ## Example
 //! ```rust
-//! extern crate hypercore;
+//! let mut feed = hypercore::Feed::new("./feed.db")?;
 //!
-//! use hypercore::Feed;
-//! use std::path::PathBuf;
+//! feed.append(b"hello")?;
+//! feed.append(b"world")?;
 //!
-//! let path = PathBuf::from("./my-first-dataset");
-//! let mut feed = Feed::new(&path).unwrap();
-//!
-//! feed.append(b"hello").unwrap();
-//! feed.append(b"world").unwrap();
-//!
-//! println!("{:?}", feed.get(0)); // prints "hello"
-//! println!("{:?}", feed.get(1)); // prints "world"
+//! assert_eq!(feed.get(0), Some("hello"));
+//! assert_eq!(feed.get(1), Some("world"));
 //! ```
 //!
 //! [dat-node]: https://github.com/mafintosh/hypercore
