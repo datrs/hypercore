@@ -8,8 +8,7 @@ use sha2::Sha512;
 
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {
-  let mut cspring: OsRng = OsRng::new().unwrap();
-  Keypair::generate::<Sha512, _>(&mut cspring)
+  Keypair::generate::<Sha512, _>(&mut OsRng::new().unwrap())
 }
 
 /// Sign a byte slice using a keypair's private key.
