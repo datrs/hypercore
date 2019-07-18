@@ -116,8 +116,8 @@ impl DerefMut for Hash {
 mod tests {
   use super::*;
 
-  extern crate data_encoding;
   use self::data_encoding::HEXLOWER;
+  use data_encoding;
 
   fn hex_bytes(hex: &str) -> Vec<u8> {
     HEXLOWER.decode(hex.as_bytes()).unwrap()
