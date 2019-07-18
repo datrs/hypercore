@@ -1,12 +1,14 @@
 use crate::Result;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use flat_tree;
 use merkle_tree_stream::Node as NodeTrait;
+use merkle_tree_stream::{NodeKind, NodeParts};
 use pretty_hash::fmt as pretty_fmt;
 use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
 use std::io::Cursor;
+
+use crate::crypto::Hash;
 
 /// Nodes that are persisted to disk.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
@@ -124,5 +126,23 @@ impl PartialOrd for Node {
 impl Ord for Node {
   fn cmp(&self, other: &Self) -> Ordering {
     self.index.cmp(&other.index)
+  }
+}
+
+impl From<NodeParts<Hash>> for Node {
+  fn from(parts: NodeParts<Hash>) -> Self {
+    let partial = parts.node();
+    let data = match partial.data() {
+      NodeKind::Leaf(data) => Some(data.clone()),
+      NodeKind::Parent => None,
+    };
+
+    Node {
+      index: partial.index(),
+      parent: partial.parent,
+      length: partial.len() as u64,
+      hash: parts.hash().as_bytes().into(),
+      data,
+    }
   }
 }

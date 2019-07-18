@@ -22,21 +22,6 @@ impl HashMethods for H {
   fn parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Hash {
     Hash::from_hashes(left, right)
   }
-
-  fn node(&self, partial: &PartialNode, hash: Self::Hash) -> Self::Node {
-    let data = match partial.data() {
-      NodeKind::Leaf(data) => Some(data.clone()),
-      NodeKind::Parent => None,
-    };
-
-    Node {
-      index: partial.index(),
-      parent: partial.parent,
-      length: partial.len() as u64,
-      hash: hash.as_bytes().into(),
-      data,
-    }
-  }
 }
 
 /// Merkle Tree Stream
