@@ -22,7 +22,7 @@ use std::borrow::Borrow;
 use std::cmp;
 use std::fmt::{self, Debug, Display};
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::Path;
 use std::rc::Rc;
 
 /// Append-only log structure.
@@ -557,7 +557,8 @@ impl Feed<RandomAccessDisk> {
     // TODO: Ensure that dir is always a directory.
     // NOTE: Should we `mkdirp` here?
     // NOTE: Should we call these `data.bitfield` / `data.tree`?
-    pub fn new(dir: &PathBuf) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let dir = path.as_ref().to_owned();
         let storage = Storage::new_disk(&dir)?;
         Ok(Self::with_storage(storage)?)
     }

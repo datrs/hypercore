@@ -9,3 +9,4 @@ target/
 Cargo.lock
 
 my-first-dataset/
+feed.db/
