@@ -10,22 +10,17 @@
 //! This is a rust port of [the original node version][dat-node]
 //! aiming for interoperability. The primary way to use this crate is through the [Feed] struct.
 //!
-//!
 //! ## Example
 //! ```rust
-//! extern crate hypercore;
+//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+//! let mut feed = hypercore::open("./feed.db")?;
 //!
-//! use hypercore::Feed;
-//! use std::path::PathBuf;
+//! feed.append(b"hello")?;
+//! feed.append(b"world")?;
 //!
-//! let path = PathBuf::from("./my-first-dataset");
-//! let mut feed = Feed::new(&path).unwrap();
-//!
-//! feed.append(b"hello").unwrap();
-//! feed.append(b"world").unwrap();
-//!
-//! println!("{:?}", feed.get(0)); // prints "hello"
-//! println!("{:?}", feed.get(1)); // prints "world"
+//! assert_eq!(feed.get(0)?, Some(b"hello".to_vec()));
+//! assert_eq!(feed.get(1)?, Some(b"world".to_vec()));
+//! # Ok(())}
 //! ```
 //!
 //! [dat-node]: https://github.com/mafintosh/hypercore
@@ -34,21 +29,6 @@
 
 #[macro_use]
 extern crate failure;
-
-extern crate blake2_rfc;
-extern crate byteorder;
-extern crate ed25519_dalek;
-extern crate flat_tree;
-extern crate merkle_tree_stream;
-extern crate pretty_hash;
-extern crate rand;
-extern crate random_access_disk;
-extern crate random_access_memory;
-extern crate random_access_storage;
-extern crate sha2;
-extern crate sleep_parser;
-extern crate sparse_bitfield;
-extern crate tree_index;
 
 pub mod bitfield;
 pub mod prelude;
@@ -71,7 +51,14 @@ pub use crate::replicate::Peer;
 pub use crate::storage::{Node, NodeTrait, Storage, Store};
 pub use ed25519_dalek::{PublicKey, SecretKey};
 
+use std::path::Path;
+
 use failure::Error;
 
 /// A specialized `Result` type for Hypercore operations.
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Create a new Hypercore `Feed`.
+pub fn open<P: AsRef<Path>>(path: P) -> Result<Feed<random_access_disk::RandomAccessDisk>> {
+    Feed::open(path)
+}

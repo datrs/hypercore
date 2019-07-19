@@ -10,19 +10,13 @@ WIP. Secure, distributed, append-only log structure. Adapted from
 
 ## Usage
 ```rust
-extern crate hypercore;
+let mut feed = hypercore::open("./feed.db")?;
 
-use hypercore::Feed;
-use std::path::PathBuf;
+feed.append(b"hello")?;
+feed.append(b"world")?;
 
-let path = PathBuf::from("./my-first-dataset");
-let mut feed = Feed::new(&path).unwrap();
-
-feed.append(b"hello").unwrap();
-feed.append(b"world").unwrap();
-
-println!("{:?}", feed.get(0)); // prints "hello"
-println!("{:?}", feed.get(1)); // prints "world"
+assert_eq!(feed.get(0)?, Some(b"hello".to_vec()));
+assert_eq!(feed.get(1)?, Some(b"world".to_vec()));
 ```
 
 ## Installation

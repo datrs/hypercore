@@ -17,46 +17,46 @@ use crate::Result;
 #[derive(Debug)]
 pub struct FeedBuilder<T>
 where
-  T: RandomAccess + Debug,
+    T: RandomAccess + Debug,
 {
-  storage: Storage<T>,
-  public_key: PublicKey,
-  secret_key: Option<SecretKey>,
+    storage: Storage<T>,
+    public_key: PublicKey,
+    secret_key: Option<SecretKey>,
 }
 
 impl<T> FeedBuilder<T>
 where
-  T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Error> + Debug,
 {
-  /// Create a new instance.
-  #[inline]
-  pub fn new(public_key: PublicKey, storage: Storage<T>) -> Self {
-    Self {
-      storage,
-      public_key,
-      secret_key: None,
+    /// Create a new instance.
+    #[inline]
+    pub fn new(public_key: PublicKey, storage: Storage<T>) -> Self {
+        Self {
+            storage,
+            public_key,
+            secret_key: None,
+        }
     }
-  }
 
-  /// Set the secret key.
-  pub fn secret_key(mut self, secret_key: SecretKey) -> Self {
-    self.secret_key = Some(secret_key);
-    self
-  }
+    /// Set the secret key.
+    pub fn secret_key(mut self, secret_key: SecretKey) -> Self {
+        self.secret_key = Some(secret_key);
+        self
+    }
 
-  /// Finalize the builder.
-  #[inline]
-  pub fn build(self) -> Result<Feed<T>> {
-    Ok(Feed {
-      merkle: Merkle::new(),
-      byte_length: 0,
-      length: 0,
-      bitfield: Bitfield::default(),
-      tree: TreeIndex::default(),
-      public_key: self.public_key,
-      secret_key: self.secret_key,
-      storage: self.storage,
-      peers: vec![],
-    })
-  }
+    /// Finalize the builder.
+    #[inline]
+    pub fn build(self) -> Result<Feed<T>> {
+        Ok(Feed {
+            merkle: Merkle::new(),
+            byte_length: 0,
+            length: 0,
+            bitfield: Bitfield::default(),
+            tree: TreeIndex::default(),
+            public_key: self.public_key,
+            secret_key: self.secret_key,
+            storage: self.storage,
+            peers: vec![],
+        })
+    }
 }
