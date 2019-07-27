@@ -24,6 +24,32 @@
 ```
 
 
+## 2018-12-22, Version 0.9.0
+### Commits
+- [[`9c2b07fca6`](https://github.com/datrs/hypercore/commit/9c2b07fca68bb34046551f0fd152aa7f97a33fb6)] (cargo-release) version 0.9.0 (Yoshua Wuyts)
+- [[`86e241f9e0`](https://github.com/datrs/hypercore/commit/86e241f9e02e3583445fcb43fcc28295eae1cd31)] 🙋 Implement feed auditing (#55) (Tim Deeb-Swihart)
+- [[`5840a3a6a9`](https://github.com/datrs/hypercore/commit/5840a3a6a90f47ba89662687a374f070f3172c69)] Update rand requirement from 0.5.5 to 0.6.0 (#49) (dependabot[bot])
+- [[`1628057868`](https://github.com/datrs/hypercore/commit/162805786831866ea611cfe97e85def690614fa6)] use tree_index functions (#48) (Yoshua Wuyts)
+- [[`f66fbb3543`](https://github.com/datrs/hypercore/commit/f66fbb354376681062697ffd2be18da2224cb1b9)] Update merkle-tree-stream requirement from 0.7.0 to 0.8.0 (#46) (dependabot[bot])
+- [[`343df6f991`](https://github.com/datrs/hypercore/commit/343df6f991b0fbe5f50a7d95b632b3c60e5dfa54)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md           | 26 +++++++++++++++++++-
+ Cargo.toml             |  6 ++--
+ src/audit.rs           | 20 +++++++++++++++-
+ src/bitfield/mod.rs    | 21 ++++++++++------
+ src/crypto/key_pair.rs |  2 +-
+ src/crypto/merkle.rs   | 14 ++++++----
+ src/feed.rs            | 46 ++++++++++++++++++++++++++++------
+ src/lib.rs             |  1 +-
+ src/storage/mod.rs     | 10 +++++--
+ src/storage/node.rs    |  2 +-
+ tests/feed.rs          | 69 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 11 files changed, 191 insertions(+), 26 deletions(-)
+```
+
+
 ## 2018-10-28, Version 0.8.1
 ### Commits
 - [[`938d2816cc`](https://github.com/datrs/hypercore/commit/938d2816cc63e4dd8964139baa56be2dd28e72d5)] (cargo-release) version 0.8.1 (Yoshua Wuyts)
