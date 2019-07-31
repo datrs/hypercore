@@ -79,10 +79,7 @@ fn deterministic_signatures() {
     for _ in 0..5 {
         let (dir, storage) = mk_storage();
         let keypair = mk_keypair(&keypair_bytes, &key);
-        let mut feed = Feed::builder(keypair.public, storage)
-            .secret_key(keypair.secret)
-            .build()
-            .unwrap();
+        let mut feed = Feed::new(keypair.public, storage).set_secret_key(keypair.secret);
 
         let data = b"abc";
         for &b in data {

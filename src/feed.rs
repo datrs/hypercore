@@ -1,6 +1,5 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-use crate::feed_builder::FeedBuilder;
 use crate::replicate::{Message, Peer};
 pub use crate::storage::{Node, NodeTrait, Storage, Store};
 
@@ -50,20 +49,38 @@ impl<T> Feed<T>
 where
     T: RandomAccess<Error = Error> + Debug,
 {
+    /// create a new feed
+    pub fn new(public_key: PublicKey, storage: Storage<T>) -> Self {
+        Feed {
+            merkle: Merkle::new(),
+            byte_length: 0,
+            length: 0,
+            bitfield: Bitfield::default(),
+            tree: TreeIndex::default(),
+            public_key,
+            secret_key: None,
+            storage,
+            peers: vec![],
+        }
+    }
+
+    /// Set the secret key.
+    pub fn set_secret_key(mut self, secret_key: SecretKey) -> Self {
+        self.secret_key = Some(secret_key);
+        self
+    }
+
     /// Create a new instance with a custom storage backend.
     pub fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
         match storage.read_partial_keypair() {
             Some(partial_keypair) => {
-                let builder = FeedBuilder::new(partial_keypair.public, storage);
+                let mut feed = Feed::new(partial_keypair.public, storage);
 
-                // return early without secret key
-                if partial_keypair.secret.is_none() {
-                    return Ok(builder.build()?);
+                if partial_keypair.secret.is_some() {
+                    feed = feed.set_secret_key(partial_keypair.secret.unwrap());
                 }
 
-                Ok(builder
-                    .secret_key(partial_keypair.secret.unwrap())
-                    .build()?)
+                Ok(feed)
             }
             None => {
                 // we have no keys, generate a pair and save them to the storage
@@ -71,16 +88,9 @@ where
                 storage.write_public_key(&keypair.public)?;
                 storage.write_secret_key(&keypair.secret)?;
 
-                Ok(FeedBuilder::new(keypair.public, storage)
-                    .secret_key(keypair.secret)
-                    .build()?)
+                Ok(Feed::new(keypair.public, storage).set_secret_key(keypair.secret))
             }
         }
-    }
-
-    /// Starts a `FeedBuilder` with the provided `Keypair` and `Storage`.
-    pub fn builder(public_key: PublicKey, storage: Storage<T>) -> FeedBuilder<T> {
-        FeedBuilder::new(public_key, storage)
     }
 
     /// Get the amount of entries in the feed.

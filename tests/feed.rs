@@ -18,10 +18,7 @@ use std::io::Write;
 fn create_with_key() {
     let keypair = generate_keypair();
     let storage = Storage::new_memory().unwrap();
-    let _feed = Feed::builder(keypair.public, storage)
-        .secret_key(keypair.secret)
-        .build()
-        .unwrap();
+    let _feed = Feed::new(keypair.public, storage);
 }
 
 #[test]
@@ -90,10 +87,7 @@ fn verify() {
     let (public, secret) = copy_keys(&feed);
     let feed_bytes = secret.to_bytes().to_vec();
     let storage = Storage::new(|_| Ok(ram::RandomAccessMemory::new(50))).unwrap();
-    let mut evil_feed = Feed::builder(public, storage)
-        .secret_key(secret)
-        .build()
-        .unwrap();
+    let mut evil_feed = Feed::new(public, storage).set_secret_key(secret);
 
     let evil_bytes = match &feed.secret_key() {
         Some(key) => key.to_bytes(),
@@ -119,10 +113,7 @@ fn put() {
     let mut a = create_feed(50).unwrap();
     let (public, secret) = copy_keys(&a);
     let storage = Storage::new(|_| Ok(ram::RandomAccessMemory::new(50))).unwrap();
-    let mut b = Feed::builder(public, storage)
-        .secret_key(secret)
-        .build()
-        .unwrap();
+    let mut b = Feed::new(public, storage).set_secret_key(secret);
 
     for _ in 0..10 {
         a.append(b"foo").unwrap();
