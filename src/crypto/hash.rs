@@ -1,9 +1,9 @@
 pub use blake2_rfc::blake2b::Blake2bResult;
 
+use crate::storage::Node;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
-// use ed25519_dalek::PublicKey;
-use crate::storage::Node;
+use ed25519_dalek::PublicKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::mem;
@@ -13,7 +13,7 @@ use std::ops::{Deref, DerefMut};
 const LEAF_TYPE: [u8; 1] = [0x00];
 const PARENT_TYPE: [u8; 1] = [0x01];
 const ROOT_TYPE: [u8; 1] = [0x02];
-//const HYPERCORE: [u8; 9] = *b"hypercore";
+const HYPERCORE: [u8; 9] = *b"hypercore";
 
 /// `BLAKE2b` hash.
 #[derive(Debug, Clone, PartialEq)]
@@ -57,16 +57,15 @@ impl Hash {
         }
     }
 
-    // /// Hash a public key. Useful to find the key you're looking for on a public
-    // /// network without leaking the key itself.
-    // pub fn from_key(public_key: PublicKey) -> Self {
-    //   let mut hasher = Blake2b::new(32);
-    //   hasher.update(*HYPERCORE);
-    //   hasher.update(public_key.as_bytes());
-    //   Self {
-    //     hash: hasher.finalize(),
-    //   }
-    // }
+    /// Hash a public key. Useful to find the key you're looking for on a public
+    /// network without leaking the key itself.
+    pub fn to_discovery_key(public_key: PublicKey) -> Self {
+        let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
+        hasher.update(&HYPERCORE);
+        Self {
+            hash: hasher.finalize(),
+        }
+    }
 
     /// Hash a vector of `Root` nodes.
     // Called `crypto.tree()` in the JS implementation.
@@ -169,5 +168,22 @@ mod tests {
             Hash::from_roots(&[&node2, &node1]),
             "9826c8c2d28fc309cce73a4b6208e83e5e4b0433d2369bfbf8858272153849f1",
         );
+    }
+
+    #[test]
+    fn discovery_key_hashing() -> Result<(), ed25519_dalek::SignatureError> {
+        let public_key = PublicKey::from_bytes(&[
+            119, 143, 141, 149, 81, 117, 201, 46, 76, 237, 94, 79, 85, 99, 246, 155, 254, 192, 200,
+            108, 198, 246, 112, 53, 44, 69, 121, 67, 102, 111, 230, 57,
+        ])?;
+
+        let expected = &[
+            37, 167, 138, 168, 22, 21, 132, 126, 186, 0, 153, 93, 242, 157, 212, 29, 126, 227, 15,
+            59, 1, 248, 146, 32, 159, 121, 183, 90, 87, 217, 137, 225,
+        ];
+
+        assert_eq!(Hash::to_discovery_key(public_key).as_bytes(), expected);
+
+        Ok(())
     }
 }
