@@ -51,6 +51,6 @@ look at some of these issues:
 [8]: https://docs.rs/hypercore
 
 [releases]: https://github.com/datrs/hypercore/releases
-[contributing]: https://github.com/datrs/hypercore/blob/master.github/CONTRIBUTING.md
+[contributing]: https://github.com/datrs/hypercore/blob/master/.github/CONTRIBUTING.md
 [good-first-issue]: https://github.com/datrs/hypercore/labels/good%20first%20issue
 [help-wanted]: https://github.com/datrs/hypercore/labels/help%20wanted
