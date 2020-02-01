@@ -6,10 +6,9 @@ pub use crate::storage::{Node, NodeTrait, Storage, Store};
 
 use crate::audit::Audit;
 use crate::bitfield::Bitfield;
-use crate::crypto::{generate_keypair, sign, verify, Hash, Merkle};
+use crate::crypto::{generate_keypair, sign, verify, Hash, Merkle, PublicKey, SecretKey, Signature};
 use crate::proof::Proof;
 use crate::Result;
-use ed25519_dalek::{PublicKey, SecretKey, Signature};
 use failure::Error;
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
