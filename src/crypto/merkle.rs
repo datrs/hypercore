@@ -1,7 +1,7 @@
 use crate::crypto::Hash;
 use crate::storage::Node;
 use merkle_tree_stream::{HashMethods, MerkleTreeStream, NodeKind, PartialNode};
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct H;
@@ -10,7 +10,7 @@ impl HashMethods for H {
     type Node = Node;
     type Hash = Hash;
 
-    fn leaf(&self, leaf: &PartialNode, _roots: &[Rc<Self::Node>]) -> Self::Hash {
+    fn leaf(&self, leaf: &PartialNode, _roots: &[Arc<Self::Node>]) -> Self::Hash {
         match leaf.data() {
             NodeKind::Leaf(data) => Hash::from_leaf(&data),
             NodeKind::Parent => unreachable!(),
@@ -26,7 +26,7 @@ impl HashMethods for H {
 #[derive(Debug)]
 pub struct Merkle {
     stream: MerkleTreeStream<H>,
-    nodes: Vec<Rc<Node>>,
+    nodes: Vec<Arc<Node>>,
 }
 
 impl Default for Merkle {
@@ -52,12 +52,12 @@ impl Merkle {
     }
 
     /// Get the roots vector.
-    pub fn roots(&self) -> &Vec<Rc<Node>> {
+    pub fn roots(&self) -> &Vec<Arc<Node>> {
         self.stream.roots()
     }
 
     /// Get the nodes from the struct.
-    pub fn nodes(&self) -> &Vec<Rc<Node>> {
+    pub fn nodes(&self) -> &Vec<Arc<Node>> {
         &self.nodes
     }
 }
