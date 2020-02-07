@@ -229,6 +229,35 @@ impl Bitfield {
         }
     }
 
+    // TODO: use the index to speed this up *a lot*
+    /// https://github.com/mafintosh/hypercore/blob/06f3a1f573cb74ee8cfab2742455318fbf7cc3a2/lib/bitfield.js#L111-L126
+    pub fn compress(&self, start: usize, length: usize) -> std::io::Result<Vec<u8>> {
+        if start == 0 && length == 0 {
+            return Ok(bitfield_rle::encode(&self.data.to_bytes()?));
+        }
+
+        use std::io::{Cursor, Write};
+        let mut buf = Cursor::new(Vec::with_capacity(length));
+
+        let page_size = self.data.page_size();
+        let p = start / page_size / 8;
+        let end = p + length / page_size / 8;
+        let offset = p * page_size;
+
+        for _ in p..end {
+            let page = self.data.pages.get(p);
+            if let Some(page) = page {
+                if page.len() == 0 {
+                    continue;
+                }
+                buf.set_position((p * page_size - offset) as u64);
+                buf.write_all(&page)?;
+            }
+        }
+
+        Ok(bitfield_rle::encode(&buf.into_inner()))
+    }
+
     /// Constructs an iterator from start to end
     pub fn iterator(&mut self) -> iterator::Iterator<'_> {
         let len = self.length;

@@ -174,3 +174,22 @@ fn bitfield_dedup() {
     assert!(!b.get(8 * 1024));
     assert!(b.get(16 * 1024));
 }
+
+#[test]
+fn bitfield_compress() {
+    let mut b = Bitfield::new();
+    assert_eq!(b.compress(0, 0).unwrap(), vec![]);
+
+    b.set(1, true);
+    assert_eq!(b.compress(0, 0).unwrap(), vec![2, 64]);
+
+    for i in 0..32 {
+        b.set(i, true);
+    }
+    assert_eq!(b.compress(0, 0).unwrap(), vec![19]);
+    assert_eq!(b.compress(0, 1).unwrap(), vec![7]);
+    assert_eq!(b.compress(0, 2).unwrap(), vec![11]);
+    assert_eq!(b.compress(0, 3).unwrap(), vec![15]);
+    assert_eq!(b.compress(0, 4).unwrap(), vec![19]);
+    assert_eq!(b.compress(0, 5).unwrap(), vec![19]);
+}
