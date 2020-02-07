@@ -240,8 +240,8 @@ impl Bitfield {
         let mut buf = Cursor::new(Vec::with_capacity(length));
 
         let page_size = self.data.page_size() as f64;
-        let mut p = start as f64 / page_size / 8_f64;
-        let end = p + length as f64 / page_size / 8_f64;
+        let mut p = start as f64 / page_size / 8.0;
+        let end = p + length as f64 / page_size / 8.0;
         let offset = p * page_size;
 
         while p < end {
@@ -253,7 +253,7 @@ impl Bitfield {
                     buf.write_all(&page)?;
                 }
             }
-            p += 1_f64;
+            p += 1.0;
         }
 
         Ok(bitfield_rle::encode(&buf.into_inner()))
