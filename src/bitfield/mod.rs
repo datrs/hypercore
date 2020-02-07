@@ -239,20 +239,21 @@ impl Bitfield {
         use std::io::{Cursor, Write};
         let mut buf = Cursor::new(Vec::with_capacity(length));
 
-        let page_size = self.data.page_size();
-        let p = start / page_size / 8;
-        let end = p + length / page_size / 8;
+        let page_size = self.data.page_size() as f64;
+        let mut p = start as f64 / page_size / 8_f64;
+        let end = p + length as f64 / page_size / 8_f64;
         let offset = p * page_size;
 
-        for _ in p..end {
-            let page = self.data.pages.get(p);
+        while p < end {
+            let index = p as usize;
+            let page = self.data.pages.get(index);
             if let Some(page) = page {
-                if page.len() == 0 {
-                    continue;
+                if dbg!(page.len()) != 0 {
+                    buf.set_position((p * page_size - offset) as u64);
+                    buf.write_all(&page)?;
                 }
-                buf.set_position((p * page_size - offset) as u64);
-                buf.write_all(&page)?;
             }
+            p += 1_f64;
         }
 
         Ok(bitfield_rle::encode(&buf.into_inner()))

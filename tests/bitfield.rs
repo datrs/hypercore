@@ -178,18 +178,41 @@ fn bitfield_dedup() {
 #[test]
 fn bitfield_compress() {
     let mut b = Bitfield::new();
-    assert_eq!(b.compress(0, 0).unwrap(), vec![]);
+    assert_eq!(b.compress(0, 0).unwrap(), vec![0]);
 
     b.set(1, true);
-    assert_eq!(b.compress(0, 0).unwrap(), vec![2, 64]);
+    assert_eq!(b.compress(0, 0).unwrap(), vec![2, 64, 253, 31]);
 
     for i in 0..32 {
         b.set(i, true);
     }
-    assert_eq!(b.compress(0, 0).unwrap(), vec![19]);
-    assert_eq!(b.compress(0, 1).unwrap(), vec![7]);
-    assert_eq!(b.compress(0, 2).unwrap(), vec![11]);
-    assert_eq!(b.compress(0, 3).unwrap(), vec![15]);
-    assert_eq!(b.compress(0, 4).unwrap(), vec![19]);
-    assert_eq!(b.compress(0, 5).unwrap(), vec![19]);
+
+    for i in 64..1024 {
+        b.set(i, true);
+    }
+
+    for i in 1024..1028 {
+        b.set(i, true);
+    }
+
+    assert_eq!(
+        b.compress(0, 0).unwrap(),
+        vec![19, 17, 227, 3, 2, 240, 253, 27]
+    );
+    assert_eq!(
+        b.compress(0, 1).unwrap(),
+        vec![19, 17, 227, 3, 2, 240, 253, 27]
+    );
+    assert_eq!(
+        b.compress(0, 32).unwrap(),
+        vec![19, 17, 227, 3, 2, 240, 253, 27]
+    );
+    assert_eq!(
+        b.compress(0, 1024).unwrap(),
+        vec![19, 17, 227, 3, 2, 240, 253, 27]
+    );
+    assert_eq!(
+        b.compress(1024, 2048).unwrap(),
+        vec![19, 17, 227, 3, 2, 240, 253, 27]
+    );
 }
