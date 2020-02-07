@@ -248,7 +248,7 @@ impl Bitfield {
             let index = p as usize;
             let page = self.data.pages.get(index);
             if let Some(page) = page {
-                if dbg!(page.len()) != 0 {
+                if page.len() != 0 {
                     buf.set_position((p * page_size - offset) as u64);
                     buf.write_all(&page)?;
                 }

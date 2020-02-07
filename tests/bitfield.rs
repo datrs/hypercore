@@ -183,36 +183,16 @@ fn bitfield_compress() {
     b.set(1, true);
     assert_eq!(b.compress(0, 0).unwrap(), vec![2, 64, 253, 31]);
 
-    for i in 0..32 {
-        b.set(i, true);
-    }
-
-    for i in 64..1024 {
-        b.set(i, true);
-    }
-
-    for i in 1024..1028 {
-        b.set(i, true);
-    }
-
+    b.set(1_424_244, true);
     assert_eq!(
         b.compress(0, 0).unwrap(),
-        vec![19, 17, 227, 3, 2, 240, 253, 27]
+        vec![2, 64, 181, 187, 43, 2, 8, 197, 4]
     );
+    assert_eq!(b.compress(0, 1).unwrap(), vec![2, 64, 253, 31]);
     assert_eq!(
-        b.compress(0, 1).unwrap(),
-        vec![19, 17, 227, 3, 2, 240, 253, 27]
+        b.compress(1_424_244, 1).unwrap(),
+        vec![185, 27, 2, 8, 197, 4]
     );
-    assert_eq!(
-        b.compress(0, 32).unwrap(),
-        vec![19, 17, 227, 3, 2, 240, 253, 27]
-    );
-    assert_eq!(
-        b.compress(0, 1024).unwrap(),
-        vec![19, 17, 227, 3, 2, 240, 253, 27]
-    );
-    assert_eq!(
-        b.compress(1024, 2048).unwrap(),
-        vec![19, 17, 227, 3, 2, 240, 253, 27]
-    );
+
+    assert_eq!(b.compress(1_424_244_000, 1).unwrap(), vec![0]);
 }
