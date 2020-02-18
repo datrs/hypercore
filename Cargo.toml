@@ -25,7 +25,7 @@ failure = "0.1.5"
 flat-tree = "4.1.0"
 lazy_static = "1.3.0"
 memory-pager = "0.9.0"
-merkle-tree-stream = { version = "0.10.0", git = "https://github.com/bltavares/merkle-tree-stream", branch = "send" }
+merkle-tree-stream = "0.11.0"
 pretty-hash = "0.4.0"
 rand = "0.6.0"
 random-access-disk = "0.8.0"
