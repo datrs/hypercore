@@ -1,3 +1,31 @@
+## 2020-02-19, Version 0.11.0
+### Commits
+- [[`f2baf805d5`](https://github.com/datrs/hypercore/commit/f2baf805d5477c768f32ca2cf7faae4d9d284686)] (cargo-release) version 0.11.0 (Bruno Tavares)
+- [[`31dfdd15f2`](https://github.com/datrs/hypercore/commit/31dfdd15f27356780d75fa126bd8a8d464fefc39)] Merge pull request #95 from bltavares/send (Bruno Tavares)
+- [[`46be5197a2`](https://github.com/datrs/hypercore/commit/46be5197a2398e04d413ebfa65fcb6f830dedf0f)] Use published version (Bruno Tavares)
+- [[`d4905b11cf`](https://github.com/datrs/hypercore/commit/d4905b11cf83871db98c118c373d52626e6b1c78)] Point to merkle-tree-stream that is Send while new version is to be released (Bruno Tavares)
+- [[`40caf92ec2`](https://github.com/datrs/hypercore/commit/40caf92ec2c357a08ddeec03f9d4ba34a723eeaf)] Replace all Rc with Arc in code. Needs to update dependencies (Bruno Tavares)
+- [[`2dc8008a55`](https://github.com/datrs/hypercore/commit/2dc8008a5542713a2569cfb115a006dee34bbca6)] example to ensure structs are send (Bruno Tavares)
+- [[`f77fe7b025`](https://github.com/datrs/hypercore/commit/f77fe7b0257bd5f0e7007c012bc68bc1d75eda05)] fix readme link (#88) (nasa)
+- [[`82e48f0c7d`](https://github.com/datrs/hypercore/commit/82e48f0c7d2330f0ed845dac30db46a02d5f7c48)] Update memory-pager requirement from 0.8.0 to 0.9.0 (dependabot-preview[bot])
+- [[`580dff64c5`](https://github.com/datrs/hypercore/commit/580dff64c50377e6fc51dbed701c2dc26a2693a2)] Update sparse-bitfield requirement from 0.8.1 to 0.10.0 (dependabot-preview[bot])
+- [[`7eda3504d6`](https://github.com/datrs/hypercore/commit/7eda3504d61de0f1423d0efa272587fe8b0a1650)] Merge pull request #81 from bltavares/discovery-key-hash (Szabolcs Berecz)
+- [[`1edf42f790`](https://github.com/datrs/hypercore/commit/1edf42f79007924b79e7b1b99a7e9d66abc3b4e9)] Implements discoveryKey from hypercore-crypto (Bruno Tavares)
+- [[`aedef0b149`](https://github.com/datrs/hypercore/commit/aedef0b149de042313245c2baab0948da3390aef)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md         | 26 ++++++++++++++++++++++++++
+ Cargo.toml           |  9 +++++----
+ README.md            |  2 +-
+ examples/async.rs    | 30 ++++++++++++++++++++++++++++++
+ src/crypto/hash.rs   | 42 +++++++++++++++++++++++++++++-------------
+ src/crypto/merkle.rs | 10 +++++-----
+ src/feed.rs          |  4 ++--
+ 7 files changed, 98 insertions(+), 25 deletions(-)
+```
+
+
 ## 2018-12-22, Version 0.9.0
 ### Commits
 - [[`9c2b07fca6`](https://github.com/datrs/hypercore/commit/9c2b07fca68bb34046551f0fd152aa7f97a33fb6)] (cargo-release) version 0.9.0 (Yoshua Wuyts)
