@@ -37,7 +37,7 @@ sparse-bitfield = "0.10.0"
 tree-index = "0.5.0"
 
 [dev-dependencies]
-quickcheck = "0.8.5"
+quickcheck = "0.9.2"
 data-encoding = "2.1.2"
 remove_dir_all = "0.5.2"
 tempfile = "3.1.0"
