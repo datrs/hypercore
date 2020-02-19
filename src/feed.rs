@@ -23,7 +23,7 @@ use std::cmp;
 use std::fmt::{self, Debug, Display};
 use std::ops::Range;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Append-only log structure.
 #[derive(Debug)]
@@ -398,7 +398,7 @@ where
     /// root nodes combined.
     pub fn verify(&mut self, index: usize, signature: &Signature) -> Result<()> {
         let roots = self.root_hashes(index)?;
-        let roots: Vec<_> = roots.into_iter().map(Rc::new).collect();
+        let roots: Vec<_> = roots.into_iter().map(Arc::new).collect();
 
         let message = Hash::from_roots(&roots);
         let message = message.as_bytes();
