@@ -1,19 +1,20 @@
 //! Generate an `Ed25519` keypair.
 
-pub use ed25519_dalek::{Keypair, PublicKey, SecretKey, Signature};
+pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature};
 
 use crate::Result;
-use rand::rngs::OsRng;
-use sha2::Sha512;
+use rand::rngs::{OsRng, StdRng};
+use rand::SeedableRng;
 
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {
-    Keypair::generate::<Sha512, _>(&mut OsRng::new().unwrap())
+    let mut rng = StdRng::from_rng(OsRng::default()).unwrap();
+    Keypair::generate(&mut rng)
 }
 
 /// Sign a byte slice using a keypair's private key.
 pub fn sign(public_key: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature {
-    secret.expand::<Sha512>().sign::<Sha512>(msg, public_key)
+    ExpandedSecretKey::from(secret).sign(msg, public_key)
 }
 
 /// Verify a signature on a message with a keypair's public key.
@@ -22,7 +23,7 @@ pub fn verify(public: &PublicKey, msg: &[u8], sig: Option<&Signature>) -> Result
         None => bail!("Signature verification failed"),
         Some(sig) => {
             ensure!(
-                public.verify::<Sha512>(msg, sig).is_ok(),
+                public.verify(msg, sig).is_ok(),
                 "Signature verification failed"
             );
             Ok(())
