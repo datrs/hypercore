@@ -3,8 +3,8 @@ cache: cargo
 rust: stable
 
 before_script:
-  - rustup component add rustfmt-preview
-  - rustup component add clippy-preview
+  - rustup component add rustfmt
+  - rustup component add clippy
   - cargo fmt --version
   - cargo clippy --version
 
@@ -12,4 +12,4 @@ script:
   - cargo fmt -- --check
   - cargo build --verbose
   - cargo test  --verbose
-  - cargo clippy
+  - cargo clippy -- -D clippy::all
