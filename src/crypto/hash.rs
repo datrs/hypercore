@@ -59,7 +59,7 @@ impl Hash {
 
     /// Hash a public key. Useful to find the key you're looking for on a public
     /// network without leaking the key itself.
-    pub fn to_discovery_key(public_key: PublicKey) -> Self {
+    pub fn for_discovery_key(public_key: PublicKey) -> Self {
         let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
         hasher.update(&HYPERCORE);
         Self {
@@ -182,7 +182,7 @@ mod tests {
             59, 1, 248, 146, 32, 159, 121, 183, 90, 87, 217, 137, 225,
         ];
 
-        assert_eq!(Hash::to_discovery_key(public_key).as_bytes(), expected);
+        assert_eq!(Hash::for_discovery_key(public_key).as_bytes(), expected);
 
         Ok(())
     }
