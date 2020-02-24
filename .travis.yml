@@ -7,9 +7,11 @@ before_script:
   - rustup component add clippy
   - cargo fmt --version
   - cargo clippy --version
+  - rustup update nightly
 
 script:
   - cargo fmt -- --check
+  - cargo +nightly check --all-targets
   - cargo build --verbose
   - cargo test  --verbose
   - cargo clippy -- -D clippy::all
