@@ -5,10 +5,10 @@ use super::Bitfield;
 /// Iterate over a bitfield.
 #[derive(Debug)]
 pub struct Iterator<'a> {
-    start: usize,
-    end: usize,
-    index_end: usize,
-    pos: Option<usize>,
+    start: u64,
+    end: u64,
+    index_end: u64,
+    pos: Option<u64>,
     byte: u8,
     bitfield: &'a mut Bitfield,
 }
@@ -27,7 +27,7 @@ impl<'a> Iterator<'a> {
     }
 
     /// Grow the bitfield if needed.
-    pub fn range(&mut self, start: usize, end: usize) {
+    pub fn range(&mut self, start: u64, end: u64) {
         self.start = start;
         self.end = end;
         self.index_end = 2 * ((end + 31) / 32);
@@ -38,7 +38,7 @@ impl<'a> Iterator<'a> {
     }
 
     /// Seek to `offset`
-    pub fn seek(&mut self, mut offset: usize) -> &mut Self {
+    pub fn seek(&mut self, mut offset: u64) -> &mut Self {
         offset += self.start;
         // FIXME This is fishy. Offset and start is unsigned, so `offset < self.start` can only
         //  be true when the previous addition overflows. The overflow would cause a panic, so,
@@ -58,25 +58,26 @@ impl<'a> Iterator<'a> {
         let pos = offset / 8;
         self.pos = Some(pos);
 
-        self.byte = self.bitfield.data.get_byte(pos) | self.bitfield.masks.data_iterate[o];
+        self.byte = self.bitfield.data.get_byte(pos as usize)
+            | self.bitfield.masks.data_iterate[o as usize];
 
         self
     }
 
-    pub fn next(&mut self) -> Option<usize> {
+    pub fn next(&mut self) -> Option<u64> {
         let mut pos = self.pos?;
 
         let mut free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
 
         while free == -1 {
             pos += 1;
-            self.byte = self.bitfield.data.get_byte(pos);
+            self.byte = self.bitfield.data.get_byte(pos as usize);
             free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
 
             if free == -1 {
                 pos = self.skip_ahead(pos)?;
 
-                self.byte = self.bitfield.data.get_byte(pos);
+                self.byte = self.bitfield.data.get_byte(pos as usize);
                 free = self.bitfield.masks.next_data_0_bit[self.byte as usize];
             }
         }
@@ -84,7 +85,7 @@ impl<'a> Iterator<'a> {
 
         self.byte |= self.bitfield.masks.data_iterate[free as usize + 1];
 
-        let n = 8 * pos + free as usize;
+        let n = 8 * pos + free as u64;
         if n < self.end {
             Some(n)
         } else {
@@ -92,7 +93,7 @@ impl<'a> Iterator<'a> {
         }
     }
 
-    pub fn skip_ahead(&mut self, start: usize) -> Option<usize> {
+    pub fn skip_ahead(&mut self, start: u64) -> Option<u64> {
         let bitfield_index = &self.bitfield.index;
         let tree_end = self.index_end;
         let iter = &mut self.bitfield.iterator;
@@ -100,8 +101,8 @@ impl<'a> Iterator<'a> {
 
         iter.seek(2 * (start / 4));
 
-        let mut tree_byte =
-            bitfield_index.get_byte(iter.index()) | self.bitfield.masks.index_iterate[o];
+        let mut tree_byte = bitfield_index.get_byte(iter.index() as usize)
+            | self.bitfield.masks.index_iterate[o as usize];
 
         while self.bitfield.masks.next_index_0_bit[tree_byte as usize] == -1 {
             if iter.is_left() {
@@ -120,7 +121,7 @@ impl<'a> Iterator<'a> {
                 }
             }
 
-            tree_byte = bitfield_index.get_byte(iter.index());
+            tree_byte = bitfield_index.get_byte(iter.index() as usize);
         }
 
         while iter.factor() > 2 {
@@ -130,7 +131,7 @@ impl<'a> Iterator<'a> {
                 iter.right_child();
             }
 
-            tree_byte = bitfield_index.get_byte(iter.index());
+            tree_byte = bitfield_index.get_byte(iter.index() as usize);
         }
 
         let mut free = self.bitfield.masks.next_index_0_bit[tree_byte as usize];
@@ -138,7 +139,7 @@ impl<'a> Iterator<'a> {
             free = 4;
         }
 
-        let next = iter.index() * 2 + free as usize;
+        let next = iter.index() * 2 + free as u64;
 
         if next <= start {
             Some(start + 1)
@@ -148,7 +149,7 @@ impl<'a> Iterator<'a> {
     }
 }
 
-fn right_span(iter: &flat_tree::Iterator) -> usize {
+fn right_span(iter: &flat_tree::Iterator) -> u64 {
     iter.index() + iter.factor() / 2 - 1
 }
 

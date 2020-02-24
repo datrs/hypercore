@@ -142,8 +142,8 @@ mod tests {
     fn parent_hash() {
         let d1: &[u8] = &[0, 1, 2, 3, 4];
         let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
-        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
-        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len() as u64);
+        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len() as u64);
         check_hash(
             Hash::from_hashes(&node1, &node2),
             "6fac58578fa385f25a54c0637adaca71fdfddcea885d561f33d80c4487149a14",
@@ -158,8 +158,8 @@ mod tests {
     fn root_hash() {
         let d1: &[u8] = &[0, 1, 2, 3, 4];
         let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
-        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
-        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len() as u64);
+        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len() as u64);
         check_hash(
             Hash::from_roots(&[&node1, &node2]),
             "2d117e0bb15c6e5236b6ce764649baed1c41890da901a015341503146cc20bcd",

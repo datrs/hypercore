@@ -9,11 +9,11 @@ where
     T: RandomAccess + Debug,
 {
     /// Create an instance from a byte vector.
-    fn from_bytes(index: usize, buf: &[u8]) -> Self;
+    fn from_bytes(index: u64, buf: &[u8]) -> Self;
 
     /// Create a vector.
     fn to_vec(&self) -> Result<Vec<u8>>;
 
     /// Persist into a storage backend.
-    fn store(&self, index: usize, store: Storage<T>) -> Result<()>;
+    fn store(&self, index: u64, store: Storage<T>) -> Result<()>;
 }

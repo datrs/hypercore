@@ -112,18 +112,18 @@ fn set_and_index_random() {
     assert!(check(&mut b), "index validates");
 
     fn check(b: &mut Bitfield) -> bool {
-        let mut all = vec![true; b.len()];
+        let mut all = vec![true; b.len() as usize];
 
         {
             let mut iter = b.iterator();
 
             while let Some(i) = iter.next() {
-                all[i] = false;
+                all[i as usize] = false;
             }
         }
 
         for (i, &v) in all.iter().enumerate() {
-            if b.get(i) != v {
+            if b.get(i as u64) != v {
                 return false;
             }
         }
@@ -131,7 +131,7 @@ fn set_and_index_random() {
         true
     }
 
-    fn set(b: &mut Bitfield, i: usize, n: usize) {
+    fn set(b: &mut Bitfield, i: u64, n: u64) {
         for j in i..i + n {
             b.set(j, true);
         }
