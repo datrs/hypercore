@@ -15,8 +15,8 @@ use hypercore::{Storage, Store};
 use random_access_disk::RandomAccessDisk;
 use remove_dir_all::remove_dir_all;
 
-#[test]
-fn deterministic_data_and_tree() {
+#[async_std::test]
+async fn deterministic_data_and_tree() {
     let expected_tree = hex_bytes(concat!(
         "0502570200002807424c414b4532620000000000000000000000000000000000ab27d45f509274",
         "ce0d08f4f09ba2d0e0d8df61a0c2a78932e81b5ef26ef398df0000000000000001064321a8413b",
@@ -34,12 +34,12 @@ fn deterministic_data_and_tree() {
     ));
 
     for _ in 0..5 {
-        let (dir, storage) = mk_storage();
-        let mut feed = Feed::with_storage(storage).unwrap();
+        let (dir, storage) = mk_storage().await;
+        let mut feed = Feed::with_storage(storage).await.unwrap();
 
         let data = b"abcdef";
         for &b in data {
-            feed.append(&[b]).unwrap();
+            feed.append(&[b]).await.unwrap();
         }
         assert_eq!(read_bytes(&dir, Store::Data), data);
         assert_eq!(read_bytes(&dir, Store::Tree), expected_tree);
@@ -55,8 +55,8 @@ fn deterministic_data_and_tree_after_replication() {
     unimplemented!();
 }
 
-#[test]
-fn deterministic_signatures() {
+#[async_std::test]
+async fn deterministic_signatures() {
     let key = hex_bytes("9718a1ff1c4ca79feac551c0c7212a65e4091278ec886b88be01ee4039682238");
     let keypair_bytes = hex_bytes(concat!(
         "53729c0311846cca9cc0eded07aaf9e6689705b6a0b1bb8c3a2a839b72fda383",
@@ -73,7 +73,7 @@ fn deterministic_signatures() {
     ));
 
     for _ in 0..5 {
-        let (dir, storage) = mk_storage();
+        let (dir, storage) = mk_storage().await;
         let keypair = mk_keypair(&keypair_bytes, &key);
         let mut feed = Feed::builder(keypair.public, storage)
             .secret_key(keypair.secret)
@@ -82,7 +82,7 @@ fn deterministic_signatures() {
 
         let data = b"abc";
         for &b in data {
-            feed.append(&[b]).unwrap();
+            feed.append(&[b]).await.unwrap();
         }
 
         assert_eq!(read_bytes(&dir, Store::Data), data);
@@ -114,10 +114,15 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
     dir.as_ref().join(filename)
 }
 
-fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
+async fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
     let temp_dir = tempfile::tempdir().unwrap();
     let dir = temp_dir.into_path();
-    let storage = Storage::new(|s| RandomAccessDisk::open(storage_path(dir.clone(), s))).unwrap();
+    let storage = Storage::new(|s| {
+        let dir = dir.clone();
+        Box::pin(async move { RandomAccessDisk::open(storage_path(dir, s)).await })
+    })
+    .await
+    .unwrap();
     (dir, storage)
 }
 
