@@ -13,14 +13,17 @@
 //! ## Example
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//! let mut feed = hypercore::open("./feed.db")?;
+//! # async_std::task::block_on(async {
+//! let mut feed = hypercore::open("./feed.db").await?;
 //!
-//! feed.append(b"hello")?;
-//! feed.append(b"world")?;
+//! feed.append(b"hello").await?;
+//! feed.append(b"world").await?;
 //!
-//! assert_eq!(feed.get(0)?, Some(b"hello".to_vec()));
-//! assert_eq!(feed.get(1)?, Some(b"world".to_vec()));
-//! # Ok(())}
+//! assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
+//! assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
+//! # Ok(())
+//! # })
+//! # }
 //! ```
 //!
 //! [dat-node]: https://github.com/mafintosh/hypercore
@@ -51,6 +54,8 @@ pub use ed25519_dalek::{PublicKey, SecretKey};
 use std::path::Path;
 
 /// Create a new Hypercore `Feed`.
-pub fn open<P: AsRef<Path>>(path: P) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
-    Feed::open(path)
+pub async fn open<P: AsRef<Path>>(
+    path: P,
+) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
+    Feed::open(path).await
 }

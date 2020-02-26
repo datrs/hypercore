@@ -5,41 +5,51 @@ use anyhow::Error;
 use random_access_memory::RandomAccessMemory;
 use test::Bencher;
 
-use hypercore::{Feed, Storage, Store};
+use hypercore::{Feed, Storage};
 
-fn create_feed(page_size: usize) -> Result<Feed<RandomAccessMemory>, Error> {
-    let create = |_store: Store| Ok(RandomAccessMemory::new(page_size));
-    let storage = Storage::new(create)?;
-    Ok(Feed::with_storage(storage)?)
+async fn create_feed(page_size: usize) -> Result<Feed<RandomAccessMemory>, Error> {
+    let storage =
+        Storage::new(|_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) })).await?;
+    Feed::with_storage(storage).await
 }
 
 #[bench]
 fn create(b: &mut Bencher) {
     b.iter(|| {
-        create_feed(1024).unwrap();
+        async_std::task::block_on(async {
+            create_feed(1024).await.unwrap();
+        });
     });
 }
 
 #[bench]
 fn write(b: &mut Bencher) {
-    let mut feed = create_feed(1024).unwrap();
-    let data = Vec::from("hello");
-    b.iter(|| {
-        feed.append(&data).unwrap();
+    async_std::task::block_on(async {
+        let mut feed = create_feed(1024).await.unwrap();
+        let data = Vec::from("hello");
+        b.iter(|| {
+            async_std::task::block_on(async {
+                feed.append(&data).await.unwrap();
+            });
+        });
     });
 }
 
 #[bench]
 fn read(b: &mut Bencher) {
-    let mut feed = create_feed(1024).unwrap();
-    let data = Vec::from("hello");
-    for _ in 0..1000 {
-        feed.append(&data).unwrap();
-    }
+    async_std::task::block_on(async {
+        let mut feed = create_feed(1024).await.unwrap();
+        let data = Vec::from("hello");
+        for _ in 0..1000 {
+            feed.append(&data).await.unwrap();
+        }
 
-    let mut i = 0;
-    b.iter(|| {
-        feed.get(i).unwrap();
-        i += 1;
+        let mut i = 0;
+        b.iter(|| {
+            async_std::task::block_on(async {
+                feed.get(i).await.unwrap();
+                i += 1;
+            });
+        });
     });
 }
