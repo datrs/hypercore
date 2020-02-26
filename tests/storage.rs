@@ -1,6 +1,3 @@
-extern crate ed25519_dalek;
-extern crate hypercore;
-
 use ed25519_dalek::PublicKey;
 use hypercore::{generate_keypair, sign, verify, Signature, Storage};
 

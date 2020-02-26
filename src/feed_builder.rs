@@ -3,13 +3,12 @@ use ed25519_dalek::{PublicKey, SecretKey};
 use crate::bitfield::Bitfield;
 use crate::crypto::Merkle;
 use crate::storage::Storage;
-use failure::Error;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use tree_index::TreeIndex;
 
 use crate::Feed;
-use crate::Result;
+use anyhow::Result;
 
 /// Construct a new `Feed` instance.
 // TODO: make this an actual builder pattern.
@@ -26,7 +25,7 @@ where
 
 impl<T> FeedBuilder<T>
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     /// Create a new instance.
     #[inline]

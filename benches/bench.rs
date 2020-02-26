@@ -1,15 +1,11 @@
 #![feature(test)]
-
-extern crate failure;
-extern crate hypercore;
-extern crate random_access_memory as ram;
-
 extern crate test;
 
-use self::test::Bencher;
-use failure::Error;
+use anyhow::Error;
+use random_access_memory::RandomAccessMemory;
+use test::Bencher;
+
 use hypercore::{Feed, Storage, Store};
-use ram::RandomAccessMemory;
 
 fn create_feed(page_size: usize) -> Result<Feed<RandomAccessMemory>, Error> {
     let create = |_store: Store| Ok(RandomAccessMemory::new(page_size));

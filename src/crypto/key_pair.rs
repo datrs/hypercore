@@ -2,7 +2,7 @@
 
 pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature};
 
-use crate::Result;
+use anyhow::{bail, ensure, Result};
 use rand::rngs::{OsRng, StdRng};
 use rand::SeedableRng;
 

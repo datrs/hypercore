@@ -1,19 +1,18 @@
 use async_std::task;
-use failure::Error;
 use hypercore::Feed;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 
 async fn append<T>(feed: &mut Feed<T>, content: &[u8])
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     feed.append(content).unwrap();
 }
 
 async fn print<T>(feed: &mut Feed<T>)
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     println!("{:?}", feed.get(0));
     println!("{:?}", feed.get(1));

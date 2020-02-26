@@ -1,5 +1,4 @@
-extern crate hypercore;
-extern crate rand;
+use rand;
 
 use hypercore::bitfield::{Bitfield, Change::*};
 use rand::Rng;
