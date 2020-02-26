@@ -8,9 +8,8 @@ use crate::audit::Audit;
 use crate::bitfield::Bitfield;
 use crate::crypto::{generate_keypair, sign, verify, Hash, Merkle};
 use crate::proof::Proof;
-use crate::Result;
+use anyhow::{bail, ensure, Result};
 use ed25519_dalek::{PublicKey, SecretKey, Signature};
-use failure::Error;
 use flat_tree as flat;
 use pretty_hash::fmt as pretty_fmt;
 use random_access_disk::RandomAccessDisk;
@@ -29,7 +28,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Feed<T>
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     /// Merkle tree instance.
     pub(crate) merkle: Merkle,
@@ -48,7 +47,7 @@ where
 
 impl<T> Feed<T>
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     /// Create a new instance with a custom storage backend.
     pub fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
@@ -581,7 +580,9 @@ impl Default for Feed<RandomAccessMemory> {
     }
 }
 
-impl<T: RandomAccess<Error = Error> + Debug> Display for Feed<T> {
+impl<T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug> Display
+    for Feed<T>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: yay, we should find a way to convert this .unwrap() to an error
         // type that's accepted by `fmt::Result<(), fmt::Error>`.

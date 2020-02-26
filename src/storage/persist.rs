@@ -1,5 +1,5 @@
 use super::Storage;
-use crate::Result;
+use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 

@@ -12,7 +12,7 @@
 //!
 //! ## Example
 //! ```rust
-//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! let mut feed = hypercore::open("./feed.db")?;
 //!
 //! feed.append(b"hello")?;
@@ -26,9 +26,6 @@
 //! [dat-node]: https://github.com/mafintosh/hypercore
 //! [Dat]: https://github.com/datrs
 //! [Feed]: crate::feed::Feed
-
-#[macro_use]
-extern crate failure;
 
 pub mod bitfield;
 pub mod prelude;
@@ -53,12 +50,7 @@ pub use ed25519_dalek::{PublicKey, SecretKey};
 
 use std::path::Path;
 
-use failure::Error;
-
-/// A specialized `Result` type for Hypercore operations.
-pub type Result<T> = std::result::Result<T, Error>;
-
 /// Create a new Hypercore `Feed`.
-pub fn open<P: AsRef<Path>>(path: P) -> Result<Feed<random_access_disk::RandomAccessDisk>> {
+pub fn open<P: AsRef<Path>>(path: P) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
     Feed::open(path)
 }

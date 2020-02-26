@@ -1,11 +1,8 @@
-extern crate failure;
-extern crate hypercore;
 extern crate random_access_memory as ram;
-extern crate random_access_storage;
+use random_access_storage;
 
 mod common;
 
-use self::failure::Error;
 use self::random_access_storage::RandomAccess;
 use common::create_feed;
 use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
@@ -168,7 +165,9 @@ fn create_with_stored_keys() {
     );
 }
 
-fn copy_keys(feed: &Feed<impl RandomAccess<Error = Error> + Debug>) -> (PublicKey, SecretKey) {
+fn copy_keys(
+    feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug>,
+) -> (PublicKey, SecretKey) {
     match &feed.secret_key() {
         Some(secret) => {
             let secret = secret.to_bytes();

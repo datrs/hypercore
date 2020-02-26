@@ -20,7 +20,7 @@ struct BookShelfIterator<'b> {
 
 impl BookShelf {
     /// Return an iterator over all values.
-    pub fn iter(&self) -> BookShelfIterator {
+    pub fn iter(&self) -> BookShelfIterator<'_> {
         BookShelfIterator {
             inner: self,
             cursor: 0,
