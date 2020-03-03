@@ -1,3 +1,17 @@
+## 2020-03-03, Version 0.11.1-beta.3
+### Commits
+- [[`b555606bd6`](https://github.com/datrs/hypercore/commit/b555606bd626ae39f338bd6aef4f8976ff0c055e)] (cargo-release) version 0.11.1-beta.3 (Bruno Tavares)
+- [[`aaf265b8b8`](https://github.com/datrs/hypercore/commit/aaf265b8b84ee5ba6b975a5503db262e154c14eb)] Fix requirements on ram crates to compile (Bruno Tavares)
+- [[`10448df561`](https://github.com/datrs/hypercore/commit/10448df56163c1f2917d4508f57713d635fa2d24)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ CHANGELOG.md | 24 ++++++++++++++++++++++++
+ Cargo.toml   |  6 +++---
+ 2 files changed, 27 insertions(+), 3 deletions(-)
+```
+
+
 ## 2020-03-03, Version 0.11.1-beta.2
 ### Commits
 - [[`3dfd5c8c71`](https://github.com/datrs/hypercore/commit/3dfd5c8c716a439131cf7b9a2b360ef737969335)] (cargo-release) version 0.11.1-beta.2 (Bruno Tavares)
