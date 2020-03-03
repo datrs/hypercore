@@ -1,3 +1,43 @@
+## 2020-03-03, Version 0.11.1-beta.1
+### Commits
+- [[`e5f071766c`](https://github.com/datrs/hypercore/commit/e5f071766c8b32c875df4872abe89ebb43700f31)] (cargo-release) version 0.11.1-beta.1 (Bruno Tavares)
+- [[`f7af79a3c2`](https://github.com/datrs/hypercore/commit/f7af79a3c271b426d0d6638872b0420a341d025e)] Merge pull request #100 from bltavares/bumps (Bruno Tavares)
+- [[`51c35d8f42`](https://github.com/datrs/hypercore/commit/51c35d8f42c42e111f2c207f1901288aaee7e500)] Point deps to crates versions (Bruno Tavares)
+- [[`f3b421c6ca`](https://github.com/datrs/hypercore/commit/f3b421c6ca76a0b5c5acb267988d97ba97e8a77a)] Fix clippy: rename func to adhere to conventions (Bruno Tavares)
+- [[`ba09c27336`](https://github.com/datrs/hypercore/commit/ba09c2733684f0320a7f99ebfa3ec8aae31334fd)] Fix travis: include checks on benchmarks (Bruno Tavares)
+- [[`173bc3fda2`](https://github.com/datrs/hypercore/commit/173bc3fda2f079994a38577030142b97c3143b4f)] Move from usize to u64 (Bruno Tavares)
+- [[`0678d06687`](https://github.com/datrs/hypercore/commit/0678d066875b7cef8cde3628f7ef91658a40f8c1)] Fix changes on ed25519_dalek and rand (Bruno Tavares)
+- [[`7fd467d928`](https://github.com/datrs/hypercore/commit/7fd467d92800e00cff7600fe6e68fbb474c899be)] Fix Travis config (Bruno Tavares)
+- [[`c4dc33a69a`](https://github.com/datrs/hypercore/commit/c4dc33a69aeead974d7dbd35d8414016ea3e421b)] Bump versions to latest versions (Bruno Tavares)
+- [[`ac3790dd4d`](https://github.com/datrs/hypercore/commit/ac3790dd4da0c72341944f29a75a8bf1fefcae00)] Bump versions to latest versions (Bruno Tavares)
+- [[`a3aa858b61`](https://github.com/datrs/hypercore/commit/a3aa858b61f36b30d02f06976eebbb37d823aa81)] Update sparse-bitfield requirement from 0.10.0 to 0.11.0 (dependabot-preview[bot])
+- [[`97cf996831`](https://github.com/datrs/hypercore/commit/97cf996831d00626a6ea75cc5267d5974bbca573)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ .travis.yml              |   8 ++--
+ CHANGELOG.md             |  28 +++++++++++++-
+ Cargo.toml               |  34 ++++++++--------
+ examples/iter.rs         |   6 +--
+ src/audit.rs             |   8 ++--
+ src/bitfield/iterator.rs |  37 +++++++++---------
+ src/bitfield/mod.rs      | 100 ++++++++++++++++++++++++------------------------
+ src/crypto/hash.rs       |  12 +++---
+ src/crypto/key_pair.rs   |  13 +++---
+ src/crypto/root.rs       |  62 +++++++++++++++---------------
+ src/feed.rs              |  48 +++++++++++------------
+ src/proof.rs             |   4 +-
+ src/replicate/message.rs |   4 +-
+ src/replicate/peer.rs    |   4 +-
+ src/storage/mod.rs       |  42 ++++++++++----------
+ src/storage/node.rs      |  16 ++++----
+ src/storage/persist.rs   |   4 +-
+ tests/bitfield.rs        |   8 ++--
+ tests/model.rs           |  12 +++---
+ 19 files changed, 243 insertions(+), 207 deletions(-)
+```
+
+
 ## 2020-02-19, Version 0.11.0
 ### Commits
 - [[`f2baf805d5`](https://github.com/datrs/hypercore/commit/f2baf805d5477c768f32ca2cf7faae4d9d284686)] (cargo-release) version 0.11.0 (Bruno Tavares)
