@@ -1,6 +1,6 @@
 [package]
 name = "hypercore"
-version = "0.11.1-beta.2"
+version = "0.11.1-beta.3"
 license = "MIT OR Apache-2.0"
 description = "Secure, distributed, append-only log"
 documentation = "https://docs.rs/hypercore"
