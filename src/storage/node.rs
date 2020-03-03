@@ -16,17 +16,17 @@ use crate::crypto::Hash;
 // disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
-    pub(crate) index: usize,
+    pub(crate) index: u64,
     pub(crate) hash: Vec<u8>,
     pub(crate) length: u64,
-    pub(crate) parent: usize,
+    pub(crate) parent: u64,
     pub(crate) data: Option<Vec<u8>>,
 }
 
 impl Node {
     /// Create a new instance.
     // TODO: ensure sizes are correct.
-    pub fn new(index: usize, hash: Vec<u8>, length: usize) -> Self {
+    pub fn new(index: u64, hash: Vec<u8>, length: u64) -> Self {
         Self {
             index,
             hash,
@@ -39,7 +39,7 @@ impl Node {
     /// Convert a vector to a new instance.
     ///
     /// Requires the index at which the buffer was read to be passed.
-    pub fn from_bytes(index: usize, buffer: &[u8]) -> Result<Self> {
+    pub fn from_bytes(index: u64, buffer: &[u8]) -> Result<Self> {
         ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
         let parent = flat_tree::parent(index);
@@ -73,7 +73,7 @@ impl Node {
 
 impl NodeTrait for Node {
     #[inline]
-    fn index(&self) -> usize {
+    fn index(&self) -> u64 {
         self.index
     }
 
@@ -83,8 +83,8 @@ impl NodeTrait for Node {
     }
 
     #[inline]
-    fn len(&self) -> usize {
-        self.length as usize
+    fn len(&self) -> u64 {
+        self.length as u64
     }
 
     #[inline]
@@ -93,7 +93,7 @@ impl NodeTrait for Node {
     }
 
     #[inline]
-    fn parent(&self) -> usize {
+    fn parent(&self) -> u64 {
         self.parent
     }
 }

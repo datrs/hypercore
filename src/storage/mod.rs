@@ -20,7 +20,7 @@ use std::fmt::Debug;
 use std::ops::Range;
 use std::path::PathBuf;
 
-const HEADER_OFFSET: usize = 32;
+const HEADER_OFFSET: u64 = 32;
 
 #[derive(Debug)]
 pub struct PartialKeypair {
@@ -90,7 +90,7 @@ where
 
     /// Write data to the feed.
     #[inline]
-    pub fn write_data(&mut self, offset: usize, data: &[u8]) -> Result<()> {
+    pub fn write_data(&mut self, offset: u64, data: &[u8]) -> Result<()> {
         self.data.write(offset, &data)
     }
 
@@ -102,16 +102,16 @@ where
     /// with mafintosh).
     /// TODO: Ensure the signature size is correct.
     /// NOTE: Should we create a `Data` entry type?
-    pub fn put_data(&mut self, index: usize, data: &[u8], nodes: &[Node]) -> Result<()> {
+    pub fn put_data(&mut self, index: u64, data: &[u8], nodes: &[Node]) -> Result<()> {
         if data.is_empty() {
             return Ok(());
         }
 
-        let range = self.data_offset(index, nodes)?;
+        let mut range = self.data_offset(index, nodes)?;
 
         ensure!(
-            range.len() == data.len(),
-            format!("length  `{:?} != {:?}`", range.len(), data.len())
+            range.by_ref().count() == data.len(),
+            format!("length  `{:?} != {:?}`", range.count(), data.len())
         );
 
         self.data.write(range.start, data)
@@ -121,14 +121,14 @@ where
     /// unencrypted, so there's no decryption needed.
     // FIXME: data_offset always reads out index 0, length 0
     #[inline]
-    pub fn get_data(&mut self, index: usize) -> Result<Vec<u8>> {
+    pub fn get_data(&mut self, index: u64) -> Result<Vec<u8>> {
         let cached_nodes = Vec::new(); // TODO: reuse allocation.
         let range = self.data_offset(index, &cached_nodes)?;
-        self.data.read(range.start, range.len())
+        self.data.read(range.start, range.count() as u64)
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
-    pub fn next_signature(&mut self, index: usize) -> Result<Signature> {
+    pub fn next_signature(&mut self, index: u64) -> Result<Signature> {
         let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
         if not_zeroes(&bytes) {
             Ok(Signature::from_bytes(&bytes)?)
@@ -139,7 +139,7 @@ where
 
     /// Get a `Signature` from the store.
     #[inline]
-    pub fn get_signature(&mut self, index: usize) -> Result<Signature> {
+    pub fn get_signature(&mut self, index: u64) -> Result<Signature> {
         let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
         ensure!(not_zeroes(&bytes), "No signature found");
         Ok(Signature::from_bytes(&bytes)?)
@@ -149,7 +149,7 @@ where
     /// TODO: Ensure the signature size is correct.
     /// NOTE: Should we create a `Signature` entry type?
     #[inline]
-    pub fn put_signature(&mut self, index: usize, signature: impl Borrow<Signature>) -> Result<()> {
+    pub fn put_signature(&mut self, index: u64, signature: impl Borrow<Signature>) -> Result<()> {
         let signature = signature.borrow();
         self.signatures
             .write(HEADER_OFFSET + 64 * index, &signature.to_bytes())
@@ -160,12 +160,12 @@ where
     ///
     /// ## Panics
     /// A panic can occur if no maximum value is found.
-    pub fn data_offset(&mut self, index: usize, cached_nodes: &[Node]) -> Result<Range<usize>> {
+    pub fn data_offset(&mut self, index: u64, cached_nodes: &[Node]) -> Result<Range<u64>> {
         let mut roots = Vec::new(); // TODO: reuse alloc
         flat::full_roots(tree_index(index), &mut roots);
 
         let mut offset = 0;
-        let mut pending = roots.len();
+        let mut pending = roots.len() as u64;
         let block_index = tree_index(index);
 
         if pending == 0 {
@@ -207,7 +207,7 @@ where
 
     /// Get a `Node` from the `tree` storage.
     #[inline]
-    pub fn get_node(&mut self, index: usize) -> Result<Node> {
+    pub fn get_node(&mut self, index: u64) -> Result<Node> {
         let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
         let node = Node::from_bytes(index, &buf)?;
         Ok(node)
@@ -227,20 +227,22 @@ where
     /// TODO: Ensure the chunk size is correct.
     /// NOTE: Should we create a bitfield entry type?
     #[inline]
-    pub fn put_bitfield(&mut self, offset: usize, data: &[u8]) -> Result<()> {
+    pub fn put_bitfield(&mut self, offset: u64, data: &[u8]) -> Result<()> {
         self.bitfield.write(HEADER_OFFSET + offset, data)
     }
 
     /// Read a public key from storage
     pub fn read_public_key(&mut self) -> Result<PublicKey> {
-        let buf = self.keypair.read(0, PUBLIC_KEY_LENGTH)?;
+        let buf = self.keypair.read(0, PUBLIC_KEY_LENGTH as u64)?;
         let public_key = PublicKey::from_bytes(&buf)?;
         Ok(public_key)
     }
 
     /// Read a secret key from storage
     pub fn read_secret_key(&mut self) -> Result<SecretKey> {
-        let buf = self.keypair.read(PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH)?;
+        let buf = self
+            .keypair
+            .read(PUBLIC_KEY_LENGTH as u64, SECRET_KEY_LENGTH as u64)?;
         let secret_key = SecretKey::from_bytes(&buf)?;
         Ok(secret_key)
     }
@@ -254,7 +256,7 @@ where
     /// Write a secret key to the storage
     pub fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
         let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
-        self.keypair.write(PUBLIC_KEY_LENGTH, &buf)
+        self.keypair.write(PUBLIC_KEY_LENGTH as u64, &buf)
     }
 
     /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage
@@ -302,7 +304,7 @@ impl Storage<RandomAccessDisk> {
 
 /// Get a node from a vector of nodes.
 #[inline]
-fn find_node(nodes: &[Node], index: usize) -> Option<&Node> {
+fn find_node(nodes: &[Node], index: u64) -> Option<&Node> {
     for node in nodes {
         if node.index() == index {
             return Some(node);
@@ -324,7 +326,7 @@ fn not_zeroes(bytes: &[u8]) -> bool {
 
 /// Convert the index to the index in the tree.
 #[inline]
-fn tree_index(index: usize) -> usize {
+fn tree_index(index: u64) -> u64 {
     2 * index
 }
 

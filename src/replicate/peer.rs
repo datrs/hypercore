@@ -10,8 +10,8 @@ use super::Message;
 // ]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Peer {
-    // remote_id: usize,
-// remote_length: usize,
+    // remote_id: u64,
+// remote_length: u64,
 // remote_bitfield: Bitfield,
 // remote_is_want: bool,
 // remote_is_downloading: bool,

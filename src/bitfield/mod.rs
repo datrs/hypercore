@@ -32,8 +32,8 @@ pub struct Bitfield {
     /// FIXME: SLEEP protocol tree field.
     pub tree: SparseBitfield,
     index: SparseBitfield,
-    page_len: usize,
-    length: usize,
+    page_len: u64,
+    length: u64,
     masks: Masks,
     iterator: FlatIterator,
 }
@@ -59,7 +59,7 @@ impl Bitfield {
     }
 
     /// Get the current length
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u64 {
         self.length
     }
 
@@ -69,44 +69,44 @@ impl Bitfield {
     }
 
     /// Set a value at an index.
-    pub fn set(&mut self, index: usize, value: bool) -> Change {
+    pub fn set(&mut self, index: u64, value: bool) -> Change {
         let o = mask_8b(index);
         let index = (index - o) / 8;
 
         let value = if value {
-            self.data.get_byte(index) | 128 >> o
+            self.data.get_byte(index as usize) | 128 >> o
         } else {
-            self.data.get_byte(index) & self.masks.data_update[o]
+            self.data.get_byte(index as usize) & self.masks.data_update[o as usize]
         };
 
-        if self.data.set_byte(index, value).is_unchanged() {
+        if self.data.set_byte(index as usize, value).is_unchanged() {
             return Change::Unchanged;
         }
 
-        self.length = self.data.len();
+        self.length = self.data.len() as u64;
         self.set_index(index, value);
         Change::Changed
     }
 
     /// Get a value at a position in the bitfield.
-    pub fn get(&mut self, index: usize) -> bool {
-        self.data.get(index)
+    pub fn get(&mut self, index: u64) -> bool {
+        self.data.get(index as usize)
     }
 
     /// Calculate the total for the whole data.
     pub fn total(&mut self) -> u8 {
-        let len = self.data.len();
+        let len = self.data.len() as u64;
         self.total_with_range(0..len)
     }
 
     /// Calculate the total of ... TODO(yw)
-    pub fn total_with_start(&mut self, start: usize) -> u8 {
-        let len = self.data.len();
+    pub fn total_with_start(&mut self, start: u64) -> u8 {
+        let len = self.data.len() as u64;
         self.total_with_range(start..len)
     }
 
     /// Calculate the total of ... TODO(yw)
-    pub fn total_with_range(&mut self, range: Range<usize>) -> u8 {
+    pub fn total_with_range(&mut self, range: Range<u64>) -> u8 {
         let start = range.start;
         let end = range.end;
 
@@ -114,7 +114,7 @@ impl Bitfield {
             return 0;
         }
 
-        if end > self.data.len() {
+        if end > self.data.len() as u64 {
             self.expand(end);
         }
 
@@ -124,24 +124,24 @@ impl Bitfield {
         let pos = (start - o) / 8;
         let last = (end - e) / 8;
 
-        let left_mask = 255 - self.masks.data_iterate[o];
-        let right_mask = self.masks.data_iterate[e];
+        let left_mask = 255 - self.masks.data_iterate[o as usize];
+        let right_mask = self.masks.data_iterate[e as usize];
 
-        let byte = self.data.get_byte(pos);
+        let byte = self.data.get_byte(pos as usize);
         if pos == last {
-            let index = (byte & left_mask & right_mask) as usize;
-            return self.masks.total_1_bits[index];
+            let index = (byte & left_mask & right_mask) as u64;
+            return self.masks.total_1_bits[index as usize];
         }
-        let index = (byte & left_mask) as usize;
-        let mut total = self.masks.total_1_bits[index];
+        let index = (byte & left_mask) as u64;
+        let mut total = self.masks.total_1_bits[index as usize];
 
         for i in pos + 1..last {
-            let index = self.data.get_byte(i) as usize;
-            total += self.masks.total_1_bits[index];
+            let index = self.data.get_byte(i as usize) as u64;
+            total += self.masks.total_1_bits[index as usize];
         }
 
-        let index: usize = self.data.get_byte(last) as usize & right_mask as usize;
-        total + self.masks.total_1_bits[index]
+        let index: u64 = self.data.get_byte(last as usize) as u64 & right_mask as u64;
+        total + self.masks.total_1_bits[index as usize]
     }
 
     /// Set a value at index.
@@ -153,13 +153,13 @@ impl Bitfield {
     ///
     /// NOTE(yw): lots of magic values going on; I have no idea what we're doing
     /// here.
-    fn set_index(&mut self, mut index: usize, value: u8) -> Change {
+    fn set_index(&mut self, mut index: u64, value: u8) -> Change {
         let o = index & 3;
         index = (index - o) / 4;
 
         let start = tree_index(index);
 
-        let left = self.index.get_byte(start) & self.masks.index_update[o];
+        let left = self.index.get_byte(start as usize) & self.masks.index_update[o as usize];
         let right = get_index_value(value) >> tree_index(o);
         let mut byte = left | right;
         let len = self.index.len();
@@ -170,26 +170,26 @@ impl Bitfield {
         while self.iterator.index() < max_len
             && self
                 .index
-                .set_byte(self.iterator.index(), byte)
+                .set_byte(self.iterator.index() as usize, byte)
                 .is_changed()
         {
             if self.iterator.is_left() {
-                let index: usize = self.index.get_byte(self.iterator.sibling()).into();
-                byte =
-                    self.masks.map_parent_left[byte as usize] | self.masks.map_parent_right[index];
+                let index: u64 = self.index.get_byte(self.iterator.sibling() as usize).into();
+                byte = self.masks.map_parent_left[byte as usize]
+                    | self.masks.map_parent_right[index as usize];
             } else {
-                let index: usize = self
+                let index: u64 = self
                     .index
-                    .get_byte(self.iterator.sibling()) // FIXME: out of bounds read
+                    .get_byte(self.iterator.sibling() as usize) // FIXME: out of bounds read
                     .into();
-                byte =
-                    self.masks.map_parent_right[byte as usize] | self.masks.map_parent_left[index];
+                byte = self.masks.map_parent_right[byte as usize]
+                    | self.masks.map_parent_left[index as usize];
             }
             self.iterator.parent();
         }
 
         if len != self.index.len() {
-            self.expand(len);
+            self.expand(len as u64);
         }
 
         if self.iterator.index() == start {
@@ -199,7 +199,7 @@ impl Bitfield {
         }
     }
 
-    fn expand(&mut self, len: usize) {
+    fn expand(&mut self, len: u64) {
         let mut roots = vec![]; // FIXME: alloc.
         flat_tree::full_roots(tree_index(len), &mut roots);
         let bf = &mut self.index;
@@ -209,15 +209,17 @@ impl Bitfield {
 
         for root in roots {
             ite.seek(root);
-            byte = bf.get_byte(ite.index());
+            byte = bf.get_byte(ite.index() as usize);
 
             loop {
                 if ite.is_left() {
-                    let index = bf.get_byte(ite.sibling()) as usize;
-                    byte = masks.map_parent_left[byte as usize] | masks.map_parent_right[index];
+                    let index = bf.get_byte(ite.sibling() as usize) as u64;
+                    byte = masks.map_parent_left[byte as usize]
+                        | masks.map_parent_right[index as usize];
                 } else {
-                    let index = bf.get_byte(ite.sibling()) as usize;
-                    byte = masks.map_parent_right[byte as usize] | masks.map_parent_left[index];
+                    let index = bf.get_byte(ite.sibling() as usize) as u64;
+                    byte = masks.map_parent_right[byte as usize]
+                        | masks.map_parent_left[index as usize];
                 }
 
                 if set_byte_no_alloc(bf, ite.parent(), byte).is_unchanged() {
@@ -234,7 +236,7 @@ impl Bitfield {
     }
 
     /// Constructs an iterator from `start` to `end`
-    pub fn iterator_with_range(&mut self, start: usize, end: usize) -> iterator::Iterator<'_> {
+    pub fn iterator_with_range(&mut self, start: u64, end: u64) -> iterator::Iterator<'_> {
         let mut iter = iterator::Iterator::new(self);
         iter.range(start, end);
         iter.seek(0);
@@ -244,11 +246,11 @@ impl Bitfield {
 }
 
 // NOTE: can we move this into `sparse_bitfield`?
-fn set_byte_no_alloc(bf: &mut SparseBitfield, index: usize, byte: u8) -> Change {
-    if 8 * index >= bf.len() {
+fn set_byte_no_alloc(bf: &mut SparseBitfield, index: u64, byte: u8) -> Change {
+    if 8 * index >= bf.len() as u64 {
         return Change::Unchanged;
     }
-    bf.set_byte(index, byte)
+    bf.set_byte(index as usize, byte)
 }
 
 #[inline]
@@ -261,12 +263,12 @@ fn get_index_value(index: u8) -> u8 {
 }
 
 #[inline]
-fn mask_8b(num: usize) -> usize {
+fn mask_8b(num: u64) -> u64 {
     num & 7
 }
 
 /// Convert the index to the index in the tree.
 #[inline]
-fn tree_index(index: usize) -> usize {
+fn tree_index(index: u64) -> u64 {
     2 * index
 }

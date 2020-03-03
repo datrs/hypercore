@@ -59,7 +59,7 @@ impl Hash {
 
     /// Hash a public key. Useful to find the key you're looking for on a public
     /// network without leaking the key itself.
-    pub fn to_discovery_key(public_key: PublicKey) -> Self {
+    pub fn for_discovery_key(public_key: PublicKey) -> Self {
         let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
         hasher.update(&HYPERCORE);
         Self {
@@ -142,8 +142,8 @@ mod tests {
     fn parent_hash() {
         let d1: &[u8] = &[0, 1, 2, 3, 4];
         let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
-        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
-        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len() as u64);
+        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len() as u64);
         check_hash(
             Hash::from_hashes(&node1, &node2),
             "6fac58578fa385f25a54c0637adaca71fdfddcea885d561f33d80c4487149a14",
@@ -158,8 +158,8 @@ mod tests {
     fn root_hash() {
         let d1: &[u8] = &[0, 1, 2, 3, 4];
         let d2: &[u8] = &[42, 43, 44, 45, 46, 47, 48];
-        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len());
-        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len());
+        let node1 = Node::new(0, Hash::from_leaf(d1).as_bytes().to_vec(), d1.len() as u64);
+        let node2 = Node::new(1, Hash::from_leaf(d2).as_bytes().to_vec(), d2.len() as u64);
         check_hash(
             Hash::from_roots(&[&node1, &node2]),
             "2d117e0bb15c6e5236b6ce764649baed1c41890da901a015341503146cc20bcd",
@@ -182,7 +182,7 @@ mod tests {
             59, 1, 248, 146, 32, 159, 121, 183, 90, 87, 217, 137, 225,
         ];
 
-        assert_eq!(Hash::to_discovery_key(public_key).as_bytes(), expected);
+        assert_eq!(Hash::for_discovery_key(public_key).as_bytes(), expected);
 
         Ok(())
     }

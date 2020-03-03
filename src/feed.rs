@@ -37,9 +37,9 @@ where
     pub(crate) secret_key: Option<SecretKey>,
     pub(crate) storage: Storage<T>,
     /// Total length of data stored.
-    pub(crate) byte_length: usize,
+    pub(crate) byte_length: u64,
     /// TODO: description. Length of... roots?
-    pub(crate) length: usize,
+    pub(crate) length: u64,
     /// Bitfield to keep track of which data we own.
     pub(crate) bitfield: Bitfield,
     pub(crate) tree: TreeIndex,
@@ -85,7 +85,7 @@ where
 
     /// Get the amount of entries in the feed.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u64 {
         self.length
     }
 
@@ -97,7 +97,7 @@ where
 
     /// Get the total amount of bytes stored in the feed.
     #[inline]
-    pub fn byte_len(&self) -> usize {
+    pub fn byte_len(&self) -> u64 {
         self.byte_length
     }
 
@@ -112,7 +112,7 @@ where
         let mut offset = 0;
 
         self.storage.write_data(self.byte_length + offset, &data)?;
-        offset += data.len();
+        offset += data.len() as u64;
 
         let hash = Hash::from_roots(self.merkle.roots());
         let index = self.length;
@@ -144,26 +144,26 @@ where
 
     /// Return `true` if a data block is available locally.
     #[inline]
-    pub fn has(&mut self, index: usize) -> bool {
+    pub fn has(&mut self, index: u64) -> bool {
         self.bitfield.get(index)
     }
 
     /// Return `true` if all data blocks within a range are available locally.
     #[inline]
-    pub fn has_all(&mut self, range: ::std::ops::Range<usize>) -> bool {
-        let total = range.len();
+    pub fn has_all(&mut self, range: ::std::ops::Range<u64>) -> bool {
+        let total = range.clone().count();
         total == self.bitfield.total_with_range(range) as usize
     }
 
     /// Get the total amount of chunks downloaded.
     #[inline]
-    pub fn downloaded(&mut self, range: ::std::ops::Range<usize>) -> u8 {
+    pub fn downloaded(&mut self, range: ::std::ops::Range<u64>) -> u8 {
         self.bitfield.total_with_range(range)
     }
 
     /// Retrieve data from the log.
     #[inline]
-    pub fn get(&mut self, index: usize) -> Result<Option<Vec<u8>>> {
+    pub fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>> {
         if !self.bitfield.get(index) {
             // NOTE: Do (network) lookup here once we have network code.
             return Ok(None);
@@ -173,7 +173,7 @@ where
 
     /// Return the Nodes which prove the correctness for the Node at index.
     #[inline]
-    pub fn proof(&mut self, index: usize, include_hash: bool) -> Result<Proof> {
+    pub fn proof(&mut self, index: u64, include_hash: bool) -> Result<Proof> {
         self.proof_with_digest(index, 0, include_hash)
     }
 
@@ -181,8 +181,8 @@ where
     /// digest.
     pub fn proof_with_digest(
         &mut self,
-        index: usize,
-        digest: usize,
+        index: u64,
+        digest: u64,
         include_hash: bool,
     ) -> Result<Proof> {
         let mut remote_tree = TreeIndex::default();
@@ -226,16 +226,16 @@ where
     }
 
     /// Compute the digest for the index.
-    pub fn digest(&mut self, index: usize) -> usize {
+    pub fn digest(&mut self, index: u64) -> u64 {
         self.tree.digest(tree_index(index))
     }
 
     /// Insert data into the tree at `index`. Verifies the `proof` when inserting
     /// to make sure data is correct. Useful when replicating data from a remote
     /// host.
-    pub fn put(&mut self, index: usize, data: Option<&[u8]>, mut proof: Proof) -> Result<()> {
+    pub fn put(&mut self, index: u64, data: Option<&[u8]>, mut proof: Proof) -> Result<()> {
         let mut next = tree_index(index);
-        let mut trusted: Option<usize> = None;
+        let mut trusted: Option<u64> = None;
         let mut missing = vec![];
 
         let mut i = match data {
@@ -281,7 +281,7 @@ where
             Some(data) => Node::new(
                 tree_index(index),
                 Hash::from_leaf(&data).as_bytes().to_owned(),
-                data.len(),
+                data.len() as u64,
             ),
             None => proof.nodes.remove(0),
         };
@@ -339,7 +339,7 @@ where
     // Arguments are: (index, data, node, sig, from, cb)
     fn write(
         &mut self,
-        index: usize,
+        index: u64,
         data: Option<&[u8]>,
         nodes: &[Node],
         sig: Option<Signature>,
@@ -386,7 +386,7 @@ where
     }
 
     /// Get a signature from the store.
-    pub fn signature(&mut self, index: usize) -> Result<Signature> {
+    pub fn signature(&mut self, index: u64) -> Result<Signature> {
         ensure!(
             index < self.length,
             format!("No signature found for index {}", index)
@@ -396,7 +396,7 @@ where
 
     /// Verify the entire feed. Checks a signature against the signature of all
     /// root nodes combined.
-    pub fn verify(&mut self, index: usize, signature: &Signature) -> Result<()> {
+    pub fn verify(&mut self, index: u64, signature: &Signature) -> Result<()> {
         let roots = self.root_hashes(index)?;
         let roots: Vec<_> = roots.into_iter().map(Arc::new).collect();
 
@@ -428,7 +428,7 @@ where
     /// Get all root hashes from the feed.
     // In the JavaScript implementation this calls to `._getRootsToVerify()`
     // internally. In Rust it seems better to just inline the code.
-    pub fn root_hashes(&mut self, index: usize) -> Result<Vec<Node>> {
+    pub fn root_hashes(&mut self, index: u64) -> Result<Vec<Node>> {
         ensure!(
             index <= self.length,
             format!("Root index bounds exceeded {} > {}", index, self.length)
@@ -525,12 +525,12 @@ where
     }
 
     /// (unimplemented) Provide a range of data to download.
-    pub fn download(&mut self, _range: Range<usize>) -> Result<()> {
+    pub fn download(&mut self, _range: Range<u64>) -> Result<()> {
         unimplemented!();
     }
 
     /// (unimplemented) Provide a range of data to remove from the local storage.
-    pub fn undownload(&mut self, _range: Range<usize>) -> Result<()> {
+    pub fn undownload(&mut self, _range: Range<u64>) -> Result<()> {
         unimplemented!();
     }
 
@@ -594,6 +594,6 @@ impl<T: RandomAccess<Error = Error> + Debug> Display for Feed<T> {
 
 /// Convert the index to the index in the tree.
 #[inline]
-fn tree_index(index: usize) -> usize {
+fn tree_index(index: u64) -> u64 {
     2 * index
 }

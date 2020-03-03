@@ -5,7 +5,7 @@ use crate::Signature;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Proof {
     /// The index to which this proof corresponds.
-    pub index: usize,
+    pub index: u64,
     /// Nodes that verify the index you passed.
     pub nodes: Vec<Node>,
     /// An `ed25519` signature, guaranteeing the integrity of the nodes.
@@ -14,7 +14,7 @@ pub struct Proof {
 
 impl Proof {
     /// Access the `index` field from the proof.
-    pub fn index(&self) -> usize {
+    pub fn index(&self) -> u64 {
         self.index
     }
 

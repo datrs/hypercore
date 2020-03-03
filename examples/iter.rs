@@ -13,7 +13,7 @@ struct BookShelf {
 #[derive(Debug)]
 struct BookShelfIterator<'b> {
     /// Keeps track which index we're currently at.
-    pub cursor: usize,
+    pub cursor: u64,
     /// Borrow of the Bookshelf we're going to iterate over.
     pub inner: &'b BookShelf,
 }
@@ -35,10 +35,10 @@ impl<'b> iter::Iterator for BookShelfIterator<'b> {
         let cursor = self.cursor;
         self.cursor += 1;
 
-        if cursor >= self.inner.books.len() {
+        if cursor >= self.inner.books.len() as u64 {
             None
         } else {
-            Some(&self.inner.books[cursor])
+            Some(&self.inner.books[cursor as usize])
         }
     }
 }
