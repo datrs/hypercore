@@ -232,6 +232,8 @@ impl Bitfield {
     // TODO: use the index to speed this up *a lot*
     /// https://github.com/mafintosh/hypercore/blob/06f3a1f573cb74ee8cfab2742455318fbf7cc3a2/lib/bitfield.js#L111-L126
     pub fn compress(&self, start: usize, length: usize) -> std::io::Result<Vec<u8>> {
+        // On Node versions this fields might not be present on the want/request message
+        // When both start and length are not present (!0 in node is false), return all data bytes encoded
         if start == 0 && length == 0 {
             return Ok(bitfield_rle::encode(&self.data.to_bytes()?));
         }
