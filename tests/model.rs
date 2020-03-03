@@ -1,12 +1,7 @@
-#[macro_use]
-extern crate quickcheck;
-extern crate hypercore;
-extern crate rand;
-
 mod common;
 
 use common::create_feed;
-use quickcheck::{Arbitrary, Gen};
+use quickcheck::{quickcheck, Arbitrary, Gen};
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::u8;
