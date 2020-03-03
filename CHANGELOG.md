@@ -1,3 +1,27 @@
+## 2020-03-03, Version 0.11.1-beta.2
+### Commits
+- [[`3dfd5c8c71`](https://github.com/datrs/hypercore/commit/3dfd5c8c716a439131cf7b9a2b360ef737969335)] (cargo-release) version 0.11.1-beta.2 (Bruno Tavares)
+- [[`4136866e01`](https://github.com/datrs/hypercore/commit/4136866e01259825944cff099e59ffa4c8df081c)] Merge pull request #96 from bltavares/bitfield-compress (Bruno Tavares)
+- [[`d8beadbbfb`](https://github.com/datrs/hypercore/commit/d8beadbbfb0ff7d2d79e52abc14ffb570570b101)] GH Feedback: add comments on the optional fields (Bruno Tavares)
+- [[`9c6812d901`](https://github.com/datrs/hypercore/commit/9c6812d901454a383bee9802e0f5828c3224b515)] Use literals for floats (Bruno Tavares)
+- [[`356c90e915`](https://github.com/datrs/hypercore/commit/356c90e915a9a5dcc4edb5bf0fa61eda200f6b9b)] Make test with bigger ranges than page size (Bruno Tavares)
+- [[`390e13f9b5`](https://github.com/datrs/hypercore/commit/390e13f9b527845f281b24071bbf579f9a6232eb)] WIP: JS has float numbers on math (Bruno Tavares)
+- [[`bd333ba68d`](https://github.com/datrs/hypercore/commit/bd333ba68dc50f6e8bc581d39169ae64f6cba9de)] Compress bitfield and expose it to network code (Bruno Tavares)
+- [[`0bdbf6207a`](https://github.com/datrs/hypercore/commit/0bdbf6207af26ca3e3516956db7fa3140679e56e)] Bump dalek and rand (Bruno Tavares)
+- [[`ac0f3b6a74`](https://github.com/datrs/hypercore/commit/ac0f3b6a743cae1a8c1b51cabfd5a542ef34361b)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ CHANGELOG.md        | 40 ++++++++++++++++++++++++++++++++++++++++
+ Cargo.toml          |  3 ++-
+ src/bitfield/mod.rs | 32 ++++++++++++++++++++++++++++++++
+ src/feed.rs         |  5 +++++
+ tests/bitfield.rs   | 22 ++++++++++++++++++++++
+ tests/model.rs      |  7 +------
+ 6 files changed, 102 insertions(+), 7 deletions(-)
+```
+
+
 ## 2020-03-03, Version 0.11.1-beta.1
 ### Commits
 - [[`e5f071766c`](https://github.com/datrs/hypercore/commit/e5f071766c8b32c875df4872abe89ebb43700f31)] (cargo-release) version 0.11.1-beta.1 (Bruno Tavares)
