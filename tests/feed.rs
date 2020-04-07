@@ -8,7 +8,7 @@ mod common;
 use self::failure::Error;
 use self::random_access_storage::RandomAccess;
 use common::create_feed;
-use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
+use hypercore::{generate_keypair, Feed, NodeTrait, Proof, PublicKey, SecretKey, Storage};
 use std::env::temp_dir;
 use std::fmt::Debug;
 use std::fs;
@@ -134,6 +134,67 @@ fn put() {
         .proof_with_digest(4, b.digest(4), true)
         .expect(".proof() index 4, digest 4");
     b.put(4, None, proof).unwrap();
+}
+
+#[test]
+/// Put data from one feed into another, while veryfing hashes.
+/// I.e. manual replication between two feeds.
+fn put_with_data() {
+    // Create a writable feed.
+    let mut a = create_feed(50).unwrap();
+
+    // Create a second feed with the first feed's key.
+    let (public, secret) = copy_keys(&a);
+    let storage = Storage::new_memory().unwrap();
+    let mut b = Feed::builder(public, storage)
+        .secret_key(secret)
+        .build()
+        .unwrap();
+
+    // Append 4 blocks of data to the writable feed.
+    a.append(b"hi").unwrap();
+    a.append(b"ola").unwrap();
+    a.append(b"ahoj").unwrap();
+    a.append(b"salut").unwrap();
+
+    for i in 0..4 {
+        let a_proof = a.proof(i, true).unwrap();
+        let a_data = a.get(i).unwrap();
+        eprintln!("A: idx {} data {:?}", i, &a_data);
+        eprintln!("Proof: {:#?}", fmt_proof(&a_proof));
+
+        // When putting with data right away (line after next) without putting
+        // with data = None first, I get errors about "missing tree roots needed for verify".
+        b.put(i, None, a_proof.clone()).unwrap();
+        // With the line before, the next line works and gives no errors.
+        b.put(i, a_data.as_deref(), a_proof.clone()).unwrap();
+
+        // Load the data we've put.
+        let b_data = b.get(i).unwrap();
+
+        // However, this assertion does not hold. The data in B is incorrect.
+        // It seems the data is somehow stored at the wrong index.
+        eprintln!("B: idx {} {:?}", i, &b_data);
+        // Comment out the assertion to see a debug output for all nodes.
+        assert!(a_data.unwrap() == b_data.unwrap(), "Data correct");
+    }
+}
+
+/// Helper function to format proofs in a readable debug format.
+fn fmt_proof(proof: &Proof) -> Vec<String> {
+    proof
+        .nodes
+        .iter()
+        .map(|n| {
+            format!(
+                "idx {} len {} parent {} hash {:?}..",
+                n.index(),
+                n.len(),
+                n.parent(),
+                &n.hash()[0..5]
+            )
+        })
+        .collect::<Vec<String>>()
 }
 
 #[test]
