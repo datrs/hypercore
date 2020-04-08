@@ -3,7 +3,7 @@ extern crate random_access_memory as ram;
 mod common;
 
 use common::create_feed;
-use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
+use hypercore::{generate_keypair, storage_disk, Feed, NodeTrait, PublicKey, SecretKey, Storage};
 use random_access_storage::RandomAccess;
 use std::env::temp_dir;
 use std::fmt::Debug;
@@ -264,7 +264,7 @@ async fn audit() {
 async fn audit_bad_data() {
     let mut dir = temp_dir();
     dir.push("audit_bad_data");
-    let storage = Storage::new_disk(&dir, false).await.unwrap();
+    let storage = storage_disk(&dir, false).await.unwrap();
     let mut feed = Feed::with_storage(storage).await.unwrap();
     feed.append(b"hello").await.unwrap();
     feed.append(b"world").await.unwrap();
