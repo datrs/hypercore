@@ -38,6 +38,7 @@ tree-index = "0.6.0"
 bitfield-rle = "0.1.1"
 futures = "0.3.4"
 async-std = "1.5.0"
+async-trait = "0.1.30"
 
 [dev-dependencies]
 quickcheck = "0.9.2"

@@ -2,8 +2,7 @@ use ed25519_dalek::{PublicKey, SecretKey};
 
 use crate::bitfield::Bitfield;
 use crate::crypto::Merkle;
-use crate::storage::Storage;
-use random_access_storage::RandomAccess;
+use crate::storage::BoxStorage;
 use std::fmt::Debug;
 use tree_index::TreeIndex;
 
@@ -14,22 +13,16 @@ use anyhow::Result;
 // TODO: make this an actual builder pattern.
 // https://deterministic.space/elegant-apis-in-rust.html#builder-pattern
 #[derive(Debug)]
-pub struct FeedBuilder<T>
-where
-    T: RandomAccess + Debug,
-{
-    storage: Storage<T>,
+pub struct FeedBuilder {
+    storage: BoxStorage,
     public_key: PublicKey,
     secret_key: Option<SecretKey>,
 }
 
-impl<T> FeedBuilder<T>
-where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
-{
+impl FeedBuilder {
     /// Create a new instance.
     #[inline]
-    pub fn new(public_key: PublicKey, storage: Storage<T>) -> Self {
+    pub fn new(public_key: PublicKey, storage: BoxStorage) -> Self {
         Self {
             storage,
             public_key,
@@ -45,7 +38,7 @@ where
 
     /// Finalize the builder.
     #[inline]
-    pub fn build(self) -> Result<Feed<T>> {
+    pub fn build(self) -> Result<Feed> {
         Ok(Feed {
             merkle: Merkle::new(),
             byte_length: 0,

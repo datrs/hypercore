@@ -54,8 +54,6 @@ pub use ed25519_dalek::{PublicKey, SecretKey};
 use std::path::Path;
 
 /// Create a new Hypercore `Feed`.
-pub async fn open<P: AsRef<Path>>(
-    path: P,
-) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
-    Feed::open(path).await
+pub async fn open<P: AsRef<Path>>(path: P) -> anyhow::Result<Feed> {
+    Feed::open_from_disk(path).await
 }
