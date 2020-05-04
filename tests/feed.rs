@@ -170,32 +170,9 @@ fn put_with_data() {
         // Load the data we've put.
         let b_data = b.get(i).unwrap();
 
-        // Debug output.
-        // eprintln!("A: idx {} data {:?}", i, &a_data);
-        // eprintln!("Proof: {:#?}", fmt_proof(&a_proof));
-        // eprintln!("B: idx {} {:?}", i, &b_data);
-
         // Assert the data was put correctly.
         assert!(a_data == b_data, "Data correct");
     }
-}
-
-/// Helper function to format proofs in a readable debug format.
-#[allow(dead_code)]
-fn fmt_proof(proof: &Proof) -> Vec<String> {
-    proof
-        .nodes
-        .iter()
-        .map(|n| {
-            format!(
-                "idx {} len {} parent {} hash {:?}..",
-                n.index(),
-                n.len(),
-                n.parent(),
-                &n.hash()[0..5]
-            )
-        })
-        .collect::<Vec<String>>()
 }
 
 #[test]
