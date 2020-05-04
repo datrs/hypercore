@@ -158,29 +158,30 @@ fn put_with_data() {
     a.append(b"salut").unwrap();
 
     for i in 0..4 {
-        let a_proof = a.proof(i, true).unwrap();
+        // Generate a proof for the index.
+        // The `include_hash` argument has to be set to false.
+        let a_proof = a.proof(i, false).unwrap();
+        // Get the data for the index.
         let a_data = a.get(i).unwrap();
-        eprintln!("A: idx {} data {:?}", i, &a_data);
-        eprintln!("Proof: {:#?}", fmt_proof(&a_proof));
 
-        // When putting with data right away (line after next) without putting
-        // with data = None first, I get errors about "missing tree roots needed for verify".
-        b.put(i, None, a_proof.clone()).unwrap();
-        // With the line before, the next line works and gives no errors.
+        // Put the data into the other hypercore.
         b.put(i, a_data.as_deref(), a_proof.clone()).unwrap();
 
         // Load the data we've put.
         let b_data = b.get(i).unwrap();
 
-        // However, this assertion does not hold. The data in B is incorrect.
-        // It seems the data is somehow stored at the wrong index.
-        eprintln!("B: idx {} {:?}", i, &b_data);
-        // Comment out the assertion to see a debug output for all nodes.
-        assert!(a_data.unwrap() == b_data.unwrap(), "Data correct");
+        // Debug output.
+        // eprintln!("A: idx {} data {:?}", i, &a_data);
+        // eprintln!("Proof: {:#?}", fmt_proof(&a_proof));
+        // eprintln!("B: idx {} {:?}", i, &b_data);
+
+        // Assert the data was put correctly.
+        assert!(a_data == b_data, "Data correct");
     }
 }
 
 /// Helper function to format proofs in a readable debug format.
+#[allow(dead_code)]
 fn fmt_proof(proof: &Proof) -> Vec<String> {
     proof
         .nodes
