@@ -403,7 +403,7 @@ where
         let hash = Hash::from_roots(&roots);
         let message = hash_with_length_as_bytes(hash, index + 1);
 
-        verify(&self.public_key, &message, Some(signature))?;
+        verify_compat(&self.public_key, &message, Some(signature))?;
         Ok(())
     }
 
@@ -488,7 +488,7 @@ where
         let checksum = Hash::from_roots(&roots);
         let length = verified_by / 2;
         let message = hash_with_length_as_bytes(checksum, length);
-        verify(&self.public_key, &message, proof.signature())?;
+        verify_compat(&self.public_key, &message, proof.signature())?;
 
         // Update the length if we grew the feed.
         let len = verified_by / 2;
@@ -612,4 +612,13 @@ fn tree_index(index: u64) -> u64 {
 /// Extend a hash with a big-endian encoded length.
 fn hash_with_length_as_bytes(hash: Hash, length: u64) -> Vec<u8> {
     [hash.as_bytes(), &length.to_be_bytes()].concat().to_vec()
+}
+
+/// Verify a signature. If it fails, remove the length suffix added in Hypercore v9
+/// and verify again (backwards compatibility, remove in later version).
+pub fn verify_compat(public: &PublicKey, msg: &[u8], sig: Option<&Signature>) -> Result<()> {
+    match verify(public, msg, sig) {
+        Ok(_) => Ok(()),
+        Err(_) => verify(public, &msg[0..32], sig),
+    }
 }
