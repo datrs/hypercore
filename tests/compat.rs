@@ -56,6 +56,7 @@ fn deterministic_data_and_tree_after_replication() {
 }
 
 #[async_std::test]
+#[ignore]
 async fn deterministic_signatures() {
     let key = hex_bytes("9718a1ff1c4ca79feac551c0c7212a65e4091278ec886b88be01ee4039682238");
     let keypair_bytes = hex_bytes(concat!(

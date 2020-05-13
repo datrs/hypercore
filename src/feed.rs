@@ -115,7 +115,8 @@ where
 
         let hash = Hash::from_roots(self.merkle.roots());
         let index = self.length;
-        let signature = sign(&self.public_key, key, hash.as_bytes());
+        let message = hash_with_length_as_bytes(hash, index + 1);
+        let signature = sign(&self.public_key, key, &message);
         self.storage.put_signature(index, signature).await?;
 
         for node in self.merkle.nodes() {
@@ -399,10 +400,10 @@ where
         let roots = self.root_hashes(index).await?;
         let roots: Vec<_> = roots.into_iter().map(Arc::new).collect();
 
-        let message = Hash::from_roots(&roots);
-        let message = message.as_bytes();
+        let hash = Hash::from_roots(&roots);
+        let message = hash_with_length_as_bytes(hash, index + 1);
 
-        verify(&self.public_key, message, Some(signature))?;
+        verify(&self.public_key, &message, Some(signature))?;
         Ok(())
     }
 
@@ -485,7 +486,9 @@ where
         }
 
         let checksum = Hash::from_roots(&roots);
-        verify(&self.public_key, checksum.as_bytes(), proof.signature())?;
+        let length = verified_by / 2;
+        let message = hash_with_length_as_bytes(checksum, length);
+        verify(&self.public_key, &message, proof.signature())?;
 
         // Update the length if we grew the feed.
         let len = verified_by / 2;
@@ -604,4 +607,9 @@ impl<T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug +
 #[inline]
 fn tree_index(index: u64) -> u64 {
     2 * index
+}
+
+/// Extend a hash with a big-endian encoded length.
+fn hash_with_length_as_bytes(hash: Hash, length: u64) -> Vec<u8> {
+    [hash.as_bytes(), &length.to_be_bytes()].concat().to_vec()
 }
