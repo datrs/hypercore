@@ -9,7 +9,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use data_encoding::HEXLOWER;
-use ed25519_dalek::Keypair;
+use ed25519_dalek::{Keypair, Signature};
 use hypercore::Feed;
 use hypercore::{Storage, Store};
 use random_access_disk::RandomAccessDisk;
@@ -56,7 +56,6 @@ fn deterministic_data_and_tree_after_replication() {
 }
 
 #[async_std::test]
-#[ignore]
 async fn deterministic_signatures() {
     let key = hex_bytes("9718a1ff1c4ca79feac551c0c7212a65e4091278ec886b88be01ee4039682238");
     let keypair_bytes = hex_bytes(concat!(
@@ -64,13 +63,23 @@ async fn deterministic_signatures() {
         "9718a1ff1c4ca79feac551c0c7212a65e4091278ec886b88be01ee4039682238"
     ));
 
-    let expected_signatures = hex_bytes(concat!(
+    let compat_v9_expected_signatures = hex_bytes(concat!(
         "050257010000400745643235353139000000000000000000000000000000000084684e8dd76c339",
         "d6f5754e813204906ee818e6c6cdc6a816a2ac785a3e0d926ac08641a904013194fe6121847b7da",
         "d4e361965d47715428eb0a0ededbdd5909d037ff3c3614fa0100ed9264a712d3b77cbe7a4f6eadd",
         "8f342809be99dfb9154a19e278d7a5de7d2b4d890f7701a38b006469f6bab1aff66ac6125d48baf",
         "dc0711057675ed57d445ce7ed4613881be37ebc56bb40556b822e431bb4dc3517421f9a5e3ed124",
         "eb5c4db8367386d9ce12b2408613b9fec2837022772a635ffd807",
+    ));
+    let compat_signatures_len = compat_v9_expected_signatures.len();
+    let compat_signature_struct = compat_v9_expected_signatures
+        .into_iter()
+        .skip(compat_signatures_len - 64)
+        .collect::<Vec<_>>();
+
+    let expected_signatures = hex_bytes(concat!(
+        "42e057f2c225b4c5b97876a15959324931ad84646a8bf2e4d14487c0f117966a585edcdda54670d",
+        "d5def829ca85924ce44ae307835e57d5729aef8cd91678b06",
     ));
 
     for _ in 0..5 {
@@ -87,11 +96,27 @@ async fn deterministic_signatures() {
         }
 
         assert_eq!(read_bytes(&dir, Store::Data), data);
-        assert_eq!(read_bytes(&dir, Store::Signatures), expected_signatures);
+        let actual_signatures = read_bytes(&dir, Store::Signatures);
+        let actual_signatures_len = actual_signatures.len();
+        assert_eq!(
+            actual_signatures
+                .into_iter()
+                .skip(actual_signatures_len - 64)
+                .collect::<Vec<_>>(),
+            expected_signatures
+        );
+
+        let compat_signature = Signature::from_bytes(&compat_signature_struct).unwrap();
+        feed.verify(feed.len() - 1, &compat_signature)
+            .await
+            .expect("Could not verify compat signature of hypercore v9");
 
         remove_dir_all(dir).unwrap()
     }
 }
+
+#[test]
+fn verify_older_signature_on_read() {}
 
 #[test]
 #[ignore]
