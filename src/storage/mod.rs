@@ -29,6 +29,7 @@ pub struct PartialKeypair {
     pub secret: Option<SecretKey>,
 }
 
+/// Dynamic-dispatch Storage wrapper
 pub type BoxStorage = Box<dyn DynStorage>;
 
 /// Create a new instance backed by a `RandomAccessMemory` instance.

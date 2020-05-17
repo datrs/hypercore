@@ -4,16 +4,15 @@ mod common;
 
 use common::create_feed;
 use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
-use random_access_storage::RandomAccess;
+use hypercore::{storage_disk, storage_memory};
 use std::env::temp_dir;
-use std::fmt::Debug;
 use std::fs;
 use std::io::Write;
 
 #[async_std::test]
 async fn create_with_key() {
     let keypair = generate_keypair();
-    let storage = Storage::new_memory().await.unwrap();
+    let storage = storage_memory().await.unwrap();
     let _feed = Feed::builder(keypair.public, storage)
         .secret_key(keypair.secret)
         .build()
@@ -155,7 +154,7 @@ async fn put_with_data() {
 
     // Create a second feed with the first feed's key.
     let (public, secret) = copy_keys(&a);
-    let storage = Storage::new_memory().await.unwrap();
+    let storage = storage_memory().await.unwrap();
     let mut b = Feed::builder(public, storage)
         .secret_key(secret)
         .build()
@@ -187,7 +186,7 @@ async fn put_with_data() {
 
 #[async_std::test]
 async fn create_with_storage() {
-    let storage = Storage::new_memory().await.unwrap();
+    let storage = storage_memory().await.unwrap();
     assert!(
         Feed::with_storage(storage).await.is_ok(),
         "Could not create a feed with a storage."
@@ -196,7 +195,7 @@ async fn create_with_storage() {
 
 #[async_std::test]
 async fn create_with_stored_public_key() {
-    let mut storage = Storage::new_memory().await.unwrap();
+    let mut storage = storage_memory().await.unwrap();
     let keypair = generate_keypair();
     storage.write_public_key(&keypair.public).await.unwrap();
     assert!(
@@ -207,7 +206,7 @@ async fn create_with_stored_public_key() {
 
 #[async_std::test]
 async fn create_with_stored_keys() {
-    let mut storage = Storage::new_memory().await.unwrap();
+    let mut storage = storage_memory().await.unwrap();
     let keypair = generate_keypair();
     storage.write_public_key(&keypair.public).await.unwrap();
     storage.write_secret_key(&keypair.secret).await.unwrap();
@@ -218,7 +217,7 @@ async fn create_with_stored_keys() {
 }
 
 fn copy_keys(
-    feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send>,
+    feed: &Feed,
 ) -> (PublicKey, SecretKey) {
     match &feed.secret_key() {
         Some(secret) => {
@@ -254,7 +253,7 @@ async fn audit() {
 async fn audit_bad_data() {
     let mut dir = temp_dir();
     dir.push("audit_bad_data");
-    let storage = Storage::new_disk(&dir).await.unwrap();
+    let storage = storage_disk(&dir).await.unwrap();
     let mut feed = Feed::with_storage(storage).await.unwrap();
     feed.append(b"hello").await.unwrap();
     feed.append(b"world").await.unwrap();

@@ -48,7 +48,9 @@ pub use crate::feed::Feed;
 pub use crate::feed_builder::FeedBuilder;
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
+pub use crate::storage::{
+    storage_disk, storage_memory, BoxStorage, Node, NodeTrait, Storage, Store,
+};
 pub use ed25519_dalek::{PublicKey, SecretKey};
 
 use std::path::Path;

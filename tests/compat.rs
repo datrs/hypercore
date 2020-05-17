@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use data_encoding::HEXLOWER;
 use ed25519_dalek::{Keypair, Signature};
 use hypercore::Feed;
-use hypercore::{Storage, Store};
+use hypercore::{Storage, Store, BoxStorage};
 use random_access_disk::RandomAccessDisk;
 use remove_dir_all::remove_dir_all;
 
@@ -144,7 +144,7 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
     dir.as_ref().join(filename)
 }
 
-async fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
+async fn mk_storage() -> (PathBuf, BoxStorage) {
     let temp_dir = tempfile::tempdir().unwrap();
     let dir = temp_dir.into_path();
     let storage = Storage::new(|s| {
