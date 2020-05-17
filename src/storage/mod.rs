@@ -7,9 +7,8 @@ pub use self::node::Node;
 pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
 
-use crate::Result;
+use anyhow::{anyhow, ensure, Result};
 use ed25519_dalek::{PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use failure::Error;
 use flat_tree as flat;
 use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
@@ -58,7 +57,7 @@ where
 
 impl<T> Storage<T>
 where
-    T: RandomAccess<Error = Error> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
 {
     /// Create a new instance. Takes a keypair and a callback to create new
     /// storage instances.
@@ -77,13 +76,22 @@ where
         };
 
         let header = create_bitfield();
-        instance.bitfield.write(0, &header.to_vec())?;
+        instance
+            .bitfield
+            .write(0, &header.to_vec())
+            .map_err(|e| anyhow!(e))?;
 
         let header = create_signatures();
-        instance.signatures.write(0, &header.to_vec())?;
+        instance
+            .signatures
+            .write(0, &header.to_vec())
+            .map_err(|e| anyhow!(e))?;
 
         let header = create_tree();
-        instance.tree.write(0, &header.to_vec())?;
+        instance
+            .tree
+            .write(0, &header.to_vec())
+            .map_err(|e| anyhow!(e))?;
 
         Ok(instance)
     }
@@ -91,7 +99,7 @@ where
     /// Write data to the feed.
     #[inline]
     pub fn write_data(&mut self, offset: u64, data: &[u8]) -> Result<()> {
-        self.data.write(offset, &data)
+        self.data.write(offset, &data).map_err(|e| anyhow!(e))
     }
 
     /// Write a byte vector to a data storage (random-access instance) at the
@@ -114,7 +122,7 @@ where
             format!("length  `{:?} != {:?}`", range.count(), data.len())
         );
 
-        self.data.write(range.start, data)
+        self.data.write(range.start, data).map_err(|e| anyhow!(e))
     }
 
     /// Get data from disk that the user has written to it. This is stored
@@ -124,12 +132,18 @@ where
     pub fn get_data(&mut self, index: u64) -> Result<Vec<u8>> {
         let cached_nodes = Vec::new(); // TODO: reuse allocation.
         let range = self.data_offset(index, &cached_nodes)?;
-        self.data.read(range.start, range.count() as u64)
+        self.data
+            .read(range.start, range.count() as u64)
+            .map_err(|e| anyhow!(e))
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
     pub fn next_signature(&mut self, index: u64) -> Result<Signature> {
-        let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
+        let bytes = self
+            .signatures
+            .read(HEADER_OFFSET + 64 * index, 64)
+            .map_err(|e| anyhow!(e))?;
+
         if not_zeroes(&bytes) {
             Ok(Signature::from_bytes(&bytes)?)
         } else {
@@ -140,7 +154,10 @@ where
     /// Get a `Signature` from the store.
     #[inline]
     pub fn get_signature(&mut self, index: u64) -> Result<Signature> {
-        let bytes = self.signatures.read(HEADER_OFFSET + 64 * index, 64)?;
+        let bytes = self
+            .signatures
+            .read(HEADER_OFFSET + 64 * index, 64)
+            .map_err(|e| anyhow!(e))?;
         ensure!(not_zeroes(&bytes), "No signature found");
         Ok(Signature::from_bytes(&bytes)?)
     }
@@ -153,6 +170,7 @@ where
         let signature = signature.borrow();
         self.signatures
             .write(HEADER_OFFSET + 64 * index, &signature.to_bytes())
+            .map_err(|e| anyhow!(e))
     }
 
     /// TODO(yw) docs
@@ -208,7 +226,10 @@ where
     /// Get a `Node` from the `tree` storage.
     #[inline]
     pub fn get_node(&mut self, index: u64) -> Result<Node> {
-        let buf = self.tree.read(HEADER_OFFSET + 40 * index, 40)?;
+        let buf = self
+            .tree
+            .read(HEADER_OFFSET + 40 * index, 40)
+            .map_err(|e| anyhow!(e))?;
         let node = Node::from_bytes(index, &buf)?;
         Ok(node)
     }
@@ -220,7 +241,9 @@ where
     pub fn put_node(&mut self, node: &Node) -> Result<()> {
         let index = node.index();
         let buf = node.to_bytes()?;
-        self.tree.write(HEADER_OFFSET + 40 * index, &buf)
+        self.tree
+            .write(HEADER_OFFSET + 40 * index, &buf)
+            .map_err(|e| anyhow!(e))
     }
 
     /// Write data to the internal bitfield module.
@@ -228,12 +251,17 @@ where
     /// NOTE: Should we create a bitfield entry type?
     #[inline]
     pub fn put_bitfield(&mut self, offset: u64, data: &[u8]) -> Result<()> {
-        self.bitfield.write(HEADER_OFFSET + offset, data)
+        self.bitfield
+            .write(HEADER_OFFSET + offset, data)
+            .map_err(|e| anyhow!(e))
     }
 
     /// Read a public key from storage
     pub fn read_public_key(&mut self) -> Result<PublicKey> {
-        let buf = self.keypair.read(0, PUBLIC_KEY_LENGTH as u64)?;
+        let buf = self
+            .keypair
+            .read(0, PUBLIC_KEY_LENGTH as u64)
+            .map_err(|e| anyhow!(e))?;
         let public_key = PublicKey::from_bytes(&buf)?;
         Ok(public_key)
     }
@@ -242,7 +270,8 @@ where
     pub fn read_secret_key(&mut self) -> Result<SecretKey> {
         let buf = self
             .keypair
-            .read(PUBLIC_KEY_LENGTH as u64, SECRET_KEY_LENGTH as u64)?;
+            .read(PUBLIC_KEY_LENGTH as u64, SECRET_KEY_LENGTH as u64)
+            .map_err(|e| anyhow!(e))?;
         let secret_key = SecretKey::from_bytes(&buf)?;
         Ok(secret_key)
     }
@@ -250,13 +279,15 @@ where
     /// Write a public key to the storage
     pub fn write_public_key(&mut self, public_key: &PublicKey) -> Result<()> {
         let buf: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
-        self.keypair.write(0, &buf)
+        self.keypair.write(0, &buf).map_err(|e| anyhow!(e))
     }
 
     /// Write a secret key to the storage
     pub fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
         let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
-        self.keypair.write(PUBLIC_KEY_LENGTH as u64, &buf)
+        self.keypair
+            .write(PUBLIC_KEY_LENGTH as u64, &buf)
+            .map_err(|e| anyhow!(e))
     }
 
     /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage

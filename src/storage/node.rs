@@ -1,4 +1,5 @@
-use crate::Result;
+use anyhow::ensure;
+use anyhow::Result;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use merkle_tree_stream::Node as NodeTrait;
 use merkle_tree_stream::{NodeKind, NodeParts};

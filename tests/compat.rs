@@ -1,12 +1,8 @@
 //! Based on https://github.com/mafintosh/hypercore/blob/cf08d8c907e302cf4b699738f229b050eba41b59/test/compat.js
 
-extern crate data_encoding;
-extern crate ed25519_dalek;
-extern crate hypercore;
-extern crate random_access_disk;
-extern crate random_access_storage;
-extern crate remove_dir_all;
-extern crate tempfile;
+use ed25519_dalek;
+
+use tempfile;
 
 use std::fs::File;
 use std::io::Read;

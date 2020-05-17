@@ -1,5 +1,3 @@
-extern crate hypercore;
-
 use hypercore::Feed;
 
 fn main() {

@@ -1,5 +1,3 @@
-extern crate hypercore;
-
 mod common;
 
 use common::create_feed;

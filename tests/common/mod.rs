@@ -1,9 +1,7 @@
-extern crate failure;
-extern crate hypercore;
+use hypercore;
 extern crate random_access_memory as ram;
-extern crate random_access_storage;
 
-use self::failure::Error;
+use anyhow::Error;
 use hypercore::{Feed, Storage, Store};
 
 pub fn create_feed(page_size: usize) -> Result<Feed<ram::RandomAccessMemory>, Error> {
