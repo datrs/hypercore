@@ -119,10 +119,10 @@ where
             return Ok(());
         }
 
-        let mut range = self.data_offset(index, nodes).await?;
+        let range = self.data_offset(index, nodes).await?;
 
         ensure!(
-            range.by_ref().count() == data.len(),
+            (range.end - range.start) as usize == data.len(),
             format!("length  `{:?} != {:?}`", range.count(), data.len())
         );
 
