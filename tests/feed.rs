@@ -133,7 +133,7 @@ async fn put() {
         .build()
         .unwrap();
 
-    for _ in 0..10 {
+    for _ in 0..10u8 {
         a.append(b"foo").await.unwrap();
     }
 
@@ -144,6 +144,45 @@ async fn put() {
         .await
         .expect(".proof() index 4, digest 4");
     b.put(4, None, proof).await.unwrap();
+}
+
+#[async_std::test]
+/// Put data from one feed into another, while veryfing hashes.
+/// I.e. manual replication between two feeds.
+async fn put_with_data() {
+    // Create a writable feed.
+    let mut a = create_feed(50).await.unwrap();
+
+    // Create a second feed with the first feed's key.
+    let (public, secret) = copy_keys(&a);
+    let storage = Storage::new_memory().await.unwrap();
+    let mut b = Feed::builder(public, storage)
+        .secret_key(secret)
+        .build()
+        .unwrap();
+
+    // Append 4 blocks of data to the writable feed.
+    a.append(b"hi").await.unwrap();
+    a.append(b"ola").await.unwrap();
+    a.append(b"ahoj").await.unwrap();
+    a.append(b"salut").await.unwrap();
+
+    for i in 0..4 {
+        // Generate a proof for the index.
+        // The `include_hash` argument has to be set to false.
+        let a_proof = a.proof(i, false).await.unwrap();
+        // Get the data for the index.
+        let a_data = a.get(i).await.unwrap();
+
+        // Put the data into the other hypercore.
+        b.put(i, a_data.as_deref(), a_proof.clone()).await.unwrap();
+
+        // Load the data we've put.
+        let b_data = b.get(i).await.unwrap();
+
+        // Assert the data was put correctly.
+        assert!(a_data == b_data, "Data correct");
+    }
 }
 
 #[async_std::test]
