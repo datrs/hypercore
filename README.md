@@ -10,13 +10,13 @@ WIP. Secure, distributed, append-only log structure. Adapted from
 
 ## Usage
 ```rust
-let mut feed = hypercore::open("./feed.db")?;
+let mut feed = hypercore::open("./feed.db").await?;
 
-feed.append(b"hello")?;
-feed.append(b"world")?;
+feed.append(b"hello").await?;
+feed.append(b"world").await?;
 
-assert_eq!(feed.get(0)?, Some(b"hello".to_vec()));
-assert_eq!(feed.get(1)?, Some(b"world".to_vec()));
+assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
+assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
 ```
 
 ## Installation

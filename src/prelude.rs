@@ -1,7 +1,6 @@
 //! Convenience wrapper to import all of Hypercore's core.
 //!
 //! ```rust
-//! extern crate hypercore;
 //!
 //! use hypercore::prelude::*;
 //!

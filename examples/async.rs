@@ -5,17 +5,17 @@ use std::fmt::Debug;
 
 async fn append<T>(feed: &mut Feed<T>, content: &[u8])
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
 {
-    feed.append(content).unwrap();
+    feed.append(content).await.unwrap();
 }
 
 async fn print<T>(feed: &mut Feed<T>)
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
 {
-    println!("{:?}", feed.get(0));
-    println!("{:?}", feed.get(1));
+    println!("{:?}", feed.get(0).await);
+    println!("{:?}", feed.get(1).await);
 }
 
 fn main() {

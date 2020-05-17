@@ -47,11 +47,11 @@ where
 
 impl<T> Feed<T>
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
 {
     /// Create a new instance with a custom storage backend.
-    pub fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
-        match storage.read_partial_keypair() {
+    pub async fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
+        match storage.read_partial_keypair().await {
             Some(partial_keypair) => {
                 let builder = FeedBuilder::new(partial_keypair.public, storage);
 
@@ -60,19 +60,17 @@ where
                     return Ok(builder.build()?);
                 }
 
-                Ok(builder
-                    .secret_key(partial_keypair.secret.unwrap())
-                    .build()?)
+                builder.secret_key(partial_keypair.secret.unwrap()).build()
             }
             None => {
                 // we have no keys, generate a pair and save them to the storage
                 let keypair = generate_keypair();
-                storage.write_public_key(&keypair.public)?;
-                storage.write_secret_key(&keypair.secret)?;
+                storage.write_public_key(&keypair.public).await?;
+                storage.write_secret_key(&keypair.secret).await?;
 
-                Ok(FeedBuilder::new(keypair.public, storage)
+                FeedBuilder::new(keypair.public, storage)
                     .secret_key(keypair.secret)
-                    .build()?)
+                    .build()
             }
         }
     }
@@ -102,7 +100,7 @@ where
 
     /// Append data into the log.
     #[inline]
-    pub fn append(&mut self, data: &[u8]) -> Result<()> {
+    pub async fn append(&mut self, data: &[u8]) -> Result<()> {
         let key = match &self.secret_key {
             Some(key) => key,
             None => bail!("no secret key, cannot append."),
@@ -110,16 +108,18 @@ where
         self.merkle.next(data);
         let mut offset = 0;
 
-        self.storage.write_data(self.byte_length + offset, &data)?;
+        self.storage
+            .write_data(self.byte_length + offset, &data)
+            .await?;
         offset += data.len() as u64;
 
         let hash = Hash::from_roots(self.merkle.roots());
         let index = self.length;
         let signature = sign(&self.public_key, key, hash.as_bytes());
-        self.storage.put_signature(index, signature)?;
+        self.storage.put_signature(index, signature).await?;
 
         for node in self.merkle.nodes() {
-            self.storage.put_node(node)?;
+            self.storage.put_node(node).await?;
         }
 
         self.byte_length += offset;
@@ -134,10 +134,10 @@ where
     /// Get the block of data at the tip of the feed. This will be the most
     /// recently appended block.
     #[inline]
-    pub fn head(&mut self) -> Result<Option<Vec<u8>>> {
+    pub async fn head(&mut self) -> Result<Option<Vec<u8>>> {
         match self.len() {
             0 => Ok(None),
-            len => self.get(len - 1),
+            len => self.get(len - 1).await,
         }
     }
 
@@ -162,23 +162,23 @@ where
 
     /// Retrieve data from the log.
     #[inline]
-    pub fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>> {
+    pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>> {
         if !self.bitfield.get(index) {
             // NOTE: Do (network) lookup here once we have network code.
             return Ok(None);
         }
-        Ok(Some(self.storage.get_data(index)?))
+        Ok(Some(self.storage.get_data(index).await?))
     }
 
     /// Return the Nodes which prove the correctness for the Node at index.
     #[inline]
-    pub fn proof(&mut self, index: u64, include_hash: bool) -> Result<Proof> {
-        self.proof_with_digest(index, 0, include_hash)
+    pub async fn proof(&mut self, index: u64, include_hash: bool) -> Result<Proof> {
+        self.proof_with_digest(index, 0, include_hash).await
     }
 
     /// Return the Nodes which prove the correctness for the Node at index with a
     /// digest.
-    pub fn proof_with_digest(
+    pub async fn proof_with_digest(
         &mut self,
         index: u64,
         digest: u64,
@@ -205,7 +205,7 @@ where
         let signature = if has_underflow {
             None
         } else {
-            match self.storage.get_signature(sig_index) {
+            match self.storage.get_signature(sig_index).await {
                 Ok(sig) => Some(sig),
                 Err(_) => None,
             }
@@ -213,7 +213,7 @@ where
 
         let mut nodes = Vec::with_capacity(proof.nodes().len());
         for index in proof.nodes() {
-            let node = self.storage.get_node(*index)?;
+            let node = self.storage.get_node(*index).await?;
             nodes.push(node);
         }
 
@@ -232,7 +232,7 @@ where
     /// Insert data into the tree at `index`. Verifies the `proof` when inserting
     /// to make sure data is correct. Useful when replicating data from a remote
     /// host.
-    pub fn put(&mut self, index: u64, data: Option<&[u8]>, mut proof: Proof) -> Result<()> {
+    pub async fn put(&mut self, index: u64, data: Option<&[u8]>, mut proof: Proof) -> Result<()> {
         let mut next = tree_index(index);
         let mut trusted: Option<u64> = None;
         let mut missing = vec![];
@@ -265,13 +265,13 @@ where
 
         let mut missing_nodes = vec![];
         for index in missing {
-            let node = self.storage.get_node(index)?;
+            let node = self.storage.get_node(index).await?;
             missing_nodes.push(node);
         }
 
         let mut trusted_node = None;
         if let Some(index) = trusted {
-            let node = self.storage.get_node(index)?;
+            let node = self.storage.get_node(index).await?;
             trusted_node = Some(node);
         }
 
@@ -287,7 +287,7 @@ where
 
         // check if we already have the hash for this node
         if verify_node(&trusted_node, &top) {
-            self.write(index, data, &visited, None)?;
+            self.write(index, data, &visited, None).await?;
             return Ok(());
         }
 
@@ -303,9 +303,9 @@ where
                 node = missing_nodes.remove(0);
             } else {
                 // TODO: panics here
-                let nodes = self.verify_roots(&top, &mut proof)?;
+                let nodes = self.verify_roots(&top, &mut proof).await?;
                 visited.extend_from_slice(&nodes);
-                self.write(index, data, &visited, proof.signature)?;
+                self.write(index, data, &visited, proof.signature).await?;
                 return Ok(());
             }
 
@@ -315,7 +315,7 @@ where
             top = Node::new(flat::parent(top.index), hash.as_bytes().into(), len);
 
             if verify_node(&trusted_node, &top) {
-                self.write(index, data, &visited, None)?;
+                self.write(index, data, &visited, None).await?;
                 return Ok(());
             }
         }
@@ -336,7 +336,7 @@ where
     // - ._writeDone()
     //
     // Arguments are: (index, data, node, sig, from, cb)
-    fn write(
+    async fn write(
         &mut self,
         index: u64,
         data: Option<&[u8]>,
@@ -344,16 +344,16 @@ where
         sig: Option<Signature>,
     ) -> Result<()> {
         for node in nodes {
-            self.storage.put_node(node)?;
+            self.storage.put_node(node).await?;
         }
 
         if let Some(data) = data {
-            self.storage.put_data(index, data, &nodes)?;
+            self.storage.put_data(index, data, &nodes).await?;
         }
 
         if let Some(sig) = sig {
             let sig = sig.borrow();
-            self.storage.put_signature(index, sig)?;
+            self.storage.put_signature(index, sig).await?;
         }
 
         for node in nodes {
@@ -385,18 +385,18 @@ where
     }
 
     /// Get a signature from the store.
-    pub fn signature(&mut self, index: u64) -> Result<Signature> {
+    pub async fn signature(&mut self, index: u64) -> Result<Signature> {
         ensure!(
             index < self.length,
             format!("No signature found for index {}", index)
         );
-        Ok(self.storage.next_signature(index)?)
+        self.storage.next_signature(index).await
     }
 
     /// Verify the entire feed. Checks a signature against the signature of all
     /// root nodes combined.
-    pub fn verify(&mut self, index: u64, signature: &Signature) -> Result<()> {
-        let roots = self.root_hashes(index)?;
+    pub async fn verify(&mut self, index: u64, signature: &Signature) -> Result<()> {
+        let roots = self.root_hashes(index).await?;
         let roots: Vec<_> = roots.into_iter().map(Arc::new).collect();
 
         let message = Hash::from_roots(&roots);
@@ -427,7 +427,7 @@ where
     /// Get all root hashes from the feed.
     // In the JavaScript implementation this calls to `._getRootsToVerify()`
     // internally. In Rust it seems better to just inline the code.
-    pub fn root_hashes(&mut self, index: u64) -> Result<Vec<Node>> {
+    pub async fn root_hashes(&mut self, index: u64) -> Result<Vec<Node>> {
         ensure!(
             index <= self.length,
             format!("Root index bounds exceeded {} > {}", index, self.length)
@@ -438,7 +438,7 @@ where
 
         let mut roots = Vec::with_capacity(indexes.len());
         for index in indexes {
-            let node = self.storage.get_node(index)?;
+            let node = self.storage.get_node(index).await?;
             roots.push(node);
         }
 
@@ -455,7 +455,7 @@ where
         &self.secret_key
     }
 
-    fn verify_roots(&mut self, top: &Node, proof: &mut Proof) -> Result<Vec<Node>> {
+    async fn verify_roots(&mut self, top: &Node, proof: &mut Proof) -> Result<Vec<Node>> {
         let last_node = if !proof.nodes.is_empty() {
             proof.nodes[proof.nodes.len() - 1].index
         } else {
@@ -477,7 +477,7 @@ where
                 extra_nodes.push(proof.nodes[0].clone());
                 roots.push(proof.nodes.remove(0)); // TODO: verify this is the right index to push to.
             } else if self.tree.get(index) {
-                let node = self.storage.get_node(index)?;
+                let node = self.storage.get_node(index).await?;
                 roots.push(node);
             } else {
                 bail!("<hypercore>: Missing tree roots needed for verify");
@@ -501,13 +501,13 @@ where
     /// Audit all data in the feed. Checks that all current data matches
     /// the hashes in the merkle tree, and clears the bitfield if not.
     /// The tuple returns is (valid_blocks, invalid_blocks)
-    pub fn audit(&mut self) -> Result<Audit> {
+    pub async fn audit(&mut self) -> Result<Audit> {
         let mut valid_blocks = 0;
         let mut invalid_blocks = 0;
         for index in 0..self.length {
             if self.bitfield.get(index) {
-                let node = self.storage.get_node(2 * index)?;
-                let data = self.storage.get_data(index)?;
+                let node = self.storage.get_node(2 * index).await?;
+                let data = self.storage.get_data(index).await?;
                 let data_hash = Hash::from_leaf(&data);
                 if node.hash == data_hash.as_bytes() {
                     valid_blocks += 1;
@@ -561,10 +561,10 @@ impl Feed<RandomAccessDisk> {
     // TODO: Ensure that dir is always a directory.
     // NOTE: Should we `mkdirp` here?
     // NOTE: Should we call these `data.bitfield` / `data.tree`?
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub async fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let dir = path.as_ref().to_owned();
-        let storage = Storage::new_disk(&dir)?;
-        Ok(Self::with_storage(storage)?)
+        let storage = Storage::new_disk(&dir).await?;
+        Self::with_storage(storage).await
     }
 }
 
@@ -575,12 +575,14 @@ impl Feed<RandomAccessDisk> {
 /// unlikely.
 impl Default for Feed<RandomAccessMemory> {
     fn default() -> Self {
-        let storage = Storage::new_memory().unwrap();
-        Self::with_storage(storage).unwrap()
+        async_std::task::block_on(async {
+            let storage = Storage::new_memory().await.unwrap();
+            Self::with_storage(storage).await.unwrap()
+        })
     }
 }
 
-impl<T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug> Display
+impl<T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send> Display
     for Feed<T>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
