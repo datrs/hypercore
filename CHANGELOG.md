@@ -1,3 +1,161 @@
+## 2020-03-03, Version 0.11.1-beta.3
+### Commits
+- [[`b555606bd6`](https://github.com/datrs/hypercore/commit/b555606bd626ae39f338bd6aef4f8976ff0c055e)] (cargo-release) version 0.11.1-beta.3 (Bruno Tavares)
+- [[`aaf265b8b8`](https://github.com/datrs/hypercore/commit/aaf265b8b84ee5ba6b975a5503db262e154c14eb)] Fix requirements on ram crates to compile (Bruno Tavares)
+- [[`10448df561`](https://github.com/datrs/hypercore/commit/10448df56163c1f2917d4508f57713d635fa2d24)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ CHANGELOG.md | 24 ++++++++++++++++++++++++
+ Cargo.toml   |  6 +++---
+ 2 files changed, 27 insertions(+), 3 deletions(-)
+```
+
+
+## 2020-03-03, Version 0.11.1-beta.2
+### Commits
+- [[`3dfd5c8c71`](https://github.com/datrs/hypercore/commit/3dfd5c8c716a439131cf7b9a2b360ef737969335)] (cargo-release) version 0.11.1-beta.2 (Bruno Tavares)
+- [[`4136866e01`](https://github.com/datrs/hypercore/commit/4136866e01259825944cff099e59ffa4c8df081c)] Merge pull request #96 from bltavares/bitfield-compress (Bruno Tavares)
+- [[`d8beadbbfb`](https://github.com/datrs/hypercore/commit/d8beadbbfb0ff7d2d79e52abc14ffb570570b101)] GH Feedback: add comments on the optional fields (Bruno Tavares)
+- [[`9c6812d901`](https://github.com/datrs/hypercore/commit/9c6812d901454a383bee9802e0f5828c3224b515)] Use literals for floats (Bruno Tavares)
+- [[`356c90e915`](https://github.com/datrs/hypercore/commit/356c90e915a9a5dcc4edb5bf0fa61eda200f6b9b)] Make test with bigger ranges than page size (Bruno Tavares)
+- [[`390e13f9b5`](https://github.com/datrs/hypercore/commit/390e13f9b527845f281b24071bbf579f9a6232eb)] WIP: JS has float numbers on math (Bruno Tavares)
+- [[`bd333ba68d`](https://github.com/datrs/hypercore/commit/bd333ba68dc50f6e8bc581d39169ae64f6cba9de)] Compress bitfield and expose it to network code (Bruno Tavares)
+- [[`0bdbf6207a`](https://github.com/datrs/hypercore/commit/0bdbf6207af26ca3e3516956db7fa3140679e56e)] Bump dalek and rand (Bruno Tavares)
+- [[`ac0f3b6a74`](https://github.com/datrs/hypercore/commit/ac0f3b6a743cae1a8c1b51cabfd5a542ef34361b)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ CHANGELOG.md        | 40 ++++++++++++++++++++++++++++++++++++++++
+ Cargo.toml          |  3 ++-
+ src/bitfield/mod.rs | 32 ++++++++++++++++++++++++++++++++
+ src/feed.rs         |  5 +++++
+ tests/bitfield.rs   | 22 ++++++++++++++++++++++
+ tests/model.rs      |  7 +------
+ 6 files changed, 102 insertions(+), 7 deletions(-)
+```
+
+
+## 2020-03-03, Version 0.11.1-beta.1
+### Commits
+- [[`e5f071766c`](https://github.com/datrs/hypercore/commit/e5f071766c8b32c875df4872abe89ebb43700f31)] (cargo-release) version 0.11.1-beta.1 (Bruno Tavares)
+- [[`f7af79a3c2`](https://github.com/datrs/hypercore/commit/f7af79a3c271b426d0d6638872b0420a341d025e)] Merge pull request #100 from bltavares/bumps (Bruno Tavares)
+- [[`51c35d8f42`](https://github.com/datrs/hypercore/commit/51c35d8f42c42e111f2c207f1901288aaee7e500)] Point deps to crates versions (Bruno Tavares)
+- [[`f3b421c6ca`](https://github.com/datrs/hypercore/commit/f3b421c6ca76a0b5c5acb267988d97ba97e8a77a)] Fix clippy: rename func to adhere to conventions (Bruno Tavares)
+- [[`ba09c27336`](https://github.com/datrs/hypercore/commit/ba09c2733684f0320a7f99ebfa3ec8aae31334fd)] Fix travis: include checks on benchmarks (Bruno Tavares)
+- [[`173bc3fda2`](https://github.com/datrs/hypercore/commit/173bc3fda2f079994a38577030142b97c3143b4f)] Move from usize to u64 (Bruno Tavares)
+- [[`0678d06687`](https://github.com/datrs/hypercore/commit/0678d066875b7cef8cde3628f7ef91658a40f8c1)] Fix changes on ed25519_dalek and rand (Bruno Tavares)
+- [[`7fd467d928`](https://github.com/datrs/hypercore/commit/7fd467d92800e00cff7600fe6e68fbb474c899be)] Fix Travis config (Bruno Tavares)
+- [[`c4dc33a69a`](https://github.com/datrs/hypercore/commit/c4dc33a69aeead974d7dbd35d8414016ea3e421b)] Bump versions to latest versions (Bruno Tavares)
+- [[`ac3790dd4d`](https://github.com/datrs/hypercore/commit/ac3790dd4da0c72341944f29a75a8bf1fefcae00)] Bump versions to latest versions (Bruno Tavares)
+- [[`a3aa858b61`](https://github.com/datrs/hypercore/commit/a3aa858b61f36b30d02f06976eebbb37d823aa81)] Update sparse-bitfield requirement from 0.10.0 to 0.11.0 (dependabot-preview[bot])
+- [[`97cf996831`](https://github.com/datrs/hypercore/commit/97cf996831d00626a6ea75cc5267d5974bbca573)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ .travis.yml              |   8 ++--
+ CHANGELOG.md             |  28 +++++++++++++-
+ Cargo.toml               |  34 ++++++++--------
+ examples/iter.rs         |   6 +--
+ src/audit.rs             |   8 ++--
+ src/bitfield/iterator.rs |  37 +++++++++---------
+ src/bitfield/mod.rs      | 100 ++++++++++++++++++++++++------------------------
+ src/crypto/hash.rs       |  12 +++---
+ src/crypto/key_pair.rs   |  13 +++---
+ src/crypto/root.rs       |  62 +++++++++++++++---------------
+ src/feed.rs              |  48 +++++++++++------------
+ src/proof.rs             |   4 +-
+ src/replicate/message.rs |   4 +-
+ src/replicate/peer.rs    |   4 +-
+ src/storage/mod.rs       |  42 ++++++++++----------
+ src/storage/node.rs      |  16 ++++----
+ src/storage/persist.rs   |   4 +-
+ tests/bitfield.rs        |   8 ++--
+ tests/model.rs           |  12 +++---
+ 19 files changed, 243 insertions(+), 207 deletions(-)
+```
+
+
+## 2020-02-19, Version 0.11.0
+### Commits
+- [[`f2baf805d5`](https://github.com/datrs/hypercore/commit/f2baf805d5477c768f32ca2cf7faae4d9d284686)] (cargo-release) version 0.11.0 (Bruno Tavares)
+- [[`31dfdd15f2`](https://github.com/datrs/hypercore/commit/31dfdd15f27356780d75fa126bd8a8d464fefc39)] Merge pull request #95 from bltavares/send (Bruno Tavares)
+- [[`46be5197a2`](https://github.com/datrs/hypercore/commit/46be5197a2398e04d413ebfa65fcb6f830dedf0f)] Use published version (Bruno Tavares)
+- [[`d4905b11cf`](https://github.com/datrs/hypercore/commit/d4905b11cf83871db98c118c373d52626e6b1c78)] Point to merkle-tree-stream that is Send while new version is to be released (Bruno Tavares)
+- [[`40caf92ec2`](https://github.com/datrs/hypercore/commit/40caf92ec2c357a08ddeec03f9d4ba34a723eeaf)] Replace all Rc with Arc in code. Needs to update dependencies (Bruno Tavares)
+- [[`2dc8008a55`](https://github.com/datrs/hypercore/commit/2dc8008a5542713a2569cfb115a006dee34bbca6)] example to ensure structs are send (Bruno Tavares)
+- [[`f77fe7b025`](https://github.com/datrs/hypercore/commit/f77fe7b0257bd5f0e7007c012bc68bc1d75eda05)] fix readme link (#88) (nasa)
+- [[`82e48f0c7d`](https://github.com/datrs/hypercore/commit/82e48f0c7d2330f0ed845dac30db46a02d5f7c48)] Update memory-pager requirement from 0.8.0 to 0.9.0 (dependabot-preview[bot])
+- [[`580dff64c5`](https://github.com/datrs/hypercore/commit/580dff64c50377e6fc51dbed701c2dc26a2693a2)] Update sparse-bitfield requirement from 0.8.1 to 0.10.0 (dependabot-preview[bot])
+- [[`7eda3504d6`](https://github.com/datrs/hypercore/commit/7eda3504d61de0f1423d0efa272587fe8b0a1650)] Merge pull request #81 from bltavares/discovery-key-hash (Szabolcs Berecz)
+- [[`1edf42f790`](https://github.com/datrs/hypercore/commit/1edf42f79007924b79e7b1b99a7e9d66abc3b4e9)] Implements discoveryKey from hypercore-crypto (Bruno Tavares)
+- [[`aedef0b149`](https://github.com/datrs/hypercore/commit/aedef0b149de042313245c2baab0948da3390aef)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md         | 26 ++++++++++++++++++++++++++
+ Cargo.toml           |  9 +++++----
+ README.md            |  2 +-
+ examples/async.rs    | 30 ++++++++++++++++++++++++++++++
+ src/crypto/hash.rs   | 42 +++++++++++++++++++++++++++++-------------
+ src/crypto/merkle.rs | 10 +++++-----
+ src/feed.rs          |  4 ++--
+ 7 files changed, 98 insertions(+), 25 deletions(-)
+```
+
+
+## 2018-12-22, Version 0.9.0
+### Commits
+- [[`9c2b07fca6`](https://github.com/datrs/hypercore/commit/9c2b07fca68bb34046551f0fd152aa7f97a33fb6)] (cargo-release) version 0.9.0 (Yoshua Wuyts)
+- [[`86e241f9e0`](https://github.com/datrs/hypercore/commit/86e241f9e02e3583445fcb43fcc28295eae1cd31)] 🙋 Implement feed auditing (#55) (Tim Deeb-Swihart)
+- [[`5840a3a6a9`](https://github.com/datrs/hypercore/commit/5840a3a6a90f47ba89662687a374f070f3172c69)] Update rand requirement from 0.5.5 to 0.6.0 (#49) (dependabot[bot])
+- [[`1628057868`](https://github.com/datrs/hypercore/commit/162805786831866ea611cfe97e85def690614fa6)] use tree_index functions (#48) (Yoshua Wuyts)
+- [[`f66fbb3543`](https://github.com/datrs/hypercore/commit/f66fbb354376681062697ffd2be18da2224cb1b9)] Update merkle-tree-stream requirement from 0.7.0 to 0.8.0 (#46) (dependabot[bot])
+- [[`343df6f991`](https://github.com/datrs/hypercore/commit/343df6f991b0fbe5f50a7d95b632b3c60e5dfa54)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md           | 26 +++++++++++++++++++-
+ Cargo.toml             |  6 ++--
+ src/audit.rs           | 20 +++++++++++++++-
+ src/bitfield/mod.rs    | 21 ++++++++++------
+ src/crypto/key_pair.rs |  2 +-
+ src/crypto/merkle.rs   | 14 ++++++----
+ src/feed.rs            | 46 ++++++++++++++++++++++++++++------
+ src/lib.rs             |  1 +-
+ src/storage/mod.rs     | 10 +++++--
+ src/storage/node.rs    |  2 +-
+ tests/feed.rs          | 69 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 11 files changed, 191 insertions(+), 26 deletions(-)
+```
+
+
+## 2018-12-22, Version 0.9.0
+### Commits
+- [[`9c2b07fca6`](https://github.com/datrs/hypercore/commit/9c2b07fca68bb34046551f0fd152aa7f97a33fb6)] (cargo-release) version 0.9.0 (Yoshua Wuyts)
+- [[`86e241f9e0`](https://github.com/datrs/hypercore/commit/86e241f9e02e3583445fcb43fcc28295eae1cd31)] 🙋 Implement feed auditing (#55) (Tim Deeb-Swihart)
+- [[`5840a3a6a9`](https://github.com/datrs/hypercore/commit/5840a3a6a90f47ba89662687a374f070f3172c69)] Update rand requirement from 0.5.5 to 0.6.0 (#49) (dependabot[bot])
+- [[`1628057868`](https://github.com/datrs/hypercore/commit/162805786831866ea611cfe97e85def690614fa6)] use tree_index functions (#48) (Yoshua Wuyts)
+- [[`f66fbb3543`](https://github.com/datrs/hypercore/commit/f66fbb354376681062697ffd2be18da2224cb1b9)] Update merkle-tree-stream requirement from 0.7.0 to 0.8.0 (#46) (dependabot[bot])
+- [[`343df6f991`](https://github.com/datrs/hypercore/commit/343df6f991b0fbe5f50a7d95b632b3c60e5dfa54)] Update changelog (Yoshua Wuyts)
+
+### Stats
+```diff
+ CHANGELOG.md           | 26 +++++++++++++++++++-
+ Cargo.toml             |  6 ++--
+ src/audit.rs           | 20 +++++++++++++++-
+ src/bitfield/mod.rs    | 21 ++++++++++------
+ src/crypto/key_pair.rs |  2 +-
+ src/crypto/merkle.rs   | 14 ++++++----
+ src/feed.rs            | 46 ++++++++++++++++++++++++++++------
+ src/lib.rs             |  1 +-
+ src/storage/mod.rs     | 10 +++++--
+ src/storage/node.rs    |  2 +-
+ tests/feed.rs          | 69 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 11 files changed, 191 insertions(+), 26 deletions(-)
+```
+
+
 ## 2018-10-28, Version 0.8.1
 ### Commits
 - [[`938d2816cc`](https://github.com/datrs/hypercore/commit/938d2816cc63e4dd8964139baa56be2dd28e72d5)] (cargo-release) version 0.8.1 (Yoshua Wuyts)

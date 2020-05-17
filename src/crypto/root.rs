@@ -10,43 +10,43 @@
 
 /// Root node found in flat-tree.
 pub struct Root<'a> {
-  index: &'a usize,
-  length: &'a usize,
-  hash: &'a [u8],
+    index: &'a u64,
+    length: &'a u64,
+    hash: &'a [u8],
 }
 
 impl<'a> Root<'a> {
-  /// Create a new instance.
-  #[inline]
-  pub fn new(index: &'a usize, length: &'a usize, hash: &'a [u8]) -> Self {
-    Self {
-      index,
-      length,
-      hash,
+    /// Create a new instance.
+    #[inline]
+    pub fn new(index: &'a u64, length: &'a u64, hash: &'a [u8]) -> Self {
+        Self {
+            index,
+            length,
+            hash,
+        }
     }
-  }
 
-  /// Get the index at which this root was found inside a `flat-tree`.
-  #[inline]
-  pub fn index(&self) -> &usize {
-    &self.index
-  }
+    /// Get the index at which this root was found inside a `flat-tree`.
+    #[inline]
+    pub fn index(&self) -> &u64 {
+        &self.index
+    }
 
-  /// Get the lenght of the data.
-  #[inline]
-  pub fn len(&self) -> &usize {
-    &self.length
-  }
+    /// Get the lenght of the data.
+    #[inline]
+    pub fn len(&self) -> &u64 {
+        &self.length
+    }
 
-  /// Check if the content is empty.
-  #[inline]
-  pub fn is_empty(&self) -> bool {
-    *self.length == 0
-  }
+    /// Check if the content is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        *self.length == 0
+    }
 
-  /// Get the hash.
-  #[inline]
-  pub fn hash(&self) -> &'a [u8] {
-    &self.hash
-  }
+    /// Get the hash.
+    #[inline]
+    pub fn hash(&self) -> &'a [u8] {
+        &self.hash
+    }
 }

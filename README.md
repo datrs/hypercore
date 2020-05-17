@@ -10,19 +10,13 @@ WIP. Secure, distributed, append-only log structure. Adapted from
 
 ## Usage
 ```rust
-extern crate hypercore;
+let mut feed = hypercore::open("./feed.db").await?;
 
-use hypercore::Feed;
-use std::path::PathBuf;
+feed.append(b"hello").await?;
+feed.append(b"world").await?;
 
-let path = PathBuf::from("./my-first-dataset");
-let mut feed = Feed::new(&path).unwrap();
-
-feed.append(b"hello").unwrap();
-feed.append(b"world").unwrap();
-
-println!("{:?}", feed.get(0)); // prints "hello"
-println!("{:?}", feed.get(1)); // prints "world"
+assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
+assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
 ```
 
 ## Installation
@@ -57,6 +51,6 @@ look at some of these issues:
 [8]: https://docs.rs/hypercore
 
 [releases]: https://github.com/datrs/hypercore/releases
-[contributing]: https://github.com/datrs/hypercore/blob/master.github/CONTRIBUTING.md
+[contributing]: https://github.com/datrs/hypercore/blob/master/.github/CONTRIBUTING.md
 [good-first-issue]: https://github.com/datrs/hypercore/labels/good%20first%20issue
 [help-wanted]: https://github.com/datrs/hypercore/labels/help%20wanted

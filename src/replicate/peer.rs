@@ -10,8 +10,8 @@ use super::Message;
 // ]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Peer {
-  // remote_id: usize,
-// remote_length: usize,
+    // remote_id: u64,
+// remote_length: u64,
 // remote_bitfield: Bitfield,
 // remote_is_want: bool,
 // remote_is_downloading: bool,
@@ -23,18 +23,18 @@ pub struct Peer {
 }
 
 impl Peer {
-  /// Check if the peer has a message.
-  pub fn have(&mut self, _msg: &Message) {
-    unimplemented!();
-  }
+    /// Check if the peer has a message.
+    pub fn have(&mut self, _msg: &Message) {
+        unimplemented!();
+    }
 
-  /// Tell a peer you no longer have a message.
-  pub fn unhave(&mut self, _msg: &Message) {
-    unimplemented!();
-  }
+    /// Tell a peer you no longer have a message.
+    pub fn unhave(&mut self, _msg: &Message) {
+        unimplemented!();
+    }
 
-  /// Update.
-  pub fn update(&mut self) {
-    unimplemented!();
-  }
+    /// Update.
+    pub fn update(&mut self) {
+        unimplemented!();
+    }
 }

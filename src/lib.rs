@@ -4,44 +4,36 @@
 #![forbid(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
+//! ## Introduction
+//! Hypercore is a secure, distributed append-only log. Built for sharing
+//! large datasets and streams of real time data as part of the [Dat] project.
+//! This is a rust port of [the original node version][dat-node]
+//! aiming for interoperability. The primary way to use this crate is through the [Feed] struct.
+//!
 //! ## Example
 //! ```rust
-//! extern crate hypercore;
+//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//! # async_std::task::block_on(async {
+//! let mut feed = hypercore::open("./feed.db").await?;
 //!
-//! use hypercore::Feed;
-//! use std::path::PathBuf;
+//! feed.append(b"hello").await?;
+//! feed.append(b"world").await?;
 //!
-//! let path = PathBuf::from("./my-first-dataset");
-//! let mut feed = Feed::new(&path).unwrap();
-//!
-//! feed.append(b"hello").unwrap();
-//! feed.append(b"world").unwrap();
-//!
-//! println!("{:?}", feed.get(0)); // prints "hello"
-//! println!("{:?}", feed.get(1)); // prints "world"
+//! assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
+//! assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
+//! # Ok(())
+//! # })
+//! # }
 //! ```
-
-#[macro_use]
-extern crate failure;
-
-extern crate blake2_rfc;
-extern crate byteorder;
-extern crate ed25519_dalek;
-extern crate flat_tree;
-extern crate merkle_tree_stream;
-extern crate pretty_hash;
-extern crate rand;
-extern crate random_access_disk;
-extern crate random_access_memory;
-extern crate random_access_storage;
-extern crate sha2;
-extern crate sleep_parser;
-extern crate sparse_bitfield;
-extern crate tree_index;
+//!
+//! [dat-node]: https://github.com/mafintosh/hypercore
+//! [Dat]: https://github.com/datrs
+//! [Feed]: crate::feed::Feed
 
 pub mod bitfield;
 pub mod prelude;
 
+mod audit;
 mod crypto;
 mod event;
 mod feed;
@@ -59,7 +51,11 @@ pub use crate::replicate::Peer;
 pub use crate::storage::{Node, NodeTrait, Storage, Store};
 pub use ed25519_dalek::{PublicKey, SecretKey};
 
-use failure::Error;
+use std::path::Path;
 
-/// A specialized `Result` type for Hypercore operations.
-pub type Result<T> = std::result::Result<T, Error>;
+/// Create a new Hypercore `Feed`.
+pub async fn open<P: AsRef<Path>>(
+    path: P,
+) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
+    Feed::open(path).await
+}

@@ -1,19 +1,19 @@
 use super::Storage;
-use crate::Result;
+use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 
 /// Persist data to a `Storage` instance.
 pub trait Persist<T>
 where
-  T: RandomAccess + Debug,
+    T: RandomAccess + Debug,
 {
-  /// Create an instance from a byte vector.
-  fn from_bytes(index: usize, buf: &[u8]) -> Self;
+    /// Create an instance from a byte vector.
+    fn from_bytes(index: u64, buf: &[u8]) -> Self;
 
-  /// Create a vector.
-  fn to_vec(&self) -> Result<Vec<u8>>;
+    /// Create a vector.
+    fn to_vec(&self) -> Result<Vec<u8>>;
 
-  /// Persist into a storage backend.
-  fn store(&self, index: usize, store: Storage<T>) -> Result<()>;
+    /// Persist into a storage backend.
+    fn store(&self, index: u64, store: Storage<T>) -> Result<()>;
 }
