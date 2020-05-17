@@ -116,7 +116,11 @@ async fn deterministic_signatures() {
 }
 
 #[test]
-fn verify_older_signature_on_read() {}
+#[ignore]
+fn compat_signatures_work() {
+    // Port from mafintosh/hypercore when the necessary features are implemented
+    unimplemented!();
+}
 
 #[test]
 #[ignore]
