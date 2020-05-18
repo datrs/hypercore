@@ -77,6 +77,7 @@ impl FeedBuilder {
             secret_key: self.secret_key,
             storage: self.storage,
             peers: vec![],
+            subscribers: vec![],
         })
     }
 }

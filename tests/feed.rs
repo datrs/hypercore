@@ -5,6 +5,7 @@ mod common;
 use common::create_feed;
 use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
 use hypercore::{storage_disk, storage_memory};
+use futures::stream::StreamExt;
 use std::env::temp_dir;
 use std::fs;
 use std::io::Write;
@@ -185,7 +186,6 @@ async fn put() {
 async fn put_with_data() {
     // Create a writable feed.
     let mut a = create_feed(50).await.unwrap();
-
     // Create a second feed with the first feed's key.
     let mut b = create_clone(&a).await.unwrap();
 
@@ -364,3 +364,83 @@ async fn create_clone(feed: &Feed) -> Result<Feed, anyhow::Error> {
         .await?;
     Ok(clone)
 }
+
+async fn events_append() {
+    let mut feed = create_feed(50).await.unwrap();
+    let event_task = collect_events(&mut feed, 3);
+    feed.append(br#"one"#).await.unwrap();
+    feed.append(br#"two"#).await.unwrap();
+    feed.append(br#"three"#).await.unwrap();
+
+    let event_list = event_task.await;
+    let mut expected = vec![];
+    for _i in 0..3 {
+        expected.push(Event::Append);
+    }
+    assert_eq!(event_list, expected, "Correct events emitted")
+}
+
+#[async_std::test]
+async fn events_download() {
+    let mut a = create_feed(50).await.unwrap();
+    // Create a second feed with the first feed's key.
+    let mut b = create_clone(&a).await.unwrap();
+
+    let event_task = collect_events(&mut b, 3);
+
+    a.append(b"one").await.unwrap();
+    a.append(b"two").await.unwrap();
+    a.append(b"three").await.unwrap();
+
+    for i in 0..3 {
+        let a_proof = a.proof(i, false).await.unwrap();
+        let a_data = a.get(i).await.unwrap();
+        b.put(i, a_data.as_deref(), a_proof).await.unwrap();
+    }
+
+    let event_list = event_task.await;
+
+    let mut expected = vec![];
+    for i in 0..3 {
+        expected.push(Event::Download(i));
+    }
+    assert_eq!(event_list, expected, "Correct events emitted")
+}
+
+fn copy_keys(
+    feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send>,
+) -> (PublicKey, SecretKey) {
+    match &feed.secret_key() {
+        Some(secret) => {
+            let secret = secret.to_bytes();
+            let public = &feed.public_key().to_bytes();
+
+            let public = PublicKey::from_bytes(public).unwrap();
+            let secret = SecretKey::from_bytes(&secret).unwrap();
+
+            (public, secret)
+        }
+        _ => panic!("<tests/common>: Could not access secret key"),
+    }
+}
+
+fn collect_events(
+    feed: &mut Feed<
+        impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
+    >,
+    n: usize,
+) -> async_std::task::JoinHandle<Vec<Event>> {
+    let mut events = feed.subscribe();
+    let event_task = async_std::task::spawn(async move {
+        let mut event_list = vec![];
+        while let Some(event) = events.next().await {
+            event_list.push(event);
+            if event_list.len() == n {
+                return event_list;
+            }
+        }
+        event_list
+    });
+    event_task
+}
+>>>>>>> c7e774c... Emit Download and Append events
