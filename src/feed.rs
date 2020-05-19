@@ -200,7 +200,7 @@ impl Feed {
     }
 
     /// Emit an event on the feed.
-    async fn emit(&self, event: Event) {
+    async fn emit(&mut self, event: Event) {
         for mut sender in self.subscribers.iter() {
             sender.send(event.clone()).await.unwrap();
         }
