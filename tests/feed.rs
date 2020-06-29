@@ -298,3 +298,33 @@ async fn audit_bad_data() {
         }
     }
 }
+
+#[async_std::test]
+async fn try_open_missing_dir() {
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
+
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(5).collect();
+    let mut dir = std::env::temp_dir();
+    let path = format!("hypercore_rs_test/nonexistent_paths_test/{}", rand_string);
+    dir.push(path);
+
+    if Feed::open(&dir).await.is_err() {
+        panic!("Opening nonexistent dir at a path should succeed");
+    }
+
+    if let Ok(d) = std::fs::metadata(dir) {
+        if !d.is_dir() {
+            panic!("Opening nonexistent dir at a path must create dir");
+        }
+    } else {
+        panic!("Opening nonexistent dir at a path must create dir");
+    }
+}
+
+#[async_std::test]
+async fn try_open_file_as_dir() {
+    if Feed::open("Cargo.toml").await.is_ok() {
+        panic!("Opening path that points to a file must result in error");
+    }
+}

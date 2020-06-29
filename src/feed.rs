@@ -595,11 +595,19 @@ where
 
 impl Feed<RandomAccessDisk> {
     /// Create a new instance that persists to disk at the location of `dir`.
-    // TODO: Ensure that dir is always a directory.
-    // NOTE: Should we `mkdirp` here?
+    /// If dir was not there, it will be created.
     // NOTE: Should we call these `data.bitfield` / `data.tree`?
     pub async fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        if let Err(e) = std::fs::create_dir_all(&path) {
+            return Err(anyhow::Error::msg(format!(
+                "Failed to create directory {} because of: {}",
+                path.as_ref().display(),
+                e
+            )));
+        }
+
         let dir = path.as_ref().to_owned();
+
         let storage = Storage::new_disk(&dir).await?;
         Self::with_storage(storage).await
     }
