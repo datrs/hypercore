@@ -88,6 +88,7 @@ async fn deterministic_signatures() {
         let mut feed = Feed::builder(keypair.public, storage)
             .secret_key(keypair.secret)
             .build()
+            .await
             .unwrap();
 
         let data = b"abc";
@@ -147,10 +148,13 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
 async fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
     let temp_dir = tempfile::tempdir().unwrap();
     let dir = temp_dir.into_path();
-    let storage = Storage::new(|s| {
-        let dir = dir.clone();
-        Box::pin(async move { RandomAccessDisk::open(storage_path(dir, s)).await })
-    })
+    let storage = Storage::new(
+        |s| {
+            let dir = dir.clone();
+            Box::pin(async move { RandomAccessDisk::open(storage_path(dir, s)).await })
+        },
+        false,
+    )
     .await
     .unwrap();
     (dir, storage)

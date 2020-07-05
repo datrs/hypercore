@@ -23,14 +23,13 @@ mod masks;
 use self::masks::Masks;
 use flat_tree::{self, Iterator as FlatIterator};
 pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
+use std::convert::TryInto;
 use std::ops::Range;
 
 /// Bitfield with `{data, tree, index} fields.`
 #[derive(Debug)]
 pub struct Bitfield {
     data: SparseBitfield,
-    /// FIXME: SLEEP protocol tree field.
-    pub tree: SparseBitfield,
     index: SparseBitfield,
     page_len: u64,
     length: u64,
@@ -38,24 +37,88 @@ pub struct Bitfield {
     iterator: FlatIterator,
 }
 
-impl Default for Bitfield {
-    fn default() -> Self {
-        Bitfield::new()
-    }
-}
-
 impl Bitfield {
     /// Create a new instance.
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> (Self, SparseBitfield) {
+        let s = Self {
             data: SparseBitfield::new(1024),
-            tree: SparseBitfield::new(2048),
             index: SparseBitfield::new(256),
             page_len: 3328,
             length: 0,
             masks: Masks::new(),
             iterator: FlatIterator::new(0),
+        };
+        (s, SparseBitfield::new(2048))
+    }
+
+    /// Create new instance from byteslice
+    pub fn from_slice(slice: &[u8]) -> (Self, SparseBitfield) {
+        // khodzha:
+        // slice is packed as data|tree|index|data|tree|index|...
+        // so for each 1024 + 2048 + 256 bytes
+        // we extract first 1024 bytes to data
+        // then next 2048 bytes to tree
+        // then next 256 bytes to index
+        let mut data = SparseBitfield::new(1024);
+        let mut tree = SparseBitfield::new(2048);
+        let mut index = SparseBitfield::new(256);
+        slice
+            .chunks_exact(1024 + 2048 + 256)
+            .enumerate()
+            .for_each(|(page_idx, chunk)| {
+                chunk.iter().enumerate().for_each(|(idx, byte)| {
+                    if idx < 1024 {
+                        data.set_byte(page_idx * 1024 + idx, *byte);
+                    } else if idx < 1024 + 2048 {
+                        tree.set_byte(page_idx * 1024 + (idx - 1024), *byte);
+                    } else {
+                        index.set_byte(page_idx * 1024 + (idx - 1024 - 2048), *byte);
+                    }
+                });
+            });
+        let length = data
+            .len()
+            .try_into()
+            .expect("Failed to convert len:usize to length:u64");
+        let s = Self {
+            data,
+            index,
+            length,
+            page_len: 3328,
+            masks: Masks::new(),
+            iterator: FlatIterator::new(0),
+        };
+
+        (s, tree)
+    }
+
+    /// Convert to vec
+    pub fn to_bytes(&self, tree: &tree_index::TreeIndex) -> std::io::Result<Vec<u8>> {
+        let tree = tree.as_bitfield();
+        let data_bytes = self.data.to_bytes()?;
+        let tree_bytes = tree.to_bytes()?;
+        let index_bytes = self.index.to_bytes()?;
+
+        let max_pages_len = std::cmp::max(
+            std::cmp::max(self.data.page_len(), tree.page_len()),
+            self.index.page_len(),
+        );
+
+        let data_ps = self.data.page_size();
+        let tree_ps = tree.page_size();
+        let index_ps = self.index.page_size();
+
+        let total_ps = data_ps + tree_ps + index_ps;
+
+        let mut vec = Vec::with_capacity(max_pages_len * total_ps);
+
+        for i in 0..max_pages_len {
+            extend_buf_from_slice(&mut vec, &data_bytes, i, data_ps);
+            extend_buf_from_slice(&mut vec, &tree_bytes, i, tree_ps);
+            extend_buf_from_slice(&mut vec, &index_bytes, i, index_ps);
         }
+
+        Ok(vec)
     }
 
     /// Get the current length
@@ -163,11 +226,11 @@ impl Bitfield {
         let right = get_index_value(value) >> tree_index(o);
         let mut byte = left | right;
         let len = self.index.len();
-        let max_len = self.page_len * 256;
+        let max_len = self.data.page_len() * 256;
 
         self.iterator.seek(start);
 
-        while self.iterator.index() < max_len
+        while self.iterator.index() < max_len as u64
             && self
                 .index
                 .set_byte(self.iterator.index() as usize, byte)
@@ -303,4 +366,16 @@ fn mask_8b(num: u64) -> u64 {
 #[inline]
 fn tree_index(index: u64) -> u64 {
     2 * index
+}
+
+// copies slice to buf or fills buf with len-of-slice zeros
+fn extend_buf_from_slice(buf: &mut Vec<u8>, bytes: &[u8], i: usize, pagesize: usize) {
+    if i * pagesize >= bytes.len() {
+        for _ in 0..pagesize {
+            buf.push(0);
+        }
+    } else {
+        let range = (i * pagesize)..((i + 1) * pagesize);
+        buf.extend_from_slice(&bytes[range]);
+    }
 }

@@ -5,7 +5,7 @@ use rand::Rng;
 
 #[test]
 fn set_and_get() {
-    let mut b = Bitfield::new();
+    let (mut b, _) = Bitfield::new();
 
     assert_eq!(b.get(0), false);
     assert_eq!(b.set(0, true), Changed);
@@ -20,11 +20,9 @@ fn set_and_get() {
 
 #[test]
 fn set_and_get_tree() {
-    let mut b = Bitfield::new();
+    let (mut b, mut tree) = Bitfield::new();
 
     {
-        let tree = &mut b.tree;
-
         assert_eq!(tree.get(0), false);
         assert_eq!(tree.set(0, true), Changed);
         assert_eq!(tree.set(0, true), Unchanged);
@@ -42,7 +40,7 @@ fn set_and_get_tree() {
 
 #[test]
 fn set_and_index() {
-    let mut b = Bitfield::new();
+    let (mut b, _) = Bitfield::new();
 
     {
         let mut iter = b.iterator_with_range(0, 100_000_000);
@@ -100,7 +98,7 @@ fn set_and_index() {
 
 #[test]
 fn set_and_index_random() {
-    let mut b = Bitfield::new();
+    let (mut b, _) = Bitfield::new();
 
     let mut rng = rand::thread_rng();
     for _ in 0..100 {
@@ -139,7 +137,7 @@ fn set_and_index_random() {
 
 #[test]
 fn get_total_positive_bits() {
-    let mut b = Bitfield::new();
+    let (mut b, _) = Bitfield::new();
 
     assert_eq!(b.set(1, true), Changed);
     assert_eq!(b.set(2, true), Changed);
@@ -157,14 +155,14 @@ fn get_total_positive_bits() {
 
 #[test]
 fn bitfield_dedup() {
-    let mut b = Bitfield::new();
+    let (mut b, mut tree) = Bitfield::new();
 
     for i in 0..32 * 1024 {
         b.set(i, true);
     }
 
     for i in 0..64 * 1024 {
-        b.tree.set(i, true);
+        tree.set(i, true);
     }
 
     assert!(b.get(8 * 1024));
@@ -176,7 +174,7 @@ fn bitfield_dedup() {
 
 #[test]
 fn bitfield_compress() {
-    let mut b = Bitfield::new();
+    let (mut b, _) = Bitfield::new();
     assert_eq!(b.compress(0, 0).unwrap(), vec![0]);
 
     b.set(1, true);

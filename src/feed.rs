@@ -86,10 +86,13 @@ where
 
                 // return early without secret key
                 if partial_keypair.secret.is_none() {
-                    return Ok(builder.build()?);
+                    return Ok(builder.build().await?);
                 }
 
-                builder.secret_key(partial_keypair.secret.unwrap()).build()
+                builder
+                    .secret_key(partial_keypair.secret.unwrap())
+                    .build()
+                    .await
             }
             None => {
                 // we have no keys, generate a pair and save them to the storage
@@ -100,6 +103,7 @@ where
                 FeedBuilder::new(keypair.public, storage)
                     .secret_key(keypair.secret)
                     .build()
+                    .await
             }
         }
     }
@@ -162,6 +166,8 @@ where
         self.bitfield.set(index, true);
         self.tree.set(tree_index(index));
         self.length += 1;
+        let bytes = self.bitfield.to_bytes(&self.tree)?;
+        self.storage.put_bitfield(0, &bytes).await?;
 
         Ok(())
     }
@@ -608,7 +614,7 @@ impl Feed<RandomAccessDisk> {
 
         let dir = path.as_ref().to_owned();
 
-        let storage = Storage::new_disk(&dir).await?;
+        let storage = Storage::new_disk(&dir, false).await?;
         Self::with_storage(storage).await
     }
 }

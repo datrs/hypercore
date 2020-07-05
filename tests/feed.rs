@@ -17,6 +17,7 @@ async fn create_with_key() {
     let _feed = Feed::builder(keypair.public, storage)
         .secret_key(keypair.secret)
         .build()
+        .await
         .unwrap();
 }
 
@@ -94,12 +95,16 @@ async fn verify() {
     let mut feed = create_feed(50).await.unwrap();
     let (public, secret) = copy_keys(&feed);
     let feed_bytes = secret.to_bytes().to_vec();
-    let storage = Storage::new(|_| Box::pin(async { Ok(ram::RandomAccessMemory::new(50)) }))
-        .await
-        .unwrap();
+    let storage = Storage::new(
+        |_| Box::pin(async { Ok(ram::RandomAccessMemory::new(50)) }),
+        false,
+    )
+    .await
+    .unwrap();
     let mut evil_feed = Feed::builder(public, storage)
         .secret_key(secret)
         .build()
+        .await
         .unwrap();
 
     let evil_bytes = match &feed.secret_key() {
@@ -125,12 +130,16 @@ async fn verify() {
 async fn put() {
     let mut a = create_feed(50).await.unwrap();
     let (public, secret) = copy_keys(&a);
-    let storage = Storage::new(|_| Box::pin(async { Ok(ram::RandomAccessMemory::new(50)) }))
-        .await
-        .unwrap();
+    let storage = Storage::new(
+        |_| Box::pin(async { Ok(ram::RandomAccessMemory::new(50)) }),
+        false,
+    )
+    .await
+    .unwrap();
     let mut b = Feed::builder(public, storage)
         .secret_key(secret)
         .build()
+        .await
         .unwrap();
 
     for _ in 0..10u8 {
@@ -159,6 +168,7 @@ async fn put_with_data() {
     let mut b = Feed::builder(public, storage)
         .secret_key(secret)
         .build()
+        .await
         .unwrap();
 
     // Append 4 blocks of data to the writable feed.
@@ -254,7 +264,7 @@ async fn audit() {
 async fn audit_bad_data() {
     let mut dir = temp_dir();
     dir.push("audit_bad_data");
-    let storage = Storage::new_disk(&dir).await.unwrap();
+    let storage = Storage::new_disk(&dir, false).await.unwrap();
     let mut feed = Feed::with_storage(storage).await.unwrap();
     feed.append(b"hello").await.unwrap();
     feed.append(b"world").await.unwrap();
