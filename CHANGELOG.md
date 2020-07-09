@@ -1,3 +1,27 @@
+## 2020-07-09, Version v0.11.1-beta.9
+### Commits
+- [[`8589bd17a6`](https://github.com/datrs/hypercore/commit/8589bd17a6ed323a3c48844a6ef13d40937899df)] (cargo-release) version 0.11.1-beta.9 (Bruno Tavares)
+- [[`2765a010ea`](https://github.com/datrs/hypercore/commit/2765a010ea176190be4aa36c265de1d2f8cb78c0)] Merge pull request #120 from khodzha/path_check (Bruno Tavares)
+- [[`8ee485bf62`](https://github.com/datrs/hypercore/commit/8ee485bf62da4ae6d6a57a8a691db448fa87a3b1)] added path is a dir check in Feed::open (Shamir Khodzha)
+- [[`62a411ee66`](https://github.com/datrs/hypercore/commit/62a411ee660701927884c5276032fc94dc7bc952)] Merge branch 'dependabot/cargo/bitfield-rle-0.2.0' (Bruno Tavares)
+- [[`bac9ba4905`](https://github.com/datrs/hypercore/commit/bac9ba4905b339c3f79408b2f7ac6fe4bfeb8ad8)] Fix cargofmt (Bruno Tavares)
+- [[`2a6563b46f`](https://github.com/datrs/hypercore/commit/2a6563b46f7e67efcd3551403ed300e10d822891)] Update bitfield-rle requirement from 0.1.1 to 0.2.0 (dependabot-preview[bot])
+- [[`37d2a9cf24`](https://github.com/datrs/hypercore/commit/37d2a9cf24502988ec3ad2108b9ae37c5c1f82f2)] Merge branch 'fix-mask-note' (Bruno Tavares)
+- [[`e53afb8d92`](https://github.com/datrs/hypercore/commit/e53afb8d92da4a8f55f54c3ed6f987a3b4bde1bf)] Merge branch 'master' into fix-mask-note (Bruno Tavares)
+- [[`999ff75213`](https://github.com/datrs/hypercore/commit/999ff75213cdf4246c096bfb3c7bb6fefc666860)] Merge branch 'FreddieRidell-document-src-feed-rs' (Bruno Tavares)
+- [[`6be4441404`](https://github.com/datrs/hypercore/commit/6be44414046a5cb801f2985d381e932c9c06075b)] Merge branch 'document-src-feed-rs' of git://github.com/FreddieRidell/hypercore into FreddieRidell-document-src-feed-rs (Bruno Tavares)
+
+### Stats
+```diff
+ Cargo.toml            |  4 +--
+ src/bitfield/masks.rs |  2 +-
+ src/crypto/mod.rs     |  4 ++-
+ src/feed.rs           | 73 +++++++++++++++++++++++++++++++++++++++++-----------
+ tests/feed.rs         | 30 +++++++++++++++++++++-
+ 5 files changed, 94 insertions(+), 19 deletions(-)
+```
+
+
 ## 2020-03-03, Version 0.11.1-beta.3
 ### Commits
 - [[`b555606bd6`](https://github.com/datrs/hypercore/commit/b555606bd626ae39f338bd6aef4f8976ff0c055e)] (cargo-release) version 0.11.1-beta.3 (Bruno Tavares)
