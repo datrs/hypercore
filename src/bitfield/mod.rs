@@ -23,7 +23,6 @@ mod masks;
 use self::masks::Masks;
 use flat_tree::{self, Iterator as FlatIterator};
 pub use sparse_bitfield::{Bitfield as SparseBitfield, Change};
-use std::convert::TryInto;
 use std::ops::Range;
 
 /// Bitfield with `{data, tree, index} fields.`
@@ -76,10 +75,7 @@ impl Bitfield {
                     }
                 });
             });
-        let length = data
-            .len()
-            .try_into()
-            .expect("Failed to convert len:usize to length:u64");
+        let length = data.len() as u64;
         let s = Self {
             data,
             index,

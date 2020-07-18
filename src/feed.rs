@@ -90,7 +90,11 @@ where
                 }
 
                 builder
-                    .secret_key(partial_keypair.secret.unwrap())
+                    .secret_key(
+                        partial_keypair
+                            .secret
+                            .ok_or(anyhow::anyhow!("secret-key not present"))?,
+                    )
                     .build()
                     .await
             }
