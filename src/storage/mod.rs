@@ -68,12 +68,17 @@ where
     where
         Cb: Fn(Store) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>,
     {
+        let tree = create(Store::Tree).await?;
+        let data = create(Store::Data).await?;
+        let bitfield = create(Store::Bitfield).await?;
+        let signatures = create(Store::Signatures).await?;
+        let keypair = create(Store::Keypair).await?;
         let mut instance = Self {
-            tree: create(Store::Tree).await?,
-            data: create(Store::Data).await?,
-            bitfield: create(Store::Bitfield).await?,
-            signatures: create(Store::Signatures).await?,
-            keypair: create(Store::Keypair).await?,
+            tree,
+            data,
+            bitfield,
+            signatures,
+            keypair,
         };
 
         let header = create_bitfield();
