@@ -64,7 +64,7 @@ where
     /// storage instances.
     // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
     // requiring a key pair to be initialized before creating a new instance.
-    pub async fn new<Cb>(create: Cb) -> Result<Self>
+    pub async fn new<Cb>(create: Cb, overwrite: bool) -> Result<Self>
     where
         Cb: Fn(Store) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>,
     {
@@ -81,26 +81,32 @@ where
             keypair,
         };
 
-        let header = create_bitfield();
-        instance
-            .bitfield
-            .write(0, &header.to_vec())
-            .await
-            .map_err(|e| anyhow!(e))?;
+        if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
+            let header = create_bitfield();
+            instance
+                .bitfield
+                .write(0, &header.to_vec())
+                .await
+                .map_err(|e| anyhow!(e))?;
+        }
 
-        let header = create_signatures();
-        instance
-            .signatures
-            .write(0, &header.to_vec())
-            .await
-            .map_err(|e| anyhow!(e))?;
+        if overwrite || instance.signatures.len().await.unwrap_or(0) == 0 {
+            let header = create_signatures();
+            instance
+                .signatures
+                .write(0, &header.to_vec())
+                .await
+                .map_err(|e| anyhow!(e))?;
+        }
 
-        let header = create_tree();
-        instance
-            .tree
-            .write(0, &header.to_vec())
-            .await
-            .map_err(|e| anyhow!(e))?;
+        if overwrite || instance.tree.len().await.unwrap_or(0) == 0 {
+            let header = create_tree();
+            instance
+                .tree
+                .write(0, &header.to_vec())
+                .await
+                .map_err(|e| anyhow!(e))?;
+        }
 
         Ok(instance)
     }
@@ -286,6 +292,34 @@ where
             .map_err(|e| anyhow!(e))
     }
 
+    /// Read bitfield header.
+    pub async fn read_bitfield(&mut self) -> Result<Vec<u8>> {
+        let buf = self
+            .bitfield
+            .read(0, 32)
+            .await
+            .map_err(|_| anyhow::anyhow!("read bitfield header"))?;
+        let header = Header::from_vec(&buf).map_err(|e| anyhow::anyhow!(e))?;
+
+        // khodzha:
+        // TODO: we should handle eof vs errors here somehow but idk how to do that
+        let mut buf: Vec<u8> = Vec::new();
+        let mut idx: u64 = 0;
+        let ent_size: u64 = header.entry_size as u64;
+        loop {
+            let result = self
+                .bitfield
+                .read(HEADER_OFFSET + idx * ent_size, ent_size)
+                .await;
+            if let Ok(slice) = result {
+                buf.extend_from_slice(&slice);
+                idx += 1;
+            } else {
+                return Ok(buf);
+            }
+        }
+    }
+
     /// Read a public key from storage
     pub async fn read_public_key(&mut self) -> Result<PublicKey> {
         let buf = self
@@ -345,13 +379,13 @@ impl Storage<RandomAccessMemory> {
     /// Create a new instance backed by a `RandomAccessMemory` instance.
     pub async fn new_memory() -> Result<Self> {
         let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
-        Ok(Self::new(create).await?)
+        Ok(Self::new(create, true).await?)
     }
 }
 
 impl Storage<RandomAccessDisk> {
     /// Create a new instance backed by a `RandomAccessDisk` instance.
-    pub async fn new_disk(dir: &PathBuf) -> Result<Self> {
+    pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self> {
         let storage = |storage: Store| {
             let name = match storage {
                 Store::Tree => "tree",
@@ -362,7 +396,7 @@ impl Storage<RandomAccessDisk> {
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()
         };
-        Ok(Self::new(storage).await?)
+        Ok(Self::new(storage, overwrite).await?)
     }
 }
 

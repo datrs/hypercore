@@ -45,6 +45,20 @@ impl Merkle {
         }
     }
 
+    pub fn from_nodes(nodes: Vec<Node>) -> Self {
+        let nodes = nodes
+            .into_iter()
+            .map(|node| Arc::new(node))
+            .collect::<Vec<_>>();
+
+        let stream_nodes = nodes.iter().map(|node| node.clone()).collect();
+
+        Self {
+            stream: MerkleTreeStream::new(H, stream_nodes),
+            nodes,
+        }
+    }
+
     /// Access the next item.
     // TODO: remove extra conversion alloc.
     pub fn next(&mut self, data: &[u8]) {

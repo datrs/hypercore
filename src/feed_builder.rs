@@ -25,7 +25,7 @@ where
 
 impl<T> FeedBuilder<T>
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
+    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
 {
     /// Create a new instance.
     #[inline]
@@ -45,13 +45,41 @@ where
 
     /// Finalize the builder.
     #[inline]
-    pub fn build(self) -> Result<Feed<T>> {
+    pub async fn build(mut self) -> Result<Feed<T>> {
+        let (bitfield, tree) = if let Ok(bitfield) = self.storage.read_bitfield().await {
+            Bitfield::from_slice(&bitfield)
+        } else {
+            Bitfield::new()
+        };
+        use crate::storage::Node;
+
+        let mut tree = TreeIndex::new(tree);
+        let mut roots = vec![];
+        flat_tree::full_roots(tree.blocks() * 2, &mut roots);
+        let mut result: Vec<Option<Node>> = vec![None; roots.len()];
+
+        for i in 0..roots.len() {
+            let node = self.storage.get_node(roots[i] as u64).await?;
+            let idx = roots
+                .iter()
+                .position(|&x| x == node.index)
+                .ok_or(anyhow::anyhow!("Couldnt find idx of node"))?;
+            result[idx] = Some(node);
+        }
+
+        let roots = result
+            .into_iter()
+            .collect::<Option<Vec<_>>>()
+            .ok_or(anyhow::anyhow!("Roots contains undefined nodes"))?;
+
+        let byte_length = roots.iter().fold(0, |acc, node| acc + node.length);
+
         Ok(Feed {
-            merkle: Merkle::new(),
-            byte_length: 0,
-            length: 0,
-            bitfield: Bitfield::default(),
-            tree: TreeIndex::default(),
+            merkle: Merkle::from_nodes(roots),
+            byte_length,
+            length: tree.blocks(),
+            bitfield,
+            tree,
             public_key: self.public_key,
             secret_key: self.secret_key,
             storage: self.storage,
