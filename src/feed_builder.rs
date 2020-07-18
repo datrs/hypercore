@@ -63,14 +63,14 @@ where
             let idx = roots
                 .iter()
                 .position(|&x| x == node.index)
-                .expect("Couldnt find idx of node");
+                .ok_or(anyhow::anyhow!("Couldnt find idx of node"))?;
             result[idx] = Some(node);
         }
 
         let roots = result
             .into_iter()
-            .map(|node_option| node_option.unwrap())
-            .collect::<Vec<_>>();
+            .collect::<Option<Vec<_>>>()
+            .ok_or(anyhow::anyhow!("Roots contains undefined nodes"))?;
 
         let byte_length = roots.iter().fold(0, |acc, node| acc + node.length);
 
@@ -78,8 +78,8 @@ where
             merkle: Merkle::from_nodes(roots),
             byte_length,
             length: tree.blocks(),
-            bitfield: bitfield,
-            tree: tree,
+            bitfield,
+            tree,
             public_key: self.public_key,
             secret_key: self.secret_key,
             storage: self.storage,

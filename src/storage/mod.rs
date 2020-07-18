@@ -293,8 +293,8 @@ where
             .bitfield
             .read(0, 32)
             .await
-            .expect("read bitfield header");
-        let header = Header::from_vec(&buf).unwrap();
+            .map_err(|_| anyhow::anyhow!("read bitfield header"))?;
+        let header = Header::from_vec(&buf).map_err(|e| anyhow::anyhow!(e))?;
 
         // khodzha:
         // TODO: we should handle eof vs errors here somehow but idk how to do that
