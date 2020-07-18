@@ -63,14 +63,14 @@ where
             let idx = roots
                 .iter()
                 .position(|&x| x == node.index)
-                .ok_or(anyhow::anyhow!("Couldnt find idx of node"))?;
+                .ok_or_else(|| anyhow::anyhow!("Couldnt find idx of node"))?;
             result[idx] = Some(node);
         }
 
         let roots = result
             .into_iter()
             .collect::<Option<Vec<_>>>()
-            .ok_or(anyhow::anyhow!("Roots contains undefined nodes"))?;
+            .ok_or_else(|| anyhow::anyhow!("Roots contains undefined nodes"))?;
 
         let byte_length = roots.iter().fold(0, |acc, node| acc + node.length);
 

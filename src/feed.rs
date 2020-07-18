@@ -93,7 +93,7 @@ where
                     .secret_key(
                         partial_keypair
                             .secret
-                            .ok_or(anyhow::anyhow!("secret-key not present"))?,
+                            .ok_or_else(|| anyhow::anyhow!("secret-key not present"))?,
                     )
                     .build()
                     .await

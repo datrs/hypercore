@@ -46,12 +46,9 @@ impl Merkle {
     }
 
     pub fn from_nodes(nodes: Vec<Node>) -> Self {
-        let nodes = nodes
-            .into_iter()
-            .map(|node| Arc::new(node))
-            .collect::<Vec<_>>();
+        let nodes = nodes.into_iter().map(Arc::new).collect::<Vec<_>>();
 
-        let stream_nodes = nodes.iter().map(|node| node.clone()).collect();
+        let stream_nodes = nodes.iter().cloned().collect();
 
         Self {
             stream: MerkleTreeStream::new(H, stream_nodes),
