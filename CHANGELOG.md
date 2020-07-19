@@ -1,3 +1,34 @@
+## 2020-07-19, Version v0.11.1-beta.10
+### Commits
+- [[`084f00dd3c`](https://github.com/datrs/hypercore/commit/084f00dd3cd9d201315e43eef44352317f9f9b8b)] (cargo-release) version 0.11.1-beta.10 (Bruno Tavares)
+- [[`99eff3db3c`](https://github.com/datrs/hypercore/commit/99eff3db3c0f70aeda8e31594c9e2c401743e4b9)] Fix travis errors - clippy warnings and fmt (Bruno Tavares)
+- [[`d6f2c5522f`](https://github.com/datrs/hypercore/commit/d6f2c5522f62dbc1f4df303bbaa199f621e3ab70)] Merge pull request #121 from khodzha/append_fix (Bruno Tavares)
+- [[`57bd16444e`](https://github.com/datrs/hypercore/commit/57bd16444e3c4e5576e51ac7787851a145d371e9)] Avoid calling unwrap or expect inside fn that returns Result (Bruno Tavares)
+- [[`de9ebae3ce`](https://github.com/datrs/hypercore/commit/de9ebae3ce4b0a1f0e76ee17b710c70475f5c33f)] Pin ed25519-dalek to a version with compatible signature methods (Bruno Tavares)
+- [[`f7676d530a`](https://github.com/datrs/hypercore/commit/f7676d530a3f6d4ef18f3c92989cccac1c40c131)] Fix clippy errors (Bruno Tavares)
+- [[`cf251468e9`](https://github.com/datrs/hypercore/commit/cf251468e9194500cb3b900cc0bb3c9b4a8bfa84)] fixed saving feed to disk (Shamir Khodzha)
+- [[`2c260b1b51`](https://github.com/datrs/hypercore/commit/2c260b1b51a5e2ea48bf806fefbfc3705e7dcef1)] Update changelog (Bruno Tavares)
+
+### Stats
+```diff
+ .gitignore           |  1 +-
+ CHANGELOG.md         | 24 +++++++++++++-
+ Cargo.toml           |  4 +-
+ benches/bench.rs     |  7 ++--
+ examples/main.rs     | 23 +++++++++++--
+ src/bitfield/mod.rs  | 97 +++++++++++++++++++++++++++++++++++++++++++++--------
+ src/crypto/merkle.rs | 11 ++++++-
+ src/feed.rs          | 16 +++++++--
+ src/feed_builder.rs  | 42 +++++++++++++++++++----
+ src/storage/mod.rs   | 93 ++++++++++++++++++++++++++++++++++++---------------
+ tests/bitfield.rs    | 18 ++++------
+ tests/common/mod.rs  |  2 +-
+ tests/compat.rs      | 12 ++++---
+ tests/feed.rs        | 24 +++++++++----
+ 14 files changed, 295 insertions(+), 79 deletions(-)
+```
+
+
 ## 2020-07-09, Version v0.11.1-beta.9
 ### Commits
 - [[`8589bd17a6`](https://github.com/datrs/hypercore/commit/8589bd17a6ed323a3c48844a6ef13d40937899df)] (cargo-release) version 0.11.1-beta.9 (Bruno Tavares)
