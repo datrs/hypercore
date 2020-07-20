@@ -3,9 +3,9 @@ extern crate random_access_memory as ram;
 mod common;
 
 use common::create_feed;
-use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
-use hypercore::{storage_disk, storage_memory};
 use futures::stream::StreamExt;
+use hypercore::{generate_keypair, Event, Feed, NodeTrait, PublicKey, SecretKey, Storage};
+use hypercore::{storage_disk, storage_memory};
 use std::env::temp_dir;
 use std::fs;
 use std::io::Write;
@@ -245,21 +245,6 @@ async fn create_with_stored_keys() {
     );
 }
 
-fn copy_keys(feed: &Feed) -> (PublicKey, SecretKey) {
-    match &feed.secret_key() {
-        Some(secret) => {
-            let secret = secret.to_bytes();
-            let public = &feed.public_key().to_bytes();
-
-            let public = PublicKey::from_bytes(public).unwrap();
-            let secret = SecretKey::from_bytes(&secret).unwrap();
-
-            (public, secret)
-        }
-        _ => panic!("<tests/common>: Could not access secret key"),
-    }
-}
-
 #[async_std::test]
 async fn audit() {
     let mut feed = create_feed(50).await.unwrap();
@@ -355,16 +340,7 @@ async fn try_open_file_as_dir() {
     }
 }
 
-async fn create_clone(feed: &Feed) -> Result<Feed, anyhow::Error> {
-    let (public, secret) = copy_keys(&feed);
-    let storage = storage_memory().await?;
-    let clone = Feed::builder(public, storage)
-        .secret_key(secret)
-        .build()
-        .await?;
-    Ok(clone)
-}
-
+#[async_std::test]
 async fn events_append() {
     let mut feed = create_feed(50).await.unwrap();
     let event_task = collect_events(&mut feed, 3);
@@ -407,9 +383,17 @@ async fn events_download() {
     assert_eq!(event_list, expected, "Correct events emitted")
 }
 
-fn copy_keys(
-    feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send>,
-) -> (PublicKey, SecretKey) {
+async fn create_clone(feed: &Feed) -> Result<Feed, anyhow::Error> {
+    let (public, secret) = copy_keys(&feed);
+    let storage = storage_memory().await?;
+    let clone = Feed::builder(public, storage)
+        .secret_key(secret)
+        .build()
+        .await?;
+    Ok(clone)
+}
+
+fn copy_keys(feed: &Feed) -> (PublicKey, SecretKey) {
     match &feed.secret_key() {
         Some(secret) => {
             let secret = secret.to_bytes();
@@ -424,12 +408,7 @@ fn copy_keys(
     }
 }
 
-fn collect_events(
-    feed: &mut Feed<
-        impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
-    >,
-    n: usize,
-) -> async_std::task::JoinHandle<Vec<Event>> {
+fn collect_events(feed: &mut Feed, n: usize) -> async_std::task::JoinHandle<Vec<Event>> {
     let mut events = feed.subscribe();
     let event_task = async_std::task::spawn(async move {
         let mut event_list = vec![];
@@ -443,4 +422,3 @@ fn collect_events(
     });
     event_task
 }
->>>>>>> c7e774c... Emit Download and Append events
