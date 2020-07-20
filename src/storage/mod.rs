@@ -30,16 +30,16 @@ pub struct PartialKeypair {
 }
 
 /// Dynamic-dispatch Storage wrapper
-pub type BoxStorage = Box<dyn DynStorage>;
+pub type BoxStorage = Box<dyn DynStorage + Send>;
 
 /// Create a new instance backed by a `RandomAccessMemory` instance.
-pub async fn storage_memory() -> Result<Box<dyn DynStorage>> {
+pub async fn storage_memory() -> Result<Box<dyn DynStorage + Send>> {
     let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
     Ok(Storage::new(create, false).await?)
 }
 
 /// Create a new instance backed by a `RandomAccessDisk` instance.
-pub async fn storage_disk(dir: &PathBuf) -> Result<Box<dyn DynStorage>> {
+pub async fn storage_disk(dir: &PathBuf) -> Result<Box<dyn DynStorage + Send>> {
     let storage = |storage: Store| {
         let name = match storage {
             Store::Tree => "tree",
@@ -162,7 +162,7 @@ where
     /// storage instances.
     // Named `.open()` in the JS version. Replaces the `.openKey()` method too by
     // requiring a key pair to be initialized before creating a new instance.
-    pub async fn new<Cb>(create: Cb, overwrite: bool) -> Result<Box<dyn DynStorage>>
+    pub async fn new<Cb>(create: Cb, overwrite: bool) -> Result<Box<dyn DynStorage + Send>>
     where
         Cb: Fn(Store) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>,
     {

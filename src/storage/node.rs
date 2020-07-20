@@ -70,6 +70,13 @@ impl Node {
         writer.write_u64::<BigEndian>(self.length as u64)?;
         Ok(writer)
     }
+
+    // Write into a provided buffer.
+    // pub fn write(&self, buf: &mut [u8]) -> Result<()> {
+    //     buf[0..32].copy_from_slice(&self.hash);
+    //     (&mut buf[32..]).write_u64::<BigEndian>(self.length as u64)?;
+    //     Ok(())
+    // }
 }
 
 impl NodeTrait for Node {
