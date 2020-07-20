@@ -3,8 +3,7 @@ extern crate random_access_memory as ram;
 mod common;
 
 use common::create_feed;
-use hypercore::{generate_keypair, Event, Feed, NodeTrait, PublicKey, SecretKey, Storage};
-use futures::stream::StreamExt;
+use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
 use hypercore::{storage_disk, storage_memory};
 use std::env::temp_dir;
 use std::fs;
@@ -188,17 +187,7 @@ async fn put_with_data() {
     let mut a = create_feed(50).await.unwrap();
 
     // Create a second feed with the first feed's key.
-<<<<<<< HEAD
-    let (public, secret) = copy_keys(&a);
-    let storage = storage_memory().await.unwrap();
-    let mut b = Feed::builder(public, storage)
-        .secret_key(secret)
-        .build()
-        .await
-        .unwrap();
-=======
     let mut b = create_clone(&a).await.unwrap();
->>>>>>> c79679a... Make dyn storage Send
 
     // Append 4 blocks of data to the writable feed.
     a.append(b"hi").await.unwrap();
@@ -256,7 +245,6 @@ async fn create_with_stored_keys() {
     );
 }
 
-<<<<<<< HEAD
 fn copy_keys(feed: &Feed) -> (PublicKey, SecretKey) {
     match &feed.secret_key() {
         Some(secret) => {
@@ -272,8 +260,6 @@ fn copy_keys(feed: &Feed) -> (PublicKey, SecretKey) {
     }
 }
 
-=======
->>>>>>> c79679a... Make dyn storage Send
 #[async_std::test]
 async fn audit() {
     let mut feed = create_feed(50).await.unwrap();
@@ -367,4 +353,14 @@ async fn try_open_file_as_dir() {
     if Feed::open("Cargo.toml").await.is_ok() {
         panic!("Opening path that points to a file must result in error");
     }
+}
+
+async fn create_clone(feed: &Feed) -> Result<Feed, anyhow::Error> {
+    let (public, secret) = copy_keys(&feed);
+    let storage = storage_memory().await?;
+    let clone = Feed::builder(public, storage)
+        .secret_key(secret)
+        .build()
+        .await?;
+    Ok(clone)
 }
