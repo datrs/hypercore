@@ -1,4 +1,4 @@
-use super::Storage;
+use super::BoxStorage;
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -15,5 +15,5 @@ where
     fn to_vec(&self) -> Result<Vec<u8>>;
 
     /// Persist into a storage backend.
-    fn store(&self, index: u64, store: Storage<T>) -> Result<()>;
+    fn store(&self, index: u64, store: BoxStorage) -> Result<()>;
 }

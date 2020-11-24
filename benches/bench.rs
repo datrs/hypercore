@@ -7,12 +7,9 @@ use test::Bencher;
 
 use hypercore::{Feed, Storage};
 
-async fn create_feed(page_size: usize) -> Result<Feed<RandomAccessMemory>, Error> {
-    let storage = Storage::new(
-        |_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) }),
-        true,
-    )
-    .await?;
+async fn create_feed(page_size: usize) -> Result<Feed, Error> {
+    let storage =
+        Storage::new(|_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) })).await?;
     Feed::with_storage(storage).await
 }
 
