@@ -3,17 +3,17 @@ extern crate random_access_memory as ram;
 mod common;
 
 use common::create_feed;
-use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
-use random_access_storage::RandomAccess;
+use futures::stream::StreamExt;
+use hypercore::{generate_keypair, Event, Feed, NodeTrait, PublicKey, SecretKey, Storage};
+use hypercore::{storage_disk, storage_memory};
 use std::env::temp_dir;
-use std::fmt::Debug;
 use std::fs;
 use std::io::Write;
 
 #[async_std::test]
 async fn create_with_key() {
     let keypair = generate_keypair();
-    let storage = Storage::new_memory().await.unwrap();
+    let storage = storage_memory().await.unwrap();
     let _feed = Feed::builder(keypair.public, storage)
         .secret_key(keypair.secret)
         .build()
@@ -26,6 +26,31 @@ async fn display() {
     let feed = create_feed(50).await.unwrap();
     let output = format!("{}", feed);
     assert_eq!(output.len(), 61);
+}
+
+#[async_std::test]
+async fn task_send() {
+    use async_std::sync::{Arc, Mutex};
+    use async_std::task;
+    let mut feed = create_feed(50).await.unwrap();
+    feed.append(b"hello").await.unwrap();
+    let feed_arc = Arc::new(Mutex::new(feed));
+    let feed = feed_arc.clone();
+    task::spawn(async move {
+        feed.lock().await.append(b"world").await.unwrap();
+    })
+    .await;
+    let feed = feed_arc.clone();
+    let t1 = task::spawn(async move {
+        let value = feed.lock().await.get(0).await.unwrap();
+        assert_eq!(value, Some(b"hello".to_vec()));
+    });
+    let feed = feed_arc.clone();
+    let t2 = task::spawn(async move {
+        let value = feed.lock().await.get(1).await.unwrap();
+        assert_eq!(value, Some(b"world".to_vec()));
+    });
+    futures::future::join_all(vec![t1, t2]).await;
 }
 
 #[async_std::test]
@@ -161,15 +186,8 @@ async fn put() {
 async fn put_with_data() {
     // Create a writable feed.
     let mut a = create_feed(50).await.unwrap();
-
     // Create a second feed with the first feed's key.
-    let (public, secret) = copy_keys(&a);
-    let storage = Storage::new_memory().await.unwrap();
-    let mut b = Feed::builder(public, storage)
-        .secret_key(secret)
-        .build()
-        .await
-        .unwrap();
+    let mut b = create_clone(&a).await.unwrap();
 
     // Append 4 blocks of data to the writable feed.
     a.append(b"hi").await.unwrap();
@@ -197,7 +215,7 @@ async fn put_with_data() {
 
 #[async_std::test]
 async fn create_with_storage() {
-    let storage = Storage::new_memory().await.unwrap();
+    let storage = storage_memory().await.unwrap();
     assert!(
         Feed::with_storage(storage).await.is_ok(),
         "Could not create a feed with a storage."
@@ -206,7 +224,7 @@ async fn create_with_storage() {
 
 #[async_std::test]
 async fn create_with_stored_public_key() {
-    let mut storage = Storage::new_memory().await.unwrap();
+    let mut storage = storage_memory().await.unwrap();
     let keypair = generate_keypair();
     storage.write_public_key(&keypair.public).await.unwrap();
     assert!(
@@ -217,7 +235,7 @@ async fn create_with_stored_public_key() {
 
 #[async_std::test]
 async fn create_with_stored_keys() {
-    let mut storage = Storage::new_memory().await.unwrap();
+    let mut storage = storage_memory().await.unwrap();
     let keypair = generate_keypair();
     storage.write_public_key(&keypair.public).await.unwrap();
     storage.write_secret_key(&keypair.secret).await.unwrap();
@@ -225,23 +243,6 @@ async fn create_with_stored_keys() {
         Feed::with_storage(storage).await.is_ok(),
         "Could not create a feed with a stored keypair."
     );
-}
-
-fn copy_keys(
-    feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send>,
-) -> (PublicKey, SecretKey) {
-    match &feed.secret_key() {
-        Some(secret) => {
-            let secret = secret.to_bytes();
-            let public = &feed.public_key().to_bytes();
-
-            let public = PublicKey::from_bytes(public).unwrap();
-            let secret = SecretKey::from_bytes(&secret).unwrap();
-
-            (public, secret)
-        }
-        _ => panic!("<tests/common>: Could not access secret key"),
-    }
 }
 
 #[async_std::test]
@@ -264,7 +265,7 @@ async fn audit() {
 async fn audit_bad_data() {
     let mut dir = temp_dir();
     dir.push("audit_bad_data");
-    let storage = Storage::new_disk(&dir, false).await.unwrap();
+    let storage = storage_disk(&dir).await.unwrap();
     let mut feed = Feed::with_storage(storage).await.unwrap();
     feed.append(b"hello").await.unwrap();
     feed.append(b"world").await.unwrap();
@@ -337,4 +338,87 @@ async fn try_open_file_as_dir() {
     if Feed::open("Cargo.toml").await.is_ok() {
         panic!("Opening path that points to a file must result in error");
     }
+}
+
+#[async_std::test]
+async fn events_append() {
+    let mut feed = create_feed(50).await.unwrap();
+    let event_task = collect_events(&mut feed, 3);
+    feed.append(br#"one"#).await.unwrap();
+    feed.append(br#"two"#).await.unwrap();
+    feed.append(br#"three"#).await.unwrap();
+
+    let event_list = event_task.await;
+    let mut expected = vec![];
+    for _i in 0..3 {
+        expected.push(Event::Append);
+    }
+    assert_eq!(event_list, expected, "Correct events emitted")
+}
+
+#[async_std::test]
+async fn events_download() {
+    let mut a = create_feed(50).await.unwrap();
+    // Create a second feed with the first feed's key.
+    let mut b = create_clone(&a).await.unwrap();
+
+    let event_task = collect_events(&mut b, 3);
+
+    a.append(b"one").await.unwrap();
+    a.append(b"two").await.unwrap();
+    a.append(b"three").await.unwrap();
+
+    for i in 0..3 {
+        let a_proof = a.proof(i, false).await.unwrap();
+        let a_data = a.get(i).await.unwrap();
+        b.put(i, a_data.as_deref(), a_proof).await.unwrap();
+    }
+
+    let event_list = event_task.await;
+
+    let mut expected = vec![];
+    for i in 0..3 {
+        expected.push(Event::Download(i));
+    }
+    assert_eq!(event_list, expected, "Correct events emitted")
+}
+
+async fn create_clone(feed: &Feed) -> Result<Feed, anyhow::Error> {
+    let (public, secret) = copy_keys(&feed);
+    let storage = storage_memory().await?;
+    let clone = Feed::builder(public, storage)
+        .secret_key(secret)
+        .build()
+        .await?;
+    Ok(clone)
+}
+
+fn copy_keys(feed: &Feed) -> (PublicKey, SecretKey) {
+    match &feed.secret_key() {
+        Some(secret) => {
+            let secret = secret.to_bytes();
+            let public = &feed.public_key().to_bytes();
+
+            let public = PublicKey::from_bytes(public).unwrap();
+            let secret = SecretKey::from_bytes(&secret).unwrap();
+
+            (public, secret)
+        }
+        _ => panic!("<tests/common>: Could not access secret key"),
+    }
+}
+
+fn collect_events(feed: &mut Feed, n: usize) -> async_std::task::JoinHandle<Vec<Event>> {
+    let mut events = feed.subscribe();
+    let event_task = async_std::task::spawn(async move {
+        let mut event_list = vec![];
+        while let Some(event) = events.next().await {
+            event_list.push(event);
+            if event_list.len() == n {
+                return event_list;
+            }
+        }
+        event_list
+    });
+    event_task
 }

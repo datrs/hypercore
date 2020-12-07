@@ -1,8 +1,11 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
+use crate::event::Event;
 use crate::feed_builder::FeedBuilder;
 use crate::replicate::{Message, Peer};
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
+pub use crate::storage::{
+    storage_disk, storage_memory, BoxStorage, Node, NodeTrait, Storage, Store,
+};
 
 use crate::audit::Audit;
 use crate::bitfield::Bitfield;
@@ -12,13 +15,13 @@ use crate::crypto::{
 use crate::proof::Proof;
 use anyhow::{bail, ensure, Result};
 use flat_tree as flat;
+use futures::channel::mpsc::{
+    unbounded as channel, UnboundedReceiver as Receiver, UnboundedSender as Sender,
+};
+use futures::sink::SinkExt;
 use pretty_hash::fmt as pretty_fmt;
-use random_access_disk::RandomAccessDisk;
-use random_access_memory::RandomAccessMemory;
-use random_access_storage::RandomAccess;
 use tree_index::TreeIndex;
 
-use std::borrow::Borrow;
 use std::cmp;
 use std::fmt::{self, Debug, Display};
 use std::ops::Range;
@@ -55,15 +58,12 @@ use std::sync::Arc;
 /// [builder]: crate::feed_builder::FeedBuilder
 /// [with_storage]: crate::feed::Feed::with_storage
 #[derive(Debug)]
-pub struct Feed<T>
-where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
-{
+pub struct Feed {
     /// Merkle tree instance.
     pub(crate) merkle: Merkle,
     pub(crate) public_key: PublicKey,
     pub(crate) secret_key: Option<SecretKey>,
-    pub(crate) storage: Storage<T>,
+    pub(crate) storage: BoxStorage,
     /// Total length of raw data stored in bytes.
     pub(crate) byte_length: u64,
     /// Total number of entries stored in the `Feed`
@@ -72,14 +72,12 @@ where
     pub(crate) bitfield: Bitfield,
     pub(crate) tree: TreeIndex,
     pub(crate) peers: Vec<Peer>,
+    pub(crate) subscribers: Vec<Sender<Event>>,
 }
 
-impl<T> Feed<T>
-where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
-{
+impl Feed {
     /// Create a new instance with a custom storage backend.
-    pub async fn with_storage(mut storage: crate::storage::Storage<T>) -> Result<Self> {
+    pub async fn with_storage(mut storage: BoxStorage) -> Result<Self> {
         match storage.read_partial_keypair().await {
             Some(partial_keypair) => {
                 let builder = FeedBuilder::new(partial_keypair.public, storage);
@@ -113,11 +111,27 @@ where
     }
 
     /// Starts a `FeedBuilder` with the provided `PublicKey` and `Storage`.
-    pub fn builder(public_key: PublicKey, storage: Storage<T>) -> FeedBuilder<T> {
+    pub fn builder(public_key: PublicKey, storage: BoxStorage) -> FeedBuilder {
         FeedBuilder::new(public_key, storage)
     }
 
-    /// Get the number of entries in the feed.
+    /// Create a new instance that persists to disk at the location of `dir`.
+    // TODO: Ensure that dir is always a directory.
+    // NOTE: Should we `mkdirp` here?
+    // NOTE: Should we call these `data.bitfield` / `data.tree`?
+    pub async fn open_from_disk<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let dir = path.as_ref().to_owned();
+        let storage = storage_disk(&dir).await?;
+        Self::with_storage(storage).await
+    }
+
+    /// Create a new in-memory instance.
+    pub async fn open_in_memory() -> Result<Self> {
+        let storage = storage_memory().await.unwrap();
+        Self::with_storage(storage).await
+    }
+
+    /// Get the amount of entries in the feed.
     #[inline]
     pub fn len(&self) -> u64 {
         self.length
@@ -159,7 +173,7 @@ where
         let index = self.length;
         let message = hash_with_length_as_bytes(hash, index + 1);
         let signature = sign(&self.public_key, key, &message);
-        self.storage.put_signature(index, signature).await?;
+        self.storage.put_signature(index, &signature).await?;
 
         for node in self.merkle.nodes() {
             self.storage.put_node(node).await?;
@@ -173,7 +187,23 @@ where
         let bytes = self.bitfield.to_bytes(&self.tree)?;
         self.storage.put_bitfield(0, &bytes).await?;
 
+        self.emit(Event::Append).await;
+
         Ok(())
+    }
+
+    /// Subscribe to events emitted by this feed.
+    pub fn subscribe(&mut self) -> Receiver<Event> {
+        let (send, recv) = channel();
+        self.subscribers.push(send);
+        recv
+    }
+
+    /// Emit an event on the feed.
+    async fn emit(&mut self, event: Event) {
+        for mut sender in self.subscribers.iter() {
+            sender.send(event.clone()).await.unwrap();
+        }
     }
 
     /// Get the block of data at the tip of the feed. This will be the most
@@ -397,8 +427,7 @@ where
         }
 
         if let Some(sig) = sig {
-            let sig = sig.borrow();
-            self.storage.put_signature(index, sig).await?;
+            self.storage.put_signature(index, &sig).await?;
         }
 
         for node in nodes {
@@ -409,7 +438,7 @@ where
 
         if let Some(_data) = data {
             if self.bitfield.set(index, true).is_changed() {
-                // TODO: emit "download" event
+                self.emit(Event::Download(index)).await;
             }
             // TODO: check peers.length, call ._announce if peers exist.
         }
@@ -603,7 +632,7 @@ where
     }
 }
 
-impl Feed<RandomAccessDisk> {
+impl Feed {
     /// Create a new instance that persists to disk at the location of `dir`.
     /// If dir was not there, it will be created.
     // NOTE: Should we call these `data.bitfield` / `data.tree`?
@@ -618,7 +647,7 @@ impl Feed<RandomAccessDisk> {
 
         let dir = path.as_ref().to_owned();
 
-        let storage = Storage::new_disk(&dir, false).await?;
+        let storage = storage_disk(&dir).await?;
         Self::with_storage(storage).await
     }
 }
@@ -628,18 +657,13 @@ impl Feed<RandomAccessDisk> {
 /// ## Panics
 /// Can panic if constructing the in-memory store fails, which is highly
 /// unlikely.
-impl Default for Feed<RandomAccessMemory> {
+impl Default for Feed {
     fn default() -> Self {
-        async_std::task::block_on(async {
-            let storage = Storage::new_memory().await.unwrap();
-            Self::with_storage(storage).await.unwrap()
-        })
+        async_std::task::block_on(async { Self::open_in_memory().await.unwrap() })
     }
 }
 
-impl<T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send> Display
-    for Feed<T>
-{
+impl Display for Feed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: yay, we should find a way to convert this .unwrap() to an error
         // type that's accepted by `fmt::Result<(), fmt::Error>`.
