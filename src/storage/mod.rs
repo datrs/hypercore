@@ -158,10 +158,10 @@ where
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
-    pub fn next_signature<'a>(
-        &'a mut self,
+    pub fn next_signature(
+        &mut self,
         index: u64,
-    ) -> futures::future::BoxFuture<'a, Result<Signature>> {
+    ) -> futures::future::BoxFuture<'_, Result<Signature>> {
         let bytes = async_std::task::block_on(async {
             self.signatures
                 .read(HEADER_OFFSET + 64 * index, 64)
