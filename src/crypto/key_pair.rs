@@ -1,6 +1,6 @@
 //! Generate an `Ed25519` keypair.
 
-pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature};
+pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, Verifier};
 
 use anyhow::{bail, ensure, Result};
 use rand::rngs::{OsRng, StdRng};
