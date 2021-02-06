@@ -16,6 +16,7 @@ use random_access_memory::RandomAccessMemory;
 use random_access_storage::RandomAccess;
 use sleep_parser::*;
 use std::borrow::Borrow;
+use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::PathBuf;
@@ -157,10 +158,10 @@ where
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
-    pub fn next_signature<'a>(
-        &'a mut self,
+    pub fn next_signature(
+        &mut self,
         index: u64,
-    ) -> futures::future::BoxFuture<'a, Result<Signature>> {
+    ) -> futures::future::BoxFuture<'_, Result<Signature>> {
         let bytes = async_std::task::block_on(async {
             self.signatures
                 .read(HEADER_OFFSET + 64 * index, 64)
@@ -170,7 +171,7 @@ where
         async move {
             let bytes = bytes?;
             if not_zeroes(&bytes) {
-                Ok(Signature::from_bytes(&bytes)?)
+                Ok(Signature::try_from(&bytes[..])?)
             } else {
                 Ok(self.next_signature(index + 1).await?)
             }
@@ -187,7 +188,7 @@ where
             .await
             .map_err(|e| anyhow!(e))?;
         ensure!(not_zeroes(&bytes), "No signature found");
-        Ok(Signature::from_bytes(&bytes)?)
+        Ok(Signature::try_from(&bytes[..])?)
     }
 
     /// Write a `Signature` to `self.Signatures`.

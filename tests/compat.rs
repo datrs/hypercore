@@ -4,6 +4,7 @@ use ed25519_dalek;
 
 use tempfile;
 
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -107,7 +108,7 @@ async fn deterministic_signatures() {
             expected_signatures
         );
 
-        let compat_signature = Signature::from_bytes(&compat_signature_struct).unwrap();
+        let compat_signature = Signature::try_from(&compat_signature_struct[..]).unwrap();
         feed.verify(feed.len() - 1, &compat_signature)
             .await
             .expect("Could not verify compat signature of hypercore v9");
