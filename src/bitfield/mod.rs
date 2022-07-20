@@ -30,6 +30,7 @@ use std::ops::Range;
 pub struct Bitfield {
     data: SparseBitfield,
     index: SparseBitfield,
+    #[allow(dead_code)]
     page_len: u64,
     length: u64,
     masks: Masks,
