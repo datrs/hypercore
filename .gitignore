@@ -7,7 +7,9 @@ npm-debug.log*
 .nyc_output
 target/
 Cargo.lock
+package-lock.json
 
 my-first-dataset/
 feed.db/
 .vscode
+tests/js/work
