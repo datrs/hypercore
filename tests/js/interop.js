@@ -17,6 +17,10 @@ const testKeyPair = {
         0x91, 0xd6, 0x55, 0xe2, 0x00, 0xc8, 0xd4, 0x3a, 0x32, 0x09, 0x1d, 0x06, 0x4a, 0x33, 0x1e, 0xe3]),
 }
 
+
+const crypto = require('hypercore-crypto');
+console.log("HELLO SIGN", crypto.sign(new TextEncoder().encode('hello'), testKeyPair.secretKey).toString('hex').match(/../g).join(' '));
+
 if (process.argv.length !== 4) {
     console.error("Usage: node interop.js [test step] [test set]")
     process.exit(1);
@@ -31,6 +35,6 @@ if (process.argv[2] === '1') {
 
 async function step1(testSet) {
     const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
-    await core.append(['Hello', 'World'])
+    await core.append(['Hello', 'World']);
     await core.close()
 };

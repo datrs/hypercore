@@ -16,7 +16,7 @@ pub fn cleanup() {
     }
 }
 
-pub fn init(test_set: &str) {
+pub fn install() {
     let status = Command::new("npm")
         .current_dir("tests/js")
         .args(&["install"])
@@ -27,10 +27,15 @@ pub fn init(test_set: &str) {
         status.code(),
         "npm install did not run successfully. Do you have npm installed and a network connection?"
     );
-    create_dir_all(format!("tests/js/work/{}", test_set)).expect("Unable to create work directory");
 }
 
-pub fn step_1_create_hypercore(test_set: &str) {
+pub fn prepare_test_set(test_set: &str) -> String {
+    let path = format!("tests/js/work/{}", test_set);
+    create_dir_all(&path).expect("Unable to create work directory");
+    path
+}
+
+pub fn js_step_1_create_hypercore(test_set: &str) {
     let status = Command::new("npm")
         .current_dir("tests/js")
         .args(&["run", "step1", test_set])

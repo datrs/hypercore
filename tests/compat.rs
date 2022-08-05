@@ -142,6 +142,7 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
         Store::Bitfield => "bitfield",
         Store::Signatures => "signatures",
         Store::Keypair => "key",
+        Store::Oplog => "oplog",
     };
     dir.as_ref().join(filename)
 }

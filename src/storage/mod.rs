@@ -42,6 +42,8 @@ pub enum Store {
     Signatures,
     /// Keypair
     Keypair,
+    /// Oplog
+    Oplog,
 }
 
 /// Save data to a desired storage backend.
@@ -55,6 +57,7 @@ where
     bitfield: T,
     signatures: T,
     keypair: T,
+    oplog: T,
 }
 
 impl<T> Storage<T>
@@ -74,13 +77,24 @@ where
         let bitfield = create(Store::Bitfield).await?;
         let signatures = create(Store::Signatures).await?;
         let keypair = create(Store::Keypair).await?;
+        let oplog = create(Store::Oplog).await?;
         let mut instance = Self {
             tree,
             data,
             bitfield,
             signatures,
             keypair,
+            oplog,
         };
+
+        if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
+            // TODO: This is
+            instance
+                .oplog
+                .write(0, &[0x00])
+                .await
+                .map_err(|e| anyhow!(e))?;
+        }
 
         if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
             let header = create_bitfield();
@@ -394,6 +408,7 @@ impl Storage<RandomAccessDisk> {
                 Store::Bitfield => "bitfield",
                 Store::Signatures => "signatures",
                 Store::Keypair => "key",
+                Store::Oplog => "oplog",
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()
         };
