@@ -31,6 +31,7 @@
 //! [Feed]: crate::feed::Feed
 
 pub mod bitfield;
+pub mod compact_encoding;
 pub mod prelude;
 
 mod audit;
