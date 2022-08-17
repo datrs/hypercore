@@ -1,13 +1,12 @@
-use hypercore::compact_encoding::CompactEncoding;
-use hypercore::compact_encoding::{CencState, CompactEncoder};
+use hypercore::compact_encoding::{CompactEncoding, State};
 
 #[test]
 fn cenc_create() {
-    let state = CencState::new();
+    let mut state = State::new();
     assert_eq!(state.start, 0);
     assert_eq!(state.end, 0);
     assert_eq!(state.buffer.capacity(), 0);
-    let state = CompactEncoder::preencode(state, "test".to_string());
+    state.preencode("test".to_string());
     assert_eq!(state.start, 0);
     assert_eq!(state.end, 4);
     assert_eq!(state.buffer.capacity(), 0);

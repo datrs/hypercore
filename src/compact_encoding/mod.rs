@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 /// State.
 #[derive(Debug)]
-pub struct CencState {
+pub struct State {
     /// Start position
     pub start: usize,
     /// End position
@@ -13,10 +13,10 @@ pub struct CencState {
     pub buffer: Vec<u8>,
 }
 
-impl CencState {
+impl State {
     /// Create emtpy state
-    pub fn new() -> CencState {
-        CencState {
+    pub fn new() -> State {
+        State {
             start: 0,
             end: 0,
             buffer: vec![],
@@ -30,29 +30,23 @@ where
     T: Debug,
 {
     /// Preencode
-    fn preencode(state: CencState, value: T) -> CencState;
+    fn preencode(&mut self, value: T);
 
     // /// Encode
-    // fn encode(state: CencState, value: T);
+    // fn encode(state: State, value: T);
 
     // /// Decode
-    // fn decode(state: CencState) -> T;
+    // fn decode(state: State) -> T;
 }
 
-/// Compact Encoder
-#[derive(Debug)]
-pub struct CompactEncoder {}
-
-impl CompactEncoding<String> for CompactEncoder {
-    fn preencode(mut state: CencState, value: String) -> CencState {
-        state.end += value.len();
-        state
+impl CompactEncoding<String> for State {
+    fn preencode(&mut self, value: String) {
+        self.end += value.len();
     }
 }
 
-impl CompactEncoding<u64> for CompactEncoder {
-    fn preencode(mut state: CencState, _value: u64) -> CencState {
-        state.end += 8;
-        state
+impl CompactEncoding<u64> for State {
+    fn preencode(&mut self, _value: u64) {
+        self.end += 8;
     }
 }
