@@ -1,26 +1,17 @@
 use hypercore::compact_encoding::{CompactEncoding, State};
 
 #[test]
-fn cenc_create() -> std::io::Result<()> {
+fn cenc_create() {
     let str_value_1 = "foo";
     let str_value_2 = "bar";
 
-    let mut state = State::new();
-    assert_eq!(state.start, 0);
-    assert_eq!(state.end, 0);
-    state.preencode(&str_value_1);
-    assert_eq!(state.start, 0);
-    assert_eq!(state.end, 3);
-    state.preencode(&str_value_2);
-    assert_eq!(state.start, 0);
-    assert_eq!(state.end, 6);
-    let mut buffer = state.create_buffer();
-    assert_eq!(buffer.len(), 6);
-    state.encode(&str_value_1, &mut buffer);
-    assert_eq!(state.start, 3);
-    assert_eq!(state.end, 6);
-    state.encode(&str_value_2, &mut buffer);
-    assert_eq!(state.start, 6);
-    assert_eq!(state.end, 6);
-    Ok(())
+    let mut enc_state = State::new();
+    enc_state.preencode_str(&str_value_1);
+    enc_state.preencode_str(&str_value_2);
+    let mut buffer = enc_state.create_buffer();
+    enc_state.encode_str(&str_value_1, &mut buffer);
+    enc_state.encode_str(&str_value_2, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let str_value_1_ret: String = dec_state.decode(&buffer);
+    assert_eq!(str_value_1, str_value_1_ret);
 }
