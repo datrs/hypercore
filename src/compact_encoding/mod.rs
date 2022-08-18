@@ -1,5 +1,6 @@
 //! Compact encoding module. Rust implementation of https://github.com/compact-encoding/compact-encoding.
 
+use std::convert::TryFrom;
 use std::fmt::Debug;
 
 const U16_SIGNIFIER: u8 = 0xfd;
@@ -49,15 +50,7 @@ impl State {
 
     /// Encode u32 to 4 LE bytes.
     pub fn encode_uint32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
-        let bytes = uint.to_le_bytes();
-        buffer[self.start] = bytes[0];
-        self.start += 1;
-        buffer[self.start] = bytes[1];
-        self.start += 1;
-        buffer[self.start] = bytes[2];
-        self.start += 1;
-        buffer[self.start] = bytes[3];
-        self.start += 1;
+        self.encode_uint32_bytes(&uint.to_le_bytes(), buffer);
     }
 
     /// Preencode a string slice
@@ -74,8 +67,62 @@ impl State {
         self.start += len;
     }
 
+    /// Decode a u16
+    pub fn decode_u16(&mut self, buffer: &Box<[u8]>) -> u16 {
+        let value: u16 =
+            ((buffer[self.start] as u16) << 0) | ((buffer[self.start + 1] as u16) << 8);
+        self.start += 2;
+        value
+    }
+
+    /// Decode a u32
+    pub fn decode_u32(&mut self, buffer: &Box<[u8]>) -> u32 {
+        let value: u32 = ((buffer[self.start] as u32) << 0)
+            | ((buffer[self.start + 1] as u32) << 8)
+            | ((buffer[self.start + 2] as u32) << 16)
+            | ((buffer[self.start + 3] as u32) << 24);
+        self.start += 4;
+        value
+    }
+
+    /// Decode a u64
+    pub fn decode_u64(&mut self, buffer: &Box<[u8]>) -> u64 {
+        let value: u64 = ((buffer[self.start] as u64) << 0)
+            | ((buffer[self.start + 1] as u64) << 8)
+            | ((buffer[self.start + 2] as u64) << 16)
+            | ((buffer[self.start + 3] as u64) << 24)
+            | ((buffer[self.start + 4] as u64) << 32)
+            | ((buffer[self.start + 5] as u64) << 40)
+            | ((buffer[self.start + 6] as u64) << 48)
+            | ((buffer[self.start + 7] as u64) << 56);
+        self.start += 8;
+        value
+    }
+
+    fn encode_uint16_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+        buffer[self.start] = bytes[0];
+        buffer[self.start + 1] = bytes[1];
+        self.start += 2;
+    }
+
+    fn encode_uint32_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+        self.encode_uint16_bytes(bytes, buffer);
+        buffer[self.start] = bytes[2];
+        buffer[self.start + 1] = bytes[3];
+        self.start += 2;
+    }
+
+    fn encode_uint64_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+        self.encode_uint32_bytes(bytes, buffer);
+        buffer[self.start] = bytes[4];
+        buffer[self.start + 1] = bytes[5];
+        buffer[self.start + 2] = bytes[6];
+        buffer[self.start + 3] = bytes[7];
+        self.start += 4;
+    }
+
     fn preencode_uint_var<T: From<u32> + Ord>(&mut self, uint: &T) {
-        self.end += if *uint <= T::from(0xfc) {
+        self.end += if *uint < T::from(U16_SIGNIFIER.into()) {
             1
         } else if *uint <= T::from(0xffff) {
             3
@@ -88,7 +135,7 @@ impl State {
 
     fn preencode_usize_var(&mut self, value: &usize) {
         // TODO: This repeats the logic from above that works for u8 -> u64, but sadly not usize
-        self.end += if *value <= 0xfc {
+        self.end += if *value < U16_SIGNIFIER.into() {
             1
         } else if *value <= 0xffff {
             3
@@ -107,51 +154,34 @@ impl State {
         } else if *value <= 0xffff {
             buffer[self.start] = U16_SIGNIFIER;
             self.start += 1;
-            let bytes = value.to_le_bytes();
-            buffer[self.start] = bytes[0];
-            self.start += 1;
-            buffer[self.start] = bytes[1];
-            self.start += 1;
+            self.encode_uint16_bytes(&value.to_le_bytes(), buffer);
         } else if *value <= 0xffffffff {
             buffer[self.start] = U32_SIGNIFIER;
             self.start += 1;
-            let bytes = value.to_le_bytes();
-            buffer[self.start] = bytes[0];
-            self.start += 1;
-            buffer[self.start] = bytes[1];
-            self.start += 1;
-            buffer[self.start] = bytes[2];
-            self.start += 1;
-            buffer[self.start] = bytes[3];
-            self.start += 1;
+            self.encode_uint32_bytes(&value.to_le_bytes(), buffer);
         } else {
             buffer[self.start] = U64_SIGNIFIER;
             self.start += 1;
-            let bytes = value.to_le_bytes();
-            buffer[self.start] = bytes[0];
-            self.start += 1;
-            buffer[self.start] = bytes[1];
-            self.start += 1;
-            buffer[self.start] = bytes[2];
-            self.start += 1;
-            buffer[self.start] = bytes[3];
-            self.start += 1;
-            buffer[self.start] = bytes[4];
-            self.start += 1;
-            buffer[self.start] = bytes[5];
-            self.start += 1;
-            buffer[self.start] = bytes[6];
-            self.start += 1;
-            buffer[self.start] = bytes[7];
-            self.start += 1;
+            self.encode_uint64_bytes(&value.to_le_bytes(), buffer);
         }
     }
 
     fn decode_usize_var(&mut self, buffer: &Box<[u8]>) -> usize {
-        // FIXME: need to check first byte here for signifier etc.
-        let value = buffer[self.start];
+        let first = buffer[self.start];
         self.start += 1;
-        value.into()
+        // NB: the from_le_bytes needs a [u8; 2] and that can't be efficiently
+        // created from a byte slice.
+        if first < U16_SIGNIFIER {
+            first.into()
+        } else if first == U16_SIGNIFIER {
+            self.decode_u16(buffer).into()
+        } else if first == U32_SIGNIFIER {
+            usize::try_from(self.decode_u32(buffer))
+                .expect("Attempted converting to a 32 bit usize on below 32 bit system")
+        } else {
+            usize::try_from(self.decode_u64(buffer))
+                .expect("Attempted converting to a 64 bit usize on below 64 bit system")
+        }
     }
 }
 
@@ -194,18 +224,14 @@ impl CompactEncoding<u32> for State {
     }
 
     fn encode(&mut self, value: &u32, buffer: &mut Box<[u8]>) {
-        if *value <= 0xfc {
+        if *value < U16_SIGNIFIER.into() {
             let bytes = value.to_le_bytes();
             buffer[self.start] = bytes[0];
             self.start += 1;
         } else if *value <= 0xffff {
             buffer[self.start] = U16_SIGNIFIER;
             self.start += 1;
-            let bytes = value.to_le_bytes();
-            buffer[self.start] = bytes[0];
-            self.start += 1;
-            buffer[self.start] = bytes[1];
-            self.start += 1;
+            self.encode_uint16_bytes(&value.to_le_bytes(), buffer);
         } else {
             buffer[self.start] = U32_SIGNIFIER;
             self.start += 1;
@@ -213,9 +239,16 @@ impl CompactEncoding<u32> for State {
         }
     }
 
-    fn decode(&mut self, _buffer: &Box<[u8]>) -> u32 {
-        // FIXME
-        0
+    fn decode(&mut self, buffer: &Box<[u8]>) -> u32 {
+        let first = buffer[self.start];
+        self.start += 1;
+        if first < U16_SIGNIFIER {
+            first.into()
+        } else if first == U16_SIGNIFIER {
+            self.decode_u16(buffer).into()
+        } else {
+            self.decode_u32(buffer).into()
+        }
     }
 }
 
@@ -229,7 +262,6 @@ impl CompactEncoding<usize> for State {
     }
 
     fn decode(&mut self, buffer: &Box<[u8]>) -> usize {
-        // FIXME
-        buffer.len()
+        self.decode_usize_var(buffer)
     }
 }
