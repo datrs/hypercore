@@ -33,16 +33,7 @@ if (process.argv[2] === '1') {
 
 async function step1(testSet) {
     let core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
-    let len = await core.append(['Hello', 'World', 'foo', 'bar']);
-    console.log("LEN", len);
-    len = await core.append(['zan', 'tup']);
-    console.log("LEN2", len);
-    len = await core.append(['fup']);
-    console.log("LEN3", len);
-    len = await core.append(['sup']);
-    console.log("LEN4", len);
-    // len = await core.append(['flushes']);
-    // console.log("LEN5", len);
+    await core.append(['Hello', 'World']);
     await core.close();
     core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
 };

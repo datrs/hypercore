@@ -158,6 +158,9 @@ where
             .write_data(self.byte_length as u64, &data)
             .await?;
 
+        // TODO: use the oplog
+        self.oplog.append();
+
         let hash = Hash::from_roots(self.merkle.roots());
         let index = self.length;
         let message = hash_with_length_as_bytes(hash, index + 1);
@@ -416,9 +419,6 @@ where
             }
             // TODO: check peers.length, call ._announce if peers exist.
         }
-
-        // TODO: use the oplog
-        self.oplog.append();
 
         // TODO: Discern between "primary" and "replica" streams.
         // if (!this.writable) {
