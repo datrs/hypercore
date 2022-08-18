@@ -2,6 +2,7 @@ use ed25519_dalek::{PublicKey, SecretKey};
 
 use crate::bitfield::Bitfield;
 use crate::crypto::Merkle;
+use crate::oplog::Oplog;
 use crate::storage::Storage;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -51,6 +52,8 @@ where
         } else {
             Bitfield::new()
         };
+        // TODO: use the oplog
+        let oplog = Oplog {};
         use crate::storage::Node;
 
         let mut tree = TreeIndex::new(tree);
@@ -79,6 +82,7 @@ where
             byte_length,
             length: tree.blocks(),
             bitfield,
+            oplog,
             tree,
             public_key: self.public_key,
             secret_key: self.secret_key,

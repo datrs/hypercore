@@ -39,6 +39,7 @@ mod crypto;
 mod event;
 mod feed;
 mod feed_builder;
+mod oplog;
 mod proof;
 mod replicate;
 mod storage;

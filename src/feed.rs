@@ -9,6 +9,7 @@ use crate::bitfield::Bitfield;
 use crate::crypto::{
     generate_keypair, sign, verify, Hash, Merkle, PublicKey, SecretKey, Signature,
 };
+use crate::oplog::Oplog;
 use crate::proof::Proof;
 use anyhow::{bail, ensure, Result};
 use flat_tree as flat;
@@ -70,6 +71,8 @@ where
     pub(crate) length: u64,
     /// Bitfield to keep track of which data we own.
     pub(crate) bitfield: Bitfield,
+    /// Oplog
+    pub(crate) oplog: Oplog,
     pub(crate) tree: TreeIndex,
     pub(crate) peers: Vec<Peer>,
 }
@@ -413,6 +416,9 @@ where
             }
             // TODO: check peers.length, call ._announce if peers exist.
         }
+
+        // TODO: use the oplog
+        self.oplog.append();
 
         // TODO: Discern between "primary" and "replica" streams.
         // if (!this.writable) {
