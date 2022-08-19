@@ -265,3 +265,24 @@ impl CompactEncoding<usize> for State {
         self.decode_usize_var(buffer)
     }
 }
+
+impl CompactEncoding<Box<[u8]>> for State {
+    fn preencode(&mut self, value: &Box<[u8]>) {
+        let len = value.len();
+        self.preencode_usize_var(&len);
+        self.end += len;
+    }
+
+    fn encode(&mut self, value: &Box<[u8]>, buffer: &mut Box<[u8]>) {
+        let len = value.len();
+        self.encode_usize_var(&len, buffer);
+        buffer[self.start..self.start + len].copy_from_slice(value);
+        self.start += len;
+    }
+
+    fn decode(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
+        let len = self.decode_usize_var(buffer);
+        let vec: Vec<u8> = buffer[self.start..self.start + len].to_vec();
+        vec.into_boxed_slice()
+    }
+}
