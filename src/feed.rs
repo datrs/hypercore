@@ -9,7 +9,6 @@ use crate::bitfield::Bitfield;
 use crate::crypto::{
     generate_keypair, sign, verify, Hash, Merkle, PublicKey, SecretKey, Signature,
 };
-use crate::oplog::Oplog;
 use crate::proof::Proof;
 use anyhow::{bail, ensure, Result};
 use flat_tree as flat;
@@ -71,8 +70,6 @@ where
     pub(crate) length: u64,
     /// Bitfield to keep track of which data we own.
     pub(crate) bitfield: Bitfield,
-    /// Oplog
-    pub(crate) oplog: Oplog,
     pub(crate) tree: TreeIndex,
     pub(crate) peers: Vec<Peer>,
 }
@@ -157,9 +154,6 @@ where
         self.storage
             .write_data(self.byte_length as u64, &data)
             .await?;
-
-        // TODO: use the oplog
-        self.oplog.append();
 
         let hash = Hash::from_roots(self.merkle.roots());
         let index = self.length;

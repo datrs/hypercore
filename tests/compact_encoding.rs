@@ -81,6 +81,34 @@ fn cenc_u32_as_u8() {
 }
 
 #[test]
+fn cenc_u64() {
+    let u64_value: u64 = 0xF0E1D2C3B4A59687;
+    let mut enc_state = State::new();
+    enc_state.preencode(&u64_value);
+    let mut buffer = enc_state.create_buffer();
+    // 1 byte for u64 signifier, 8 bytes for length
+    assert_eq!(buffer.len(), 1 + 8);
+    enc_state.encode(&u64_value, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let u64_value_ret: u64 = dec_state.decode(&buffer);
+    assert_eq!(u64_value, u64_value_ret);
+}
+
+#[test]
+fn cenc_u64_as_u32() {
+    let u64_value: u64 = u32::MAX.into();
+    let mut enc_state = State::new();
+    enc_state.preencode(&u64_value);
+    let mut buffer = enc_state.create_buffer();
+    // 1 byte for u32 signifier, 4 bytes for length
+    assert_eq!(buffer.len(), 1 + 4);
+    enc_state.encode(&u64_value, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let u64_value_ret: u64 = dec_state.decode(&buffer);
+    assert_eq!(u64_value, u64_value_ret);
+}
+
+#[test]
 fn cenc_buffer() {
     let buf_value = vec![0xFF, 0x00].into_boxed_slice();
     let mut enc_state = State::new();
@@ -92,4 +120,20 @@ fn cenc_buffer() {
     let mut dec_state = State::from_buffer(&buffer);
     let buf_value_ret: Box<[u8]> = dec_state.decode(&buffer);
     assert_eq!(buf_value, buf_value_ret);
+}
+
+#[test]
+fn cenc_string_array() {
+    let string_array_value = vec!["first".to_string(), "second".to_string()];
+    let mut enc_state = State::new();
+    enc_state.preencode(&string_array_value);
+    let mut buffer = enc_state.create_buffer();
+    // 1 byte for array length,
+    // 1 byte for string length, 5 bytes for string,
+    // 1 byte for string length, 6 bytes for string
+    assert_eq!(buffer.len(), 1 + 1 + 5 + 1 + 6);
+    enc_state.encode(&string_array_value, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let string_array_value_ret: Vec<String> = dec_state.decode(&buffer);
+    assert_eq!(string_array_value, string_array_value_ret);
 }

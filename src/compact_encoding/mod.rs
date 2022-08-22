@@ -67,7 +67,29 @@ impl State {
         self.start += len;
     }
 
-    /// Decode a u16
+    /// Decode a String
+    pub fn decode_string(&mut self, buffer: &Box<[u8]>) -> String {
+        let len = self.decode_usize_var(buffer);
+        let value = std::str::from_utf8(&buffer[self.start..self.start + len])
+            .expect("string is invalid UTF-8");
+        self.start += len;
+        value.to_string()
+    }
+
+    /// Preencode a variable length usigned int
+    pub fn preencode_uint_var<T: From<u32> + Ord>(&mut self, uint: &T) {
+        self.end += if *uint < T::from(U16_SIGNIFIER.into()) {
+            1
+        } else if *uint <= T::from(0xffff) {
+            3
+        } else if *uint <= T::from(0xffffffff) {
+            5
+        } else {
+            9
+        };
+    }
+
+    /// Decode a fixed length u16
     pub fn decode_u16(&mut self, buffer: &Box<[u8]>) -> u16 {
         let value: u16 =
             ((buffer[self.start] as u16) << 0) | ((buffer[self.start + 1] as u16) << 8);
@@ -75,7 +97,37 @@ impl State {
         value
     }
 
-    /// Decode a u32
+    /// Encode a variable length u32
+    pub fn encode_u32_var(&mut self, value: &u32, buffer: &mut Box<[u8]>) {
+        if *value < U16_SIGNIFIER.into() {
+            let bytes = value.to_le_bytes();
+            buffer[self.start] = bytes[0];
+            self.start += 1;
+        } else if *value <= 0xffff {
+            buffer[self.start] = U16_SIGNIFIER;
+            self.start += 1;
+            self.encode_uint16_bytes(&value.to_le_bytes(), buffer);
+        } else {
+            buffer[self.start] = U32_SIGNIFIER;
+            self.start += 1;
+            self.encode_uint32(*value, buffer);
+        }
+    }
+
+    /// Decode a variable length u32
+    pub fn decode_u32_var(&mut self, buffer: &Box<[u8]>) -> u32 {
+        let first = buffer[self.start];
+        self.start += 1;
+        if first < U16_SIGNIFIER {
+            first.into()
+        } else if first == U16_SIGNIFIER {
+            self.decode_u16(buffer).into()
+        } else {
+            self.decode_u32(buffer).into()
+        }
+    }
+
+    /// Decode a fixed length u32
     pub fn decode_u32(&mut self, buffer: &Box<[u8]>) -> u32 {
         let value: u32 = ((buffer[self.start] as u32) << 0)
             | ((buffer[self.start + 1] as u32) << 8)
@@ -85,7 +137,43 @@ impl State {
         value
     }
 
-    /// Decode a u64
+    /// Encode a variable length u64
+    pub fn encode_u64_var(&mut self, value: &u64, buffer: &mut Box<[u8]>) {
+        if *value < U16_SIGNIFIER.into() {
+            let bytes = value.to_le_bytes();
+            buffer[self.start] = bytes[0];
+            self.start += 1;
+        } else if *value <= 0xffff {
+            buffer[self.start] = U16_SIGNIFIER;
+            self.start += 1;
+            self.encode_uint16_bytes(&value.to_le_bytes(), buffer);
+        } else if *value <= 0xffffffff {
+            buffer[self.start] = U32_SIGNIFIER;
+            self.start += 1;
+            self.encode_uint32_bytes(&value.to_le_bytes(), buffer);
+        } else {
+            buffer[self.start] = U64_SIGNIFIER;
+            self.start += 1;
+            self.encode_uint64_bytes(&value.to_le_bytes(), buffer);
+        }
+    }
+
+    /// Decode a variable length u64
+    pub fn decode_u64_var(&mut self, buffer: &Box<[u8]>) -> u64 {
+        let first = buffer[self.start];
+        self.start += 1;
+        if first < U16_SIGNIFIER {
+            first.into()
+        } else if first == U16_SIGNIFIER {
+            self.decode_u16(buffer).into()
+        } else if first == U32_SIGNIFIER {
+            self.decode_u32(buffer).into()
+        } else {
+            self.decode_u64(buffer)
+        }
+    }
+
+    /// Decode a fixed length u64
     pub fn decode_u64(&mut self, buffer: &Box<[u8]>) -> u64 {
         let value: u64 = ((buffer[self.start] as u64) << 0)
             | ((buffer[self.start + 1] as u64) << 8)
@@ -96,6 +184,57 @@ impl State {
             | ((buffer[self.start + 6] as u64) << 48)
             | ((buffer[self.start + 7] as u64) << 56);
         self.start += 8;
+        value
+    }
+
+    /// Preencode a byte buffer
+    pub fn preencode_buffer(&mut self, value: &Box<[u8]>) {
+        let len = value.len();
+        self.preencode_usize_var(&len);
+        self.end += len;
+    }
+
+    /// Encode a byte buffer
+    pub fn encode_buffer(&mut self, value: &Box<[u8]>, buffer: &mut Box<[u8]>) {
+        let len = value.len();
+        self.encode_usize_var(&len, buffer);
+        buffer[self.start..self.start + len].copy_from_slice(value);
+        self.start += len;
+    }
+
+    /// Decode a byte buffer
+    pub fn decode_buffer(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
+        let len = self.decode_usize_var(buffer);
+        buffer[self.start..self.start + len]
+            .to_vec()
+            .into_boxed_slice()
+    }
+
+    /// Preencode a string array
+    pub fn preencode_string_array(&mut self, value: &Vec<String>) {
+        let len = value.len();
+        self.preencode_usize_var(&len);
+        for string_value in value.into_iter() {
+            self.preencode_str(string_value);
+        }
+    }
+
+    /// Encode a String array
+    pub fn encode_string_array(&mut self, value: &Vec<String>, buffer: &mut Box<[u8]>) {
+        let len = value.len();
+        self.encode_usize_var(&len, buffer);
+        for string_value in value {
+            self.encode_str(string_value, buffer);
+        }
+    }
+
+    /// Decode a String array
+    pub fn decode_string_array(&mut self, buffer: &Box<[u8]>) -> Vec<String> {
+        let len = self.decode_usize_var(buffer);
+        let mut value = Vec::with_capacity(len);
+        for _ in 0..len {
+            value.push(self.decode_string(buffer));
+        }
         value
     }
 
@@ -119,18 +258,6 @@ impl State {
         buffer[self.start + 2] = bytes[6];
         buffer[self.start + 3] = bytes[7];
         self.start += 4;
-    }
-
-    fn preencode_uint_var<T: From<u32> + Ord>(&mut self, uint: &T) {
-        self.end += if *uint < T::from(U16_SIGNIFIER.into()) {
-            1
-        } else if *uint <= T::from(0xffff) {
-            3
-        } else if *uint <= T::from(0xffffffff) {
-            5
-        } else {
-            9
-        };
     }
 
     fn preencode_usize_var(&mut self, value: &usize) {
@@ -210,11 +337,7 @@ impl CompactEncoding<String> for State {
     }
 
     fn decode(&mut self, buffer: &Box<[u8]>) -> String {
-        let len = self.decode_usize_var(buffer);
-        let value = std::str::from_utf8(&buffer[self.start..self.start + len])
-            .expect("string is invalid UTF-8");
-        self.start += len;
-        value.to_string()
+        self.decode_string(buffer)
     }
 }
 
@@ -224,31 +347,25 @@ impl CompactEncoding<u32> for State {
     }
 
     fn encode(&mut self, value: &u32, buffer: &mut Box<[u8]>) {
-        if *value < U16_SIGNIFIER.into() {
-            let bytes = value.to_le_bytes();
-            buffer[self.start] = bytes[0];
-            self.start += 1;
-        } else if *value <= 0xffff {
-            buffer[self.start] = U16_SIGNIFIER;
-            self.start += 1;
-            self.encode_uint16_bytes(&value.to_le_bytes(), buffer);
-        } else {
-            buffer[self.start] = U32_SIGNIFIER;
-            self.start += 1;
-            self.encode_uint32(*value, buffer);
-        }
+        self.encode_u32_var(value, buffer)
     }
 
     fn decode(&mut self, buffer: &Box<[u8]>) -> u32 {
-        let first = buffer[self.start];
-        self.start += 1;
-        if first < U16_SIGNIFIER {
-            first.into()
-        } else if first == U16_SIGNIFIER {
-            self.decode_u16(buffer).into()
-        } else {
-            self.decode_u32(buffer).into()
-        }
+        self.decode_u32_var(buffer)
+    }
+}
+
+impl CompactEncoding<u64> for State {
+    fn preencode(&mut self, value: &u64) {
+        self.preencode_uint_var(value)
+    }
+
+    fn encode(&mut self, value: &u64, buffer: &mut Box<[u8]>) {
+        self.encode_u64_var(value, buffer)
+    }
+
+    fn decode(&mut self, buffer: &Box<[u8]>) -> u64 {
+        self.decode_u64_var(buffer)
     }
 }
 
@@ -268,21 +385,28 @@ impl CompactEncoding<usize> for State {
 
 impl CompactEncoding<Box<[u8]>> for State {
     fn preencode(&mut self, value: &Box<[u8]>) {
-        let len = value.len();
-        self.preencode_usize_var(&len);
-        self.end += len;
+        self.preencode_buffer(value);
     }
 
     fn encode(&mut self, value: &Box<[u8]>, buffer: &mut Box<[u8]>) {
-        let len = value.len();
-        self.encode_usize_var(&len, buffer);
-        buffer[self.start..self.start + len].copy_from_slice(value);
-        self.start += len;
+        self.encode_buffer(value, buffer);
     }
 
     fn decode(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
-        let len = self.decode_usize_var(buffer);
-        let vec: Vec<u8> = buffer[self.start..self.start + len].to_vec();
-        vec.into_boxed_slice()
+        self.decode_buffer(buffer)
+    }
+}
+
+impl CompactEncoding<Vec<String>> for State {
+    fn preencode(&mut self, value: &Vec<String>) {
+        self.preencode_string_array(value);
+    }
+
+    fn encode(&mut self, value: &Vec<String>, buffer: &mut Box<[u8]>) {
+        self.encode_string_array(value, buffer);
+    }
+
+    fn decode(&mut self, buffer: &Box<[u8]>) -> Vec<String> {
+        self.decode_string_array(buffer)
     }
 }
