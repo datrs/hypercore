@@ -13,7 +13,7 @@ struct Header {
 
 impl Header {
     /// Creates a new Header from given public and secret keys
-    pub fn new_from_keys(public_key: PublicKey, secret_key: SecretKey) -> Header {
+    pub fn new_from_keys(public_key: PublicKey, secret_key: Option<SecretKey>) -> Header {
         Header {
             types: HeaderTypes {
                 tree: "blake2b".to_string(),
@@ -50,7 +50,7 @@ impl Header {
     /// Creates a new Header by generating a key pair
     pub fn new() -> Header {
         let key_pair = generate_keypair();
-        Header::new_from_keys(key_pair.public, key_pair.secret)
+        Header::new_from_keys(key_pair.public, Some(key_pair.secret))
     }
 }
 
@@ -116,31 +116,51 @@ impl CompactEncoding<HeaderTree> for State {
 #[derive(Debug)]
 struct HeaderSigner {
     public_key: PublicKey,
-    secret_key: SecretKey,
+    secret_key: Option<SecretKey>,
 }
 
 impl CompactEncoding<HeaderSigner> for State {
     fn preencode(&mut self, value: &HeaderSigner) {
         let public_key_bytes: Box<[u8]> = value.public_key.as_bytes().to_vec().into_boxed_slice();
-        let secret_key_bytes: Box<[u8]> = value.secret_key.as_bytes().to_vec().into_boxed_slice();
         self.preencode(&public_key_bytes);
-        self.preencode(&secret_key_bytes);
+        match &value.secret_key {
+            Some(secret_key) => {
+                let secret_key_bytes: Box<[u8]> = secret_key.as_bytes().to_vec().into_boxed_slice();
+                self.preencode(&secret_key_bytes);
+            }
+            None => {
+                self.end += 1;
+            }
+        }
     }
 
     fn encode(&mut self, value: &HeaderSigner, buffer: &mut Box<[u8]>) {
         let public_key_bytes: Box<[u8]> = value.public_key.as_bytes().to_vec().into_boxed_slice();
-        let secret_key_bytes: Box<[u8]> = value.secret_key.as_bytes().to_vec().into_boxed_slice();
         self.encode(&public_key_bytes, buffer);
-        self.encode(&secret_key_bytes, buffer);
+        match &value.secret_key {
+            Some(secret_key) => {
+                let secret_key_bytes: Box<[u8]> = secret_key.as_bytes().to_vec().into_boxed_slice();
+                self.encode(&secret_key_bytes, buffer);
+            }
+            None => {
+                buffer[self.start] = 0;
+                self.start += 1;
+            }
+        }
     }
 
     fn decode(&mut self, buffer: &Box<[u8]>) -> HeaderSigner {
         let public_key_bytes: Box<[u8]> = self.decode(buffer);
         let secret_key_bytes: Box<[u8]> = self.decode(buffer);
+        let secret_key: Option<SecretKey> = if secret_key_bytes.len() == 0 {
+            None
+        } else {
+            Some(SecretKey::from_bytes(&secret_key_bytes).unwrap())
+        };
 
         HeaderSigner {
             public_key: PublicKey::from_bytes(&public_key_bytes).unwrap(),
-            secret_key: SecretKey::from_bytes(&secret_key_bytes).unwrap(),
+            secret_key,
         }
     }
 }
@@ -221,7 +241,7 @@ pub struct Oplog {
 impl Oplog {
     /// Creates a new Oplog from given public and secret keys
     #[allow(dead_code)]
-    pub fn new_from_keys(public_key: PublicKey, secret_key: SecretKey) -> Oplog {
+    pub fn new_from_keys(public_key: PublicKey, secret_key: Option<SecretKey>) -> Oplog {
         Oplog {
             header: Header::new_from_keys(public_key, secret_key),
         }
