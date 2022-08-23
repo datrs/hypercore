@@ -28,7 +28,6 @@ memory-pager = "0.9.0"
 merkle-tree-stream =  "0.12.0"
 pretty-hash = "0.4.1"
 rand = "0.7.3"
-random-access-disk = "2.0.0"
 random-access-memory = "2.0.0"
 random-access-storage = "4.0.0"
 sha2 = "0.9.2"
@@ -38,6 +37,9 @@ tree-index = "0.6.0"
 bitfield-rle = "0.2.0"
 futures = "0.3.4"
 async-std = "1.5.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+random-access-disk = "2.0.0"
 
 [dev-dependencies]
 quickcheck = "0.9.2"
