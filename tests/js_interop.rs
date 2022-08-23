@@ -2,6 +2,7 @@ mod common;
 mod js;
 use std::{path::Path, sync::Once};
 
+use common::create_disk_storage;
 use ed25519_dalek::{PublicKey, SecretKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use hypercore::Storage;
 use js::{cleanup, install, js_step_1_create_hypercore, prepare_test_set};
@@ -53,7 +54,7 @@ async fn js_interop_rs_first() {
 
 async fn step_1_create_hypercore(work_dir: &str) {
     let path = Path::new(work_dir).to_owned();
-    let storage = Storage::new_disk(&path, false).await.unwrap();
+    let storage = create_disk_storage(&path, false).await.unwrap();
 
     let public_key = PublicKey::from_bytes(&TEST_PUBLIC_KEY_BYTES).unwrap();
     let secret_key = SecretKey::from_bytes(&TEST_SECRET_KEY_BYTES).unwrap();

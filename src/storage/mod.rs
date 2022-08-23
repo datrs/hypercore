@@ -11,6 +11,7 @@ use anyhow::{anyhow, ensure, Result};
 use ed25519_dalek::{PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use flat_tree as flat;
 use futures::future::FutureExt;
+#[cfg(not(feature = "v10"))]
 use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
 use random_access_storage::RandomAccess;
@@ -422,6 +423,7 @@ impl Storage<RandomAccessMemory> {
     }
 }
 
+#[cfg(not(feature = "v10"))]
 impl Storage<RandomAccessDisk> {
     /// Create a new instance backed by a `RandomAccessDisk` instance.
     pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self> {
@@ -430,12 +432,8 @@ impl Storage<RandomAccessDisk> {
                 Store::Tree => "tree",
                 Store::Data => "data",
                 Store::Bitfield => "bitfield",
-                #[cfg(not(feature = "v10"))]
                 Store::Signatures => "signatures",
-                #[cfg(not(feature = "v10"))]
                 Store::Keypair => "key",
-                #[cfg(feature = "v10")]
-                Store::Oplog => "oplog",
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()
         };
