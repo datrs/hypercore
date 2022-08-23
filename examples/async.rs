@@ -1,8 +1,10 @@
 use async_std::task;
+#[cfg(not(feature = "v10"))]
 use hypercore::Feed;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 
+#[cfg(not(feature = "v10"))]
 async fn append<T>(feed: &mut Feed<T>, content: &[u8])
 where
     T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
@@ -10,6 +12,7 @@ where
     feed.append(content).await.unwrap();
 }
 
+#[cfg(not(feature = "v10"))]
 async fn print<T>(feed: &mut Feed<T>)
 where
     T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
@@ -18,6 +21,7 @@ where
     println!("{:?}", feed.get(1).await);
 }
 
+#[cfg(not(feature = "v10"))]
 fn main() {
     task::block_on(task::spawn(async {
         let mut feed = Feed::default();
@@ -26,4 +30,9 @@ fn main() {
         append(&mut feed, b"world").await;
         print(&mut feed).await;
     }));
+}
+
+#[cfg(feature = "v10")]
+fn main() {
+    unimplemented!()
 }

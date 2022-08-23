@@ -2,10 +2,12 @@ use hypercore;
 
 use anyhow::Error;
 use futures::future::FutureExt;
+#[cfg(not(feature = "v10"))]
 use hypercore::{Feed, Storage, Store};
 use random_access_memory as ram;
 use sha2::{Digest, Sha256};
 
+#[cfg(not(feature = "v10"))]
 pub async fn create_feed(page_size: usize) -> Result<Feed<ram::RandomAccessMemory>, Error> {
     let create = |_store: Store| async move { Ok(ram::RandomAccessMemory::new(page_size)) }.boxed();
     let storage = Storage::new(create, false).await?;

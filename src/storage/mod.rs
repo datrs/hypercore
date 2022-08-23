@@ -39,10 +39,13 @@ pub enum Store {
     /// Bitfield
     Bitfield,
     /// Signatures
+    #[cfg(not(feature = "v10"))]
     Signatures,
     /// Keypair
+    #[cfg(not(feature = "v10"))]
     Keypair,
     /// Oplog
+    #[cfg(feature = "v10")]
     Oplog,
 }
 
@@ -55,8 +58,11 @@ where
     tree: T,
     data: T,
     bitfield: T,
+    #[cfg(not(feature = "v10"))]
     signatures: T,
+    #[cfg(not(feature = "v10"))]
     keypair: T,
+    #[cfg(feature = "v10")]
     oplog: T,
 }
 
@@ -75,20 +81,29 @@ where
         let tree = create(Store::Tree).await?;
         let data = create(Store::Data).await?;
         let bitfield = create(Store::Bitfield).await?;
+        #[cfg(not(feature = "v10"))]
         let signatures = create(Store::Signatures).await?;
+        #[cfg(not(feature = "v10"))]
         let keypair = create(Store::Keypair).await?;
+
+        #[cfg(feature = "v10")]
         let oplog = create(Store::Oplog).await?;
+
         let mut instance = Self {
             tree,
             data,
             bitfield,
+            #[cfg(not(feature = "v10"))]
             signatures,
+            #[cfg(not(feature = "v10"))]
             keypair,
+            #[cfg(feature = "v10")]
             oplog,
         };
 
+        #[cfg(feature = "v10")]
         if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
-            // TODO: This is
+            // TODO: This has nothing in it
             instance
                 .oplog
                 .write(0, &[0x00])
@@ -105,6 +120,7 @@ where
                 .map_err(|e| anyhow!(e))?;
         }
 
+        #[cfg(not(feature = "v10"))]
         if overwrite || instance.signatures.len().await.unwrap_or(0) == 0 {
             let header = create_signatures();
             instance
@@ -172,6 +188,7 @@ where
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
+    #[cfg(not(feature = "v10"))]
     pub fn next_signature(
         &mut self,
         index: u64,
@@ -195,6 +212,7 @@ where
 
     /// Get a `Signature` from the store.
     #[inline]
+    #[cfg(not(feature = "v10"))]
     pub async fn get_signature(&mut self, index: u64) -> Result<Signature> {
         let bytes = self
             .signatures
@@ -209,6 +227,7 @@ where
     /// TODO: Ensure the signature size is correct.
     /// NOTE: Should we create a `Signature` entry type?
     #[inline]
+    #[cfg(not(feature = "v10"))]
     pub async fn put_signature(
         &mut self,
         index: u64,
@@ -336,6 +355,7 @@ where
     }
 
     /// Read a public key from storage
+    #[cfg(not(feature = "v10"))]
     pub async fn read_public_key(&mut self) -> Result<PublicKey> {
         let buf = self
             .keypair
@@ -347,6 +367,7 @@ where
     }
 
     /// Read a secret key from storage
+    #[cfg(not(feature = "v10"))]
     pub async fn read_secret_key(&mut self) -> Result<SecretKey> {
         let buf = self
             .keypair
@@ -358,12 +379,14 @@ where
     }
 
     /// Write a public key to the storage
+    #[cfg(not(feature = "v10"))]
     pub async fn write_public_key(&mut self, public_key: &PublicKey) -> Result<()> {
         let buf: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
         self.keypair.write(0, &buf).await.map_err(|e| anyhow!(e))
     }
 
     /// Write a secret key to the storage
+    #[cfg(not(feature = "v10"))]
     pub async fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
         let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
         self.keypair
@@ -373,6 +396,7 @@ where
     }
 
     /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage
+    #[cfg(not(feature = "v10"))]
     pub async fn read_partial_keypair(&mut self) -> Option<PartialKeypair> {
         match self.read_public_key().await {
             Ok(public) => match self.read_secret_key().await {
@@ -406,8 +430,11 @@ impl Storage<RandomAccessDisk> {
                 Store::Tree => "tree",
                 Store::Data => "data",
                 Store::Bitfield => "bitfield",
+                #[cfg(not(feature = "v10"))]
                 Store::Signatures => "signatures",
+                #[cfg(not(feature = "v10"))]
                 Store::Keypair => "key",
+                #[cfg(feature = "v10")]
                 Store::Oplog => "oplog",
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()

@@ -48,6 +48,9 @@ async-std = { version = "1.5.0", features = ["attributes"] }
 sha2 = "0.10.2"
 
 [features]
+default = ["v10"]
+# v10 version of the crate, without this, v9 is built
+v10 = []
 # Used only in interoperability tests under tests/js-interop which use the javascript version of hypercore
 # to verify that this crate works. To run them, use:
 # cargo test --features js-interop-tests

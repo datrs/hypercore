@@ -2,7 +2,8 @@
 #![forbid(rust_2018_idioms, rust_2018_compatibility)]
 #![forbid(missing_debug_implementations)]
 #![forbid(missing_docs)]
-#![cfg_attr(test, deny(warnings))]
+// FIXME: Off during v10 coding
+// #![cfg_attr(test, deny(warnings))]
 
 //! ## Introduction
 //! Hypercore is a secure, distributed append-only log. Built for sharing
@@ -12,6 +13,7 @@
 //!
 //! ## Example
 //! ```rust
+//! #[cfg(not(feature = "v10"))]
 //! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! # async_std::task::block_on(async {
 //! let mut feed = hypercore::open("./feed.db").await?;
@@ -22,6 +24,13 @@
 //! assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
 //! assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
 //! # Ok(())
+//! # })
+//! # }
+//! #[cfg(feature = "v10")]
+//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//! # async_std::task::block_on(async {
+//! // unimplemented
+//! Ok(())
 //! # })
 //! # }
 //! ```
@@ -37,8 +46,11 @@ pub mod prelude;
 mod audit;
 mod crypto;
 mod event;
+#[cfg(not(feature = "v10"))]
 mod feed;
+#[cfg(not(feature = "v10"))]
 mod feed_builder;
+#[cfg(feature = "v10")]
 mod oplog;
 mod proof;
 mod replicate;
@@ -46,7 +58,9 @@ mod storage;
 
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
 pub use crate::event::Event;
+#[cfg(not(feature = "v10"))]
 pub use crate::feed::Feed;
+#[cfg(not(feature = "v10"))]
 pub use crate::feed_builder::FeedBuilder;
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
@@ -56,6 +70,7 @@ pub use ed25519_dalek::{PublicKey, SecretKey};
 use std::path::Path;
 
 /// Create a new Hypercore `Feed`.
+#[cfg(not(feature = "v10"))]
 pub async fn open<P: AsRef<Path>>(
     path: P,
 ) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {

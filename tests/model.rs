@@ -1,5 +1,6 @@
 mod common;
 
+#[cfg(not(feature = "v10"))]
 use common::create_feed;
 use quickcheck::{quickcheck, Arbitrary, Gen};
 use rand::seq::SliceRandom;
@@ -37,6 +38,7 @@ impl Arbitrary for Op {
     }
 }
 
+#[cfg(not(feature = "v10"))]
 quickcheck! {
   fn implementation_matches_model(ops: Vec<Op>) -> bool {
     async_std::task::block_on(async {

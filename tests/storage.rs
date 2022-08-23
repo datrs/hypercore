@@ -1,7 +1,11 @@
+#[cfg(not(feature = "v10"))]
 use ed25519_dalek::PublicKey;
+
+#[cfg(not(feature = "v10"))]
 use hypercore::{generate_keypair, sign, verify, Signature, Storage};
 
 #[async_std::test]
+#[cfg(not(feature = "v10"))]
 async fn should_write_and_read_keypair() {
     let keypair = generate_keypair();
     let msg = b"hello";
@@ -25,6 +29,7 @@ async fn should_write_and_read_keypair() {
 }
 
 #[async_std::test]
+#[cfg(not(feature = "v10"))]
 async fn should_read_partial_keypair() {
     let keypair = generate_keypair();
     let mut storage = Storage::new_memory().await.unwrap();
@@ -38,6 +43,7 @@ async fn should_read_partial_keypair() {
 }
 
 #[async_std::test]
+#[cfg(not(feature = "v10"))]
 async fn should_read_no_keypair() {
     let mut storage = Storage::new_memory().await.unwrap();
     let partial = storage.read_partial_keypair().await;
@@ -45,6 +51,7 @@ async fn should_read_no_keypair() {
 }
 
 #[async_std::test]
+#[cfg(not(feature = "v10"))]
 async fn should_read_empty_public_key() {
     let mut storage = Storage::new_memory().await.unwrap();
     assert!(storage.read_public_key().await.is_err());

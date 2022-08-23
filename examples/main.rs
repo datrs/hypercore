@@ -1,6 +1,8 @@
+#[cfg(not(feature = "v10"))]
 use hypercore::Feed;
 
 #[async_std::main]
+#[cfg(not(feature = "v10"))]
 async fn main() {
     let mut feed = Feed::open("feed.db").await.expect("Failed to create dir");
 
@@ -18,6 +20,12 @@ async fn main() {
     println!("{:?}", format_res(feed.get(1).await)); // prints "world"
     println!("{:?}", format_res(feed.get(2).await)); // prints "welcome"
     println!("{:?}", format_res(feed.get(3).await)); // prints "back"
+}
+
+#[async_std::main]
+#[cfg(feature = "v10")]
+async fn main() {
+    unimplemented!();
 }
 
 fn format_res(res: anyhow::Result<Option<Vec<u8>>>) -> String {
