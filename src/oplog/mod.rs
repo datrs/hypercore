@@ -1,19 +1,20 @@
 use crate::compact_encoding::{CompactEncoding, State};
 use crate::crypto::{generate_keypair, PublicKey, SecretKey};
+use crate::PartialKeypair;
 
 /// Oplog header
 #[derive(Debug)]
 struct Header {
     types: HeaderTypes,
     tree: HeaderTree,
-    signer: HeaderSigner,
+    signer: PartialKeypair,
     hints: HeaderHints,
     contiguous_length: u64,
 }
 
 impl Header {
-    /// Creates a new Header from given public and secret keys
-    pub fn new_from_keys(public_key: PublicKey, secret_key: Option<SecretKey>) -> Header {
+    /// Creates a new Header from given key pair
+    pub fn new(key_pair: PartialKeypair) -> Header {
         Header {
             types: HeaderTypes {
                 tree: "blake2b".to_string(),
@@ -21,10 +22,7 @@ impl Header {
                 signer: "ed25519".to_string(),
             },
             tree: HeaderTree { fork: 0, length: 0 },
-            signer: HeaderSigner {
-                public_key,
-                secret_key,
-            },
+            signer: key_pair,
             hints: HeaderHints { reorgs: vec![] },
             contiguous_length: 0,
         }
@@ -45,12 +43,6 @@ impl Header {
         //   },
         //   contiguousLength: 0
         // }
-    }
-
-    /// Creates a new Header by generating a key pair
-    pub fn new() -> Header {
-        let key_pair = generate_keypair();
-        Header::new_from_keys(key_pair.public, Some(key_pair.secret))
     }
 }
 
@@ -112,18 +104,11 @@ impl CompactEncoding<HeaderTree> for State {
     }
 }
 
-/// Oplog header signer
-#[derive(Debug)]
-struct HeaderSigner {
-    public_key: PublicKey,
-    secret_key: Option<SecretKey>,
-}
-
-impl CompactEncoding<HeaderSigner> for State {
-    fn preencode(&mut self, value: &HeaderSigner) {
-        let public_key_bytes: Box<[u8]> = value.public_key.as_bytes().to_vec().into_boxed_slice();
+impl CompactEncoding<PartialKeypair> for State {
+    fn preencode(&mut self, value: &PartialKeypair) {
+        let public_key_bytes: Box<[u8]> = value.public.as_bytes().to_vec().into_boxed_slice();
         self.preencode(&public_key_bytes);
-        match &value.secret_key {
+        match &value.secret {
             Some(secret_key) => {
                 let secret_key_bytes: Box<[u8]> = secret_key.as_bytes().to_vec().into_boxed_slice();
                 self.preencode(&secret_key_bytes);
@@ -134,10 +119,10 @@ impl CompactEncoding<HeaderSigner> for State {
         }
     }
 
-    fn encode(&mut self, value: &HeaderSigner, buffer: &mut Box<[u8]>) {
-        let public_key_bytes: Box<[u8]> = value.public_key.as_bytes().to_vec().into_boxed_slice();
+    fn encode(&mut self, value: &PartialKeypair, buffer: &mut Box<[u8]>) {
+        let public_key_bytes: Box<[u8]> = value.public.as_bytes().to_vec().into_boxed_slice();
         self.encode(&public_key_bytes, buffer);
-        match &value.secret_key {
+        match &value.secret {
             Some(secret_key) => {
                 let secret_key_bytes: Box<[u8]> = secret_key.as_bytes().to_vec().into_boxed_slice();
                 self.encode(&secret_key_bytes, buffer);
@@ -149,18 +134,18 @@ impl CompactEncoding<HeaderSigner> for State {
         }
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> HeaderSigner {
+    fn decode(&mut self, buffer: &Box<[u8]>) -> PartialKeypair {
         let public_key_bytes: Box<[u8]> = self.decode(buffer);
         let secret_key_bytes: Box<[u8]> = self.decode(buffer);
-        let secret_key: Option<SecretKey> = if secret_key_bytes.len() == 0 {
+        let secret: Option<SecretKey> = if secret_key_bytes.len() == 0 {
             None
         } else {
             Some(SecretKey::from_bytes(&secret_key_bytes).unwrap())
         };
 
-        HeaderSigner {
-            public_key: PublicKey::from_bytes(&public_key_bytes).unwrap(),
-            secret_key,
+        PartialKeypair {
+            public: PublicKey::from_bytes(&public_key_bytes).unwrap(),
+            secret,
         }
     }
 }
@@ -217,7 +202,7 @@ impl CompactEncoding<Header> for State {
         let types: HeaderTypes = self.decode(buffer);
         // TODO: let user_data: HeaderUserData = self.decode(buffer);
         let tree: HeaderTree = self.decode(buffer);
-        let signer: HeaderSigner = self.decode(buffer);
+        let signer: PartialKeypair = self.decode(buffer);
         let hints: HeaderHints = self.decode(buffer);
         let contiguous_length: u64 = self.decode(buffer);
 
@@ -239,19 +224,15 @@ pub struct Oplog {
 }
 
 impl Oplog {
-    /// Creates a new Oplog from given public and secret keys
+    /// Opens an new Oplog from given key pair and existing content as a byte buffer
     #[allow(dead_code)]
-    pub fn new_from_keys(public_key: PublicKey, secret_key: Option<SecretKey>) -> Oplog {
-        Oplog {
-            header: Header::new_from_keys(public_key, secret_key),
-        }
-    }
-
-    /// Creates a new Oplog and generates random keys
-    #[allow(dead_code)]
-    pub fn new() -> Oplog {
-        Oplog {
-            header: Header::new(),
+    pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> Oplog {
+        if existing.len() == 0 {
+            Oplog {
+                header: Header::new(key_pair),
+            }
+        } else {
+            unimplemented!("Reading an exising oplog is not supported yet");
         }
     }
 }

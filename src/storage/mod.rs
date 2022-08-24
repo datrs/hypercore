@@ -15,7 +15,7 @@ use futures::future::FutureExt;
 use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
 use random_access_storage::RandomAccess;
-use sleep_parser::*;
+use sleep_parser::{create_bitfield, create_signatures, create_tree, Header};
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt::Debug;
@@ -24,10 +24,29 @@ use std::path::PathBuf;
 
 const HEADER_OFFSET: u64 = 32;
 
+/// Key pair where for read-only hypercores the secret key can also be missing.
 #[derive(Debug)]
 pub struct PartialKeypair {
+    /// Public key
     pub public: PublicKey,
+    /// Secret key. If None, the hypercore is read-only.
     pub secret: Option<SecretKey>,
+}
+
+impl Clone for PartialKeypair {
+    fn clone(&self) -> Self {
+        let secret: Option<SecretKey> = match &self.secret {
+            Some(secret) => {
+                let bytes = secret.to_bytes();
+                Some(SecretKey::from_bytes(&bytes).unwrap())
+            }
+            None => None,
+        };
+        PartialKeypair {
+            public: self.public.clone(),
+            secret,
+        }
+    }
 }
 
 /// The types of stores that can be created.
@@ -104,12 +123,8 @@ where
 
         #[cfg(feature = "v10")]
         if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
-            // TODO: This has nothing in it
-            instance
-                .oplog
-                .write(0, &[0x00])
-                .await
-                .map_err(|e| anyhow!(e))?;
+            // Init the oplog as an empty file
+            instance.oplog.write(0, &[]).await.map_err(|e| anyhow!(e))?;
         }
 
         if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
@@ -353,6 +368,14 @@ where
                 return Ok(buf);
             }
         }
+    }
+
+    /// Read the full oplog bytes.
+    #[cfg(feature = "v10")]
+    pub async fn read_oplog(&mut self) -> Result<Box<[u8]>> {
+        let len = self.oplog.len().await.map_err(|e| anyhow!(e))?;
+        let buf = self.oplog.read(0, len).await.map_err(|e| anyhow!(e))?;
+        Ok(buf.into_boxed_slice())
     }
 
     /// Read a public key from storage

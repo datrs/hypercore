@@ -51,6 +51,8 @@ mod feed;
 #[cfg(not(feature = "v10"))]
 mod feed_builder;
 #[cfg(feature = "v10")]
+mod hypercore;
+#[cfg(feature = "v10")]
 mod oplog;
 mod proof;
 mod replicate;
@@ -64,8 +66,10 @@ pub use crate::feed::Feed;
 pub use crate::feed_builder::FeedBuilder;
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
+pub use crate::storage::{Node, NodeTrait, PartialKeypair, Storage, Store};
 pub use ed25519_dalek::{PublicKey, SecretKey};
+#[cfg(feature = "v10")]
+pub use hypercore::Hypercore;
 
 use std::path::Path;
 
