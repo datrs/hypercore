@@ -1,5 +1,5 @@
+use crate::common::Node;
 use crate::crypto::Hash;
-use crate::storage::Node;
 use merkle_tree_stream::{HashMethods, MerkleTreeStream, NodeKind, PartialNode};
 use std::sync::Arc;
 

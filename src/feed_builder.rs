@@ -52,7 +52,7 @@ where
             Bitfield::new()
         };
 
-        use crate::storage::Node;
+        use crate::common::Node;
 
         let mut tree = TreeIndex::new(tree);
         let mut roots = vec![];

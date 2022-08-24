@@ -44,6 +44,9 @@ pub mod compact_encoding;
 pub mod prelude;
 
 mod audit;
+mod common;
+#[cfg(feature = "v10")]
+mod core;
 mod crypto;
 mod event;
 #[cfg(not(feature = "v10"))]
@@ -51,13 +54,17 @@ mod feed;
 #[cfg(not(feature = "v10"))]
 mod feed_builder;
 #[cfg(feature = "v10")]
-mod hypercore;
-#[cfg(feature = "v10")]
 mod oplog;
 mod proof;
 mod replicate;
+#[cfg(not(feature = "v10"))]
 mod storage;
+#[cfg(feature = "v10")]
+mod storage_v10;
 
+pub use crate::common::Node;
+#[cfg(feature = "v10")]
+pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
 pub use crate::event::Event;
 #[cfg(not(feature = "v10"))]
@@ -66,10 +73,11 @@ pub use crate::feed::Feed;
 pub use crate::feed_builder::FeedBuilder;
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
-pub use crate::storage::{Node, NodeTrait, PartialKeypair, Storage, Store};
-pub use ed25519_dalek::{PublicKey, SecretKey};
+#[cfg(not(feature = "v10"))]
+pub use crate::storage::{NodeTrait, PartialKeypair, Storage, Store};
 #[cfg(feature = "v10")]
-pub use hypercore::Hypercore;
+pub use crate::storage_v10::{PartialKeypair, Storage, Store};
+pub use ed25519_dalek::{PublicKey, SecretKey};
 
 use std::path::Path;
 

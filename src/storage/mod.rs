@@ -1,12 +1,11 @@
 //! Save data to a desired storage backend.
 
-mod node;
 mod persist;
 
-pub use self::node::Node;
-pub use self::persist::Persist;
 pub use merkle_tree_stream::Node as NodeTrait;
+pub use self::persist::Persist;
 
+use crate::common::Node;
 use anyhow::{anyhow, ensure, Result};
 use ed25519_dalek::{PublicKey, SecretKey, Signature, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use flat_tree as flat;
@@ -33,22 +32,6 @@ pub struct PartialKeypair {
     pub secret: Option<SecretKey>,
 }
 
-impl Clone for PartialKeypair {
-    fn clone(&self) -> Self {
-        let secret: Option<SecretKey> = match &self.secret {
-            Some(secret) => {
-                let bytes = secret.to_bytes();
-                Some(SecretKey::from_bytes(&bytes).unwrap())
-            }
-            None => None,
-        };
-        PartialKeypair {
-            public: self.public.clone(),
-            secret,
-        }
-    }
-}
-
 /// The types of stores that can be created.
 #[derive(Debug)]
 pub enum Store {
@@ -59,14 +42,9 @@ pub enum Store {
     /// Bitfield
     Bitfield,
     /// Signatures
-    #[cfg(not(feature = "v10"))]
     Signatures,
     /// Keypair
-    #[cfg(not(feature = "v10"))]
     Keypair,
-    /// Oplog
-    #[cfg(feature = "v10")]
-    Oplog,
 }
 
 /// Save data to a desired storage backend.
@@ -78,12 +56,8 @@ where
     tree: T,
     data: T,
     bitfield: T,
-    #[cfg(not(feature = "v10"))]
     signatures: T,
-    #[cfg(not(feature = "v10"))]
     keypair: T,
-    #[cfg(feature = "v10")]
-    oplog: T,
 }
 
 impl<T> Storage<T>
@@ -101,31 +75,16 @@ where
         let tree = create(Store::Tree).await?;
         let data = create(Store::Data).await?;
         let bitfield = create(Store::Bitfield).await?;
-        #[cfg(not(feature = "v10"))]
         let signatures = create(Store::Signatures).await?;
-        #[cfg(not(feature = "v10"))]
         let keypair = create(Store::Keypair).await?;
-
-        #[cfg(feature = "v10")]
-        let oplog = create(Store::Oplog).await?;
 
         let mut instance = Self {
             tree,
             data,
             bitfield,
-            #[cfg(not(feature = "v10"))]
             signatures,
-            #[cfg(not(feature = "v10"))]
             keypair,
-            #[cfg(feature = "v10")]
-            oplog,
         };
-
-        #[cfg(feature = "v10")]
-        if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
-            // Init the oplog as an empty file
-            instance.oplog.write(0, &[]).await.map_err(|e| anyhow!(e))?;
-        }
 
         if overwrite || instance.bitfield.len().await.unwrap_or(0) == 0 {
             let header = create_bitfield();
@@ -136,7 +95,6 @@ where
                 .map_err(|e| anyhow!(e))?;
         }
 
-        #[cfg(not(feature = "v10"))]
         if overwrite || instance.signatures.len().await.unwrap_or(0) == 0 {
             let header = create_signatures();
             instance
@@ -204,7 +162,6 @@ where
     }
 
     /// Search the signature stores for a `Signature`, starting at `index`.
-    #[cfg(not(feature = "v10"))]
     pub fn next_signature(
         &mut self,
         index: u64,
@@ -228,7 +185,6 @@ where
 
     /// Get a `Signature` from the store.
     #[inline]
-    #[cfg(not(feature = "v10"))]
     pub async fn get_signature(&mut self, index: u64) -> Result<Signature> {
         let bytes = self
             .signatures
@@ -243,7 +199,6 @@ where
     /// TODO: Ensure the signature size is correct.
     /// NOTE: Should we create a `Signature` entry type?
     #[inline]
-    #[cfg(not(feature = "v10"))]
     pub async fn put_signature(
         &mut self,
         index: u64,
@@ -370,16 +325,7 @@ where
         }
     }
 
-    /// Read the full oplog bytes.
-    #[cfg(feature = "v10")]
-    pub async fn read_oplog(&mut self) -> Result<Box<[u8]>> {
-        let len = self.oplog.len().await.map_err(|e| anyhow!(e))?;
-        let buf = self.oplog.read(0, len).await.map_err(|e| anyhow!(e))?;
-        Ok(buf.into_boxed_slice())
-    }
-
     /// Read a public key from storage
-    #[cfg(not(feature = "v10"))]
     pub async fn read_public_key(&mut self) -> Result<PublicKey> {
         let buf = self
             .keypair
@@ -391,7 +337,6 @@ where
     }
 
     /// Read a secret key from storage
-    #[cfg(not(feature = "v10"))]
     pub async fn read_secret_key(&mut self) -> Result<SecretKey> {
         let buf = self
             .keypair
@@ -403,14 +348,12 @@ where
     }
 
     /// Write a public key to the storage
-    #[cfg(not(feature = "v10"))]
     pub async fn write_public_key(&mut self, public_key: &PublicKey) -> Result<()> {
         let buf: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
         self.keypair.write(0, &buf).await.map_err(|e| anyhow!(e))
     }
 
     /// Write a secret key to the storage
-    #[cfg(not(feature = "v10"))]
     pub async fn write_secret_key(&mut self, secret_key: &SecretKey) -> Result<()> {
         let buf: [u8; SECRET_KEY_LENGTH] = secret_key.to_bytes();
         self.keypair
@@ -420,7 +363,6 @@ where
     }
 
     /// Tries to read a partial keypair (ie: with an optional secret_key) from the storage
-    #[cfg(not(feature = "v10"))]
     pub async fn read_partial_keypair(&mut self) -> Option<PartialKeypair> {
         match self.read_public_key().await {
             Ok(public) => match self.read_secret_key().await {
@@ -455,12 +397,8 @@ impl Storage<RandomAccessDisk> {
                 Store::Tree => "tree",
                 Store::Data => "data",
                 Store::Bitfield => "bitfield",
-                #[cfg(not(feature = "v10"))]
                 Store::Signatures => "signatures",
-                #[cfg(not(feature = "v10"))]
                 Store::Keypair => "key",
-                #[cfg(feature = "v10")]
-                Store::Oplog => "oplog",
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()
         };

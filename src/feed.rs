@@ -1,8 +1,9 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
+pub use crate::common::Node;
 use crate::feed_builder::FeedBuilder;
 use crate::replicate::{Message, Peer};
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
+pub use crate::storage::{NodeTrait, Storage, Store};
 
 use crate::audit::Audit;
 use crate::bitfield::Bitfield;

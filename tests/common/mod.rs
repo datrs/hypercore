@@ -1,4 +1,4 @@
-use hypercore::{self, PartialKeypair};
+use hypercore::PartialKeypair;
 
 use anyhow::Error;
 use ed25519_dalek::{PublicKey, SecretKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
@@ -29,10 +29,10 @@ pub async fn create_feed(page_size: usize) -> Result<Feed<ram::RandomAccessMemor
 
 #[derive(PartialEq, Debug)]
 pub struct HypercoreHash {
-    pub bitfield: String,
-    pub data: String,
-    pub oplog: String,
-    pub tree: String,
+    pub bitfield: Option<String>,
+    pub data: Option<String>,
+    pub oplog: Option<String>,
+    pub tree: Option<String>,
 }
 
 pub fn get_test_key_pair() -> PartialKeypair {
@@ -41,24 +41,35 @@ pub fn get_test_key_pair() -> PartialKeypair {
     PartialKeypair { public, secret }
 }
 
-pub fn create_hypercore_hash(dir: String) -> Result<HypercoreHash, Error> {
-    let bitfield = hash_file(format!("{}/bitfield", dir))?;
-    let data = hash_file(format!("{}/data", dir))?;
-    let oplog = hash_file(format!("{}/oplog", dir))?;
-    let tree = hash_file(format!("{}/tree", dir))?;
-    Ok(HypercoreHash {
+pub fn create_hypercore_hash(dir: &str) -> HypercoreHash {
+    let bitfield = hash_file(format!("{}/bitfield", dir));
+    let data = hash_file(format!("{}/data", dir));
+    let oplog = hash_file(format!("{}/oplog", dir));
+    let tree = hash_file(format!("{}/tree", dir));
+    HypercoreHash {
         bitfield,
         data,
         oplog,
         tree,
-    })
+    }
 }
 
-pub fn hash_file(file: String) -> Result<String, Error> {
-    let mut hasher = Sha256::new();
-    let mut file = std::fs::File::open(file)?;
-
-    std::io::copy(&mut file, &mut hasher)?;
-    let hash_bytes = hasher.finalize();
-    Ok(format!("{:X}", hash_bytes))
+pub fn hash_file(file: String) -> Option<String> {
+    let path = std::path::Path::new(&file);
+    if !path.exists() {
+        None
+    } else {
+        let mut hasher = Sha256::new();
+        let mut file = std::fs::File::open(path).unwrap();
+        std::io::copy(&mut file, &mut hasher).unwrap();
+        let hash_bytes = hasher.finalize();
+        let hash = format!("{:X}", hash_bytes);
+        // Empty file has this hash, don't make a difference between missing and empty file. Rust
+        // is much easier and performant to write if the empty file is created.
+        if hash == "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855".to_string() {
+            None
+        } else {
+            Some(format!("{:X}", hash_bytes))
+        }
+    }
 }

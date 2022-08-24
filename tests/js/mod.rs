@@ -35,7 +35,7 @@ pub fn prepare_test_set(test_set: &str) -> String {
     path
 }
 
-pub fn js_step_1_create_hypercore(test_set: &str) {
+pub fn js_step_1_create(test_set: &str) {
     let status = Command::new("npm")
         .current_dir("tests/js")
         .args(&["run", "step1", test_set])

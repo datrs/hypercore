@@ -23,17 +23,25 @@ if (process.argv.length !== 4) {
 }
 
 if (process.argv[2] === '1') {
-    step1(process.argv[3]).then(result => {
+    step1Create(process.argv[3]).then(result => {
         console.log("step1 ready", result);
+    });
+} else if (process.argv[2] === '2'){
+    step2AppendHelloWorld(process.argv[3]).then(result => {
+        console.log("step2 ready", result);
     });
 } else {
     console.error(`Invalid test step {}`, process.argv[2]);
     process.exit(2);
 }
 
-async function step1(testSet) {
-    let core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+async function step1Create(testSet) {
+    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+    await core.close();
+};
+
+async function step2AppendHelloWorld(testSet) {
+    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
     await core.append(['Hello', 'World']);
     await core.close();
-    core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
 };

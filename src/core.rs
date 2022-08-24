@@ -1,6 +1,6 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-pub use crate::storage::{PartialKeypair, Storage};
+pub use crate::storage_v10::{PartialKeypair, Storage};
 
 use crate::{
     crypto::{generate_keypair, PublicKey, SecretKey},

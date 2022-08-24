@@ -8,4 +8,11 @@
 #[cfg(not(feature = "v10"))]
 pub use crate::feed::Feed;
 // pub use feed_builder::FeedBuilder;
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
+#[cfg(not(feature = "v10"))]
+pub use crate::common::Node;
+#[cfg(feature = "v10")]
+pub use crate::core::Hypercore;
+#[cfg(not(feature = "v10"))]
+pub use crate::storage::{NodeTrait, Storage, Store};
+#[cfg(feature = "v10")]
+pub use crate::storage_v10::{PartialKeypair, Storage, Store};
