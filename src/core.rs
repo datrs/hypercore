@@ -1,11 +1,8 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-pub use crate::storage_v10::{PartialKeypair, Storage};
+pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 
-use crate::{
-    crypto::{generate_keypair, PublicKey, SecretKey},
-    oplog::Oplog,
-};
+use crate::{crypto::generate_keypair, oplog::Oplog};
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -47,13 +44,16 @@ where
         mut storage: Storage<T>,
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>> {
-        let oplog_bytes = storage.read_oplog().await?;
-        let oplog = Oplog::open(key_pair.clone(), oplog_bytes);
+        let oplog_bytes = storage.read_all(Store::Oplog).await?;
+        let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes);
+        storage
+            .flush_slices(Store::Oplog, oplog_open_outcome.slices_to_flush)
+            .await?;
 
         Ok(Hypercore {
             key_pair,
             storage,
-            oplog,
+            oplog: oplog_open_outcome.oplog,
         })
     }
 }

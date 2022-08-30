@@ -39,9 +39,6 @@ async fn js_interop_rs_first() -> Result<()> {
     assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
     step_1_create(&work_dir).await?;
     assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
-    let _hash = create_hypercore_hash(&work_dir);
-    // TODO: Make this match, only data does right now
-    // assert_eq!(get_step_1_hash(), hash)
     Ok(())
 }
 
@@ -50,7 +47,7 @@ async fn step_1_create(work_dir: &str) -> Result<()> {
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, false).await?;
-    let hypercore = Hypercore::new_with_key_pair(storage, key_pair);
+    let _hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
 
     // let builder = FeedBuilder::new(public_key, storage);
     // let mut feed = builder.secret_key(secret_key).build().await.unwrap();

@@ -19,27 +19,26 @@ pub struct State {
 impl State {
     /// Create emtpy state
     pub fn new() -> State {
-        State { start: 0, end: 0 }
+        State::new_with_start_and_end(0, 0)
     }
 
     /// Create a state with an already known size.
     /// With this, you can/must skip the preencode step.
     pub fn new_with_size(size: usize) -> (State, Box<[u8]>) {
         (
-            State {
-                start: 0,
-                end: size,
-            },
+            State::new_with_start_and_end(0, size),
             vec![0; size].into_boxed_slice(),
         )
     }
 
+    /// Create a state with a start and end already known.
+    pub fn new_with_start_and_end(start: usize, end: usize) -> State {
+        State { start, end }
+    }
+
     /// Create a state from existing buffer.
     pub fn from_buffer(buffer: &Box<[u8]>) -> State {
-        State {
-            start: 0,
-            end: buffer.len(),
-        }
+        State::new_with_start_and_end(0, buffer.len())
     }
 
     /// After calling preencode(), this allocates the right size buffer to the heap.
@@ -205,9 +204,11 @@ impl State {
     /// Decode a byte buffer
     pub fn decode_buffer(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
         let len = self.decode_usize_var(buffer);
-        buffer[self.start..self.start + len]
+        let value = buffer[self.start..self.start + len]
             .to_vec()
-            .into_boxed_slice()
+            .into_boxed_slice();
+        self.start += value.len();
+        value
     }
 
     /// Preencode a string array

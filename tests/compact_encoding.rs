@@ -110,16 +110,22 @@ fn cenc_u64_as_u32() {
 
 #[test]
 fn cenc_buffer() {
-    let buf_value = vec![0xFF, 0x00].into_boxed_slice();
+    let buf_value_1 = vec![0xFF, 0x00].into_boxed_slice();
+    let buf_value_2 = vec![0xEE, 0x11, 0x22].into_boxed_slice();
     let mut enc_state = State::new();
-    enc_state.preencode(&buf_value);
+    enc_state.preencode(&buf_value_1);
+    enc_state.preencode(&buf_value_2);
     let mut buffer = enc_state.create_buffer();
     // 1 byte for length, 2 bytes for data
-    assert_eq!(buffer.len(), 3);
-    enc_state.encode(&buf_value, &mut buffer);
+    // 1 byte for length, 3 bytes for data
+    assert_eq!(buffer.len(), 1 + 2 + 1 + 3);
+    enc_state.encode(&buf_value_1, &mut buffer);
+    enc_state.encode(&buf_value_2, &mut buffer);
     let mut dec_state = State::from_buffer(&buffer);
-    let buf_value_ret: Box<[u8]> = dec_state.decode(&buffer);
-    assert_eq!(buf_value, buf_value_ret);
+    let buf_value_1_ret: Box<[u8]> = dec_state.decode(&buffer);
+    let buf_value_2_ret: Box<[u8]> = dec_state.decode(&buffer);
+    assert_eq!(buf_value_1, buf_value_1_ret);
+    assert_eq!(buf_value_2, buf_value_2_ret);
 }
 
 #[test]

@@ -36,7 +36,7 @@ if (process.argv[2] === '1') {
 }
 
 async function step1Create(testSet) {
-    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+    let core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
     await core.close();
 };
 

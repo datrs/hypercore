@@ -10,6 +10,8 @@ use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use crate::common::BufferSlice;
+
 /// Key pair where for read-only hypercores the secret key can also be missing.
 #[derive(Debug)]
 pub struct PartialKeypair {
@@ -87,11 +89,44 @@ where
         Ok(instance)
     }
 
-    /// Read the full oplog bytes.
-    pub async fn read_oplog(&mut self) -> Result<Box<[u8]>> {
-        let len = self.oplog.len().await.map_err(|e| anyhow!(e))?;
-        let buf = self.oplog.read(0, len).await.map_err(|e| anyhow!(e))?;
+    /// Read fully a store.
+    pub async fn read_all(&mut self, store: Store) -> Result<Box<[u8]>> {
+        let storage = self.get_random_access(store);
+        let len = storage.len().await.map_err(|e| anyhow!(e))?;
+        let buf = storage.read(0, len).await.map_err(|e| anyhow!(e))?;
         Ok(buf.into_boxed_slice())
+    }
+
+    /// Flushes slices. Either writes directly to a random access storage or truncates the storage
+    /// to the length of given index.
+    pub async fn flush_slices(&mut self, store: Store, slices: Vec<BufferSlice>) -> Result<()> {
+        let storage = self.get_random_access(store);
+        for slice in slices {
+            match slice.data {
+                Some(data) => {
+                    storage
+                        .write(slice.index, &data.to_vec())
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                }
+                None => {
+                    storage
+                        .truncate(slice.index)
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn get_random_access(&mut self, store: Store) -> &mut T {
+        match store {
+            Store::Tree => &mut self.tree,
+            Store::Data => &mut self.data,
+            Store::Bitfield => &mut self.bitfield,
+            Store::Oplog => &mut self.oplog,
+        }
     }
 }
 
@@ -108,8 +143,8 @@ impl Storage<RandomAccessMemory> {
 impl Storage<RandomAccessDisk> {
     /// New storage backed by a `RandomAccessDisk` instance.
     pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self> {
-        let storage = |storage: Store| {
-            let name = match storage {
+        let storage = |store: Store| {
+            let name = match store {
                 Store::Tree => "tree",
                 Store::Data => "data",
                 Store::Bitfield => "bitfield",
