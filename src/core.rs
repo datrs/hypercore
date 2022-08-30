@@ -22,6 +22,13 @@ where
     //     pub(crate) bitfield: Bitfield,
 }
 
+/// Response from append, matches that of the Javascript result
+#[derive(Debug)]
+pub struct AppendOutcome {
+    pub length: u64,
+    pub byte_length: u64,
+}
+
 impl<T> Hypercore<T>
 where
     T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
@@ -54,6 +61,14 @@ where
             key_pair,
             storage,
             oplog: oplog_open_outcome.oplog,
+        })
+    }
+
+    /// Appends a given batch of bytes to the hypercore.
+    pub async fn append_batch(&mut self, batch: Vec<&[u8]>) -> Result<AppendOutcome> {
+        Ok(AppendOutcome {
+            length: 0,
+            byte_length: 0,
         })
     }
 }

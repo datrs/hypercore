@@ -6,7 +6,7 @@ use anyhow::Result;
 use common::{create_hypercore_hash, get_test_key_pair};
 #[cfg(feature = "v10")]
 use hypercore::{Hypercore, Storage};
-use js::{cleanup, install, js_step_1_create, js_step_2_append_hello_world, prepare_test_set};
+use js::{cleanup, install, js_run_step, prepare_test_set};
 
 const TEST_SET_JS_FIRST: &str = "jsfirst";
 const TEST_SET_RS_FIRST: &str = "rsfirst";
@@ -20,14 +20,17 @@ fn init() {
     });
 }
 
-#[test]
+#[async_std::test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
-fn js_interop_js_first() {
+async fn js_interop_js_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_JS_FIRST);
     assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
-    js_step_1_create(TEST_SET_JS_FIRST);
-    assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir))
+    js_run_step(1, TEST_SET_JS_FIRST);
+    assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
+    step_2_append_hello_world(&work_dir).await?;
+    assert_eq!(get_step_2_hash(), create_hypercore_hash(&work_dir));
+    Ok(())
 }
 
 #[async_std::test]
@@ -39,7 +42,7 @@ async fn js_interop_rs_first() -> Result<()> {
     assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
     step_1_create(&work_dir).await?;
     assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
-    js_step_2_append_hello_world(TEST_SET_RS_FIRST);
+    js_run_step(2, TEST_SET_RS_FIRST);
     assert_eq!(get_step_2_hash(), create_hypercore_hash(&work_dir));
     Ok(())
 }
@@ -49,14 +52,17 @@ async fn step_1_create(work_dir: &str) -> Result<()> {
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, false).await?;
-    let _hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
+    Hypercore::new_with_key_pair(storage, key_pair).await?;
+    Ok(())
+}
 
-    // let builder = FeedBuilder::new(public_key, storage);
-    // let mut feed = builder.secret_key(secret_key).build().await.unwrap();
-
-    // feed.append(b"Hello").await.unwrap();
-    // feed.append(b"World").await.unwrap();
-    // drop(feed);
+#[cfg(feature = "v10")]
+async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
+    let path = Path::new(work_dir).to_owned();
+    let key_pair = get_test_key_pair();
+    let storage = Storage::new_disk(&path, false).await?;
+    let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
+    let _append_outcome = hypercore.append_batch(vec![b"Hello", b"World"]).await?;
     Ok(())
 }
 

@@ -35,28 +35,16 @@ pub fn prepare_test_set(test_set: &str) -> String {
     path
 }
 
-pub fn js_step_1_create(test_set: &str) {
+pub fn js_run_step(step: u8, test_set: &str) {
     let status = Command::new("npm")
         .current_dir("tests/js")
-        .args(&["run", "step1", test_set])
+        .args(&["run", "step", &step.to_string(), test_set])
         .status()
         .expect("Unable to run npm run");
     assert_eq!(
         Some(0),
         status.code(),
-        "node step 1 did not run successfully"
-    );
-}
-
-pub fn js_step_2_append_hello_world(test_set: &str) {
-    let status = Command::new("npm")
-        .current_dir("tests/js")
-        .args(&["run", "step2", test_set])
-        .status()
-        .expect("Unable to run npm run");
-    assert_eq!(
-        Some(0),
-        status.code(),
-        "node step 2 did not run successfully"
+        "node step {} did not run successfully",
+        step
     );
 }
