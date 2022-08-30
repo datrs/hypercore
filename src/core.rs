@@ -52,7 +52,7 @@ where
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>> {
         let oplog_bytes = storage.read_all(Store::Oplog).await?;
-        let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes);
+        let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
             .flush_slices(Store::Oplog, oplog_open_outcome.slices_to_flush)
             .await?;

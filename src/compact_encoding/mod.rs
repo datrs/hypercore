@@ -48,7 +48,7 @@ impl State {
     }
 
     /// Encode u32 to 4 LE bytes.
-    pub fn encode_uint32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
+    pub fn encode_u32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
         self.encode_uint32_bytes(&uint.to_le_bytes(), buffer);
     }
 
@@ -109,7 +109,7 @@ impl State {
         } else {
             buffer[self.start] = U32_SIGNIFIER;
             self.start += 1;
-            self.encode_uint32(*value, buffer);
+            self.encode_u32(*value, buffer);
         }
     }
 

@@ -1,10 +1,9 @@
-use std::convert::TryInto;
-use std::iter::Map;
-
 use crate::common::BufferSlice;
 use crate::compact_encoding::{CompactEncoding, State};
 use crate::crypto::{PublicKey, SecretKey};
 use crate::PartialKeypair;
+use anyhow::{anyhow, Result};
+use std::convert::{TryFrom, TryInto};
 
 /// Oplog header.
 #[derive(Debug)]
@@ -282,98 +281,108 @@ enum OplogSlot {
     Entries = 4096 * 2,
 }
 
+#[derive(Debug)]
+struct ValidateLeaderOutcome {
+    state: State,
+    header_bit: bool,
+    partial_bit: bool,
+}
+
 // The first set of bits is [1, 0], see `get_next_header_oplog_slot_and_bit_value` for how
 // they change.
 const INITIAL_HEADER_BITS: [bool; 2] = [true, false];
 
 impl Oplog {
-    /// Opens an new Oplog from given key pair and existing content as a byte buffer
+    /// Opens an existing Oplog from existing byte buffer or creates a new one.
     #[allow(dead_code)]
-    pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> OplogOpenOutcome {
-        if existing.len() == 0 {
+    pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> Result<OplogOpenOutcome> {
+        let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
+        let h2_outcome = Self::validate_leader(OplogSlot::SecondHeader as usize, &existing)?;
+        if let Some(h1_outcome) = h1_outcome {
+            let header_bits: [bool; 2] = if let Some(h2_outcome) = h2_outcome {
+                [h1_outcome.header_bit, h2_outcome.header_bit]
+            } else {
+                // If the bits match, the next is saved to the second slot, see
+                // `get_next_header_oplog_slot_and_bit_value` for details.
+                [h1_outcome.header_bit, h1_outcome.header_bit]
+            };
             let oplog = Oplog {
-                header_bits: INITIAL_HEADER_BITS,
+                header_bits,
                 entries_len: 0,
             };
-
-            // The first 8 bytes will be filled with `prepend_crc32_and_len_with_bits`.
-            let data_start_index: usize = 8;
-            let mut state = State::new_with_start_and_end(data_start_index, data_start_index);
-
-            // Get the right slot and header bit
-            let (oplog_slot, header_bit) =
-                Oplog::get_next_header_oplog_slot_and_bit_value(&oplog.header_bits);
-
-            // Preencode a new header
-            let header = Header::new(key_pair);
-            state.preencode(&header);
-
-            // Create a buffer for the needed data
-            let mut buffer = state.create_buffer();
-
-            // Encode the header
-            state.encode(&header, &mut buffer);
-
-            // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
-            Oplog::prepend_crc32_and_len_with_bits(
-                state.end - data_start_index,
-                header_bit,
-                false,
-                &mut state,
-                &mut buffer,
-            );
-
-            // JS has this:
-            //
-            // this.flushed = false
-            // this._headers[0] = 1
-            // this._headers[1] = 0
-            //
-            // const state = { start: 8, end: 8, buffer: null }
-            // const i = this._headers[0] === this._headers[1] ? 1 : 0
-            // const headerBit = (this._headers[i] + 1) & 1
-            // this.headerEncoding.preencode(state, header)
-            // state.buffer = b4a.allocUnsafe(state.end)
-            // this.headerEncoding.encode(state, header)
-            // const len = state.end - 8;
-            // const partialBit = 0;
-            //
-            // // add the uint header (frame length and flush info)
-            // state.start = state.start - len - 4
-            // cenc.uint32.encode(state, (len << 2) | headerBit | partialBit)
-            // // crc32 the length + header-bit + content and prefix it
-            // state.start -= 8
-            // cenc.uint32.encode(state, crc32(state.buffer.subarray(state.start + 4, state.start + 8 + len)))
-            // state.start += len + 4
-            //
-            // this.storage.write(i === 0 ? 0 : 4096, buffer)
-            // this.storage.truncate(4096 * 2)
-            // this._headers[i] = headerBit
-            // this.byteLength = 0
-            // this.length = 0
-            // this.flushed = true
-
-            // TODO: Things will need to be extracted out of this to be reusable elsewhere, but
-            // let's try to get the first save of oplog have identical bytes to JS first.
-
-            // The oplog is always truncated to the minimum byte size, which is right after
-            // the all of the entries in the oplog finish.
-            let truncate_index = OplogSlot::Entries as u64 + oplog.entries_len;
-            OplogOpenOutcome {
+            Ok(OplogOpenOutcome {
                 oplog,
-                slices_to_flush: vec![
-                    BufferSlice {
-                        index: oplog_slot as u64,
-                        data: Some(buffer),
-                    },
-                    BufferSlice {
-                        index: truncate_index,
-                        data: None,
-                    },
-                ],
-            }
+                slices_to_flush: vec![],
+            })
+        } else if let Some(h2_outcome) = h2_outcome {
+            // This shouldn't happen because the first header is saved to the first slot
+            // but Javascript supports this so we should too.
+
+            // When the bits don't match, the next is saved to the first slot, see
+            // `get_next_header_oplog_slot_and_bit_value` for details.
+            let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
+            let oplog = Oplog {
+                header_bits,
+                entries_len: 0,
+            };
+            Ok(OplogOpenOutcome {
+                oplog,
+                slices_to_flush: vec![],
+            })
         } else {
-            unimplemented!("Reading an exising oplog is not supported yet");
+            // There is nothing in the oplog, start from new.
+            Ok(Self::new(key_pair))
+        }
+    }
+
+    fn new(key_pair: PartialKeypair) -> OplogOpenOutcome {
+        let oplog = Oplog {
+            header_bits: INITIAL_HEADER_BITS,
+            entries_len: 0,
+        };
+
+        // The first 8 bytes will be filled with `prepend_leader`.
+        let data_start_index: usize = 8;
+        let mut state = State::new_with_start_and_end(data_start_index, data_start_index);
+
+        // Get the right slot and header bit
+        let (oplog_slot, header_bit) =
+            Oplog::get_next_header_oplog_slot_and_bit_value(&oplog.header_bits);
+
+        // Preencode a new header
+        let header = Header::new(key_pair);
+        state.preencode(&header);
+
+        // Create a buffer for the needed data
+        let mut buffer = state.create_buffer();
+
+        // Encode the header
+        state.encode(&header, &mut buffer);
+
+        // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
+        Self::prepend_leader(
+            state.end - data_start_index,
+            header_bit,
+            false,
+            &mut state,
+            &mut buffer,
+        );
+
+        // The oplog is always truncated to the minimum byte size, which is right after
+        // the all of the entries in the oplog finish.
+        let truncate_index = OplogSlot::Entries as u64 + oplog.entries_len;
+        OplogOpenOutcome {
+            oplog,
+            slices_to_flush: vec![
+                BufferSlice {
+                    index: oplog_slot as u64,
+                    data: Some(buffer),
+                },
+                BufferSlice {
+                    index: truncate_index,
+                    data: None,
+                },
+            ],
         }
     }
 
@@ -382,7 +391,7 @@ impl Oplog {
     /// wrap the actual header, then the header bit relevant for saving) and 1 bit that tells if
     /// the written batch is only partially finished. For this to work, the state given must have
     /// 8 bytes in reserve in the beginning, so that state.start can be set back 8 bytes.
-    fn prepend_crc32_and_len_with_bits(
+    fn prepend_leader(
         len: usize,
         header_bit: bool,
         partial_bit: bool,
@@ -395,14 +404,49 @@ impl Oplog {
         let len_u32: u32 = len.try_into().unwrap();
         let partial_bit: u32 = if partial_bit { 2 } else { 0 };
         let header_bit: u32 = if header_bit { 1 } else { 0 };
-        let value: u32 = (len_u32 << 2) | header_bit | partial_bit;
-        state.encode_uint32(value, buffer);
+        let combined: u32 = (len_u32 << 2) | header_bit | partial_bit;
+        state.encode_u32(combined, buffer);
 
         // Before that, is a 4 byte CRC32 that is a checksum of the above encoded 4 bytes and the
         // content.
         state.start = state.start - 8;
         let checksum = crc32fast::hash(&buffer[state.start + 4..state.start + 8 + len]);
-        state.encode_uint32(checksum, buffer);
+        state.encode_u32(checksum, buffer);
+    }
+
+    /// Validates that leader at given index is valid, and returns header and partial bits and
+    /// `State` for the header/entry that the leader was for.
+    fn validate_leader(index: usize, buffer: &Box<[u8]>) -> Result<Option<ValidateLeaderOutcome>> {
+        if buffer.len() < index + 8 {
+            return Ok(None);
+        }
+        let mut state = State::new_with_start_and_end(index, buffer.len());
+        let stored_checksum: u32 = state.decode_u32(buffer);
+        let combined: u32 = state.decode_u32(buffer);
+        let len = usize::try_from(combined >> 2)
+            .expect("Attempted converting to a 32 bit usize on below 32 bit system");
+
+        // NB: In the Javascript version IIUC zero length is caught only with a mismatch
+        // of checksums, which is silently interpreted to only mean "no value". That doesn't sound good:
+        // better to throw an error on mismatch and let the caller at least log the problem.
+        if len == 0 || state.end - state.start < len {
+            return Ok(None);
+        }
+        let header_bit = combined & 1 == 1;
+        let partial_bit = combined & 2 == 2;
+
+        state.start = index + 8;
+        state.end = state.start + len;
+        let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end]);
+        if calculated_checksum != stored_checksum {
+            return Err(anyhow!("Checksums do not match"));
+        };
+
+        Ok(Some(ValidateLeaderOutcome {
+            header_bit,
+            partial_bit,
+            state,
+        }))
     }
 
     /// Based on given header_bits, determines if saving the header should be done to the first
