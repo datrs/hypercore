@@ -6,7 +6,7 @@ use anyhow::Result;
 use common::{create_hypercore_hash, get_test_key_pair};
 #[cfg(feature = "v10")]
 use hypercore::{Hypercore, Storage};
-use js::{cleanup, install, js_step_1_create, prepare_test_set};
+use js::{cleanup, install, js_step_1_create, js_step_2_append_hello_world, prepare_test_set};
 
 const TEST_SET_JS_FIRST: &str = "jsfirst";
 const TEST_SET_RS_FIRST: &str = "rsfirst";
@@ -39,6 +39,8 @@ async fn js_interop_rs_first() -> Result<()> {
     assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
     step_1_create(&work_dir).await?;
     assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
+    js_step_2_append_hello_world(TEST_SET_RS_FIRST);
+    assert_eq!(get_step_2_hash(), create_hypercore_hash(&work_dir));
     Ok(())
 }
 

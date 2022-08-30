@@ -2,7 +2,8 @@
     "name": "hypercore-js-interop-tests",
     "version": "0.0.1",
     "scripts": {
-        "step1": "node interop.js 1"
+        "step1": "node interop.js 1",
+        "step2": "node interop.js 2"
     },
     "dependencies": {
         "hypercore": "file:../../../hypercore-js"
