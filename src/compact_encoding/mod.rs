@@ -47,11 +47,6 @@ impl State {
         vec![0; self.end].into_boxed_slice()
     }
 
-    /// Encode u32 to 4 LE bytes.
-    pub fn encode_u32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
-        self.encode_uint32_bytes(&uint.to_le_bytes(), buffer);
-    }
-
     /// Preencode a string slice
     pub fn preencode_str(&mut self, value: &str) {
         self.preencode_usize_var(&value.len());
@@ -113,6 +108,11 @@ impl State {
         }
     }
 
+    /// Encode u32 to 4 LE bytes.
+    pub fn encode_u32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
+        self.encode_uint32_bytes(&uint.to_le_bytes(), buffer);
+    }
+
     /// Decode a variable length u32
     pub fn decode_u32_var(&mut self, buffer: &Box<[u8]>) -> u32 {
         let first = buffer[self.start];
@@ -155,6 +155,11 @@ impl State {
             self.start += 1;
             self.encode_uint64_bytes(&value.to_le_bytes(), buffer);
         }
+    }
+
+    /// Encode u64 to 8 LE bytes.
+    pub fn encode_u64(&mut self, uint: u64, buffer: &mut Box<[u8]>) {
+        self.encode_uint64_bytes(&uint.to_le_bytes(), buffer);
     }
 
     /// Decode a variable length u64

@@ -1,6 +1,7 @@
 pub use blake2_rfc::blake2b::Blake2bResult;
 
 use crate::common::Node;
+use crate::compact_encoding::{CompactEncoding, State};
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 use ed25519_dalek::PublicKey;
@@ -88,6 +89,68 @@ impl Hash {
     /// Returns a byte slice of this `Hash`'s contents.
     pub fn as_bytes(&self) -> &[u8] {
         self.hash.as_bytes()
+    }
+
+    // NB: The following methods mirror Javascript naming in
+    // https://github.com/mafintosh/hypercore-crypto/blob/master/index.js
+    // for v10 that use LE bytes.
+
+    /// Hash data
+    pub fn data(data: &[u8]) -> Self {
+        let (mut state, mut size) = State::new_with_size(8);
+        state.encode_u64(data.len() as u64, &mut size);
+
+        let mut hasher = Blake2b::new(32);
+        hasher.update(&LEAF_TYPE);
+        hasher.update(&size);
+        hasher.update(data);
+
+        Self {
+            hash: hasher.finalize(),
+        }
+    }
+
+    /// Hash a parent
+    pub fn parent(left: &Node, right: &Node) -> Self {
+        let (node1, node2) = if left.index <= right.index {
+            (left, right)
+        } else {
+            (right, left)
+        };
+
+        let (mut state, mut size) = State::new_with_size(8);
+        state.encode_u64((node1.length + node2.length) as u64, &mut size);
+
+        let mut hasher = Blake2b::new(32);
+        hasher.update(&PARENT_TYPE);
+        hasher.update(&size);
+        hasher.update(node1.hash());
+        hasher.update(node2.hash());
+
+        Self {
+            hash: hasher.finalize(),
+        }
+    }
+
+    /// Hash a tree
+    pub fn tree(roots: &[impl AsRef<Node>]) -> Self {
+        let mut hasher = Blake2b::new(32);
+        hasher.update(&ROOT_TYPE);
+
+        for node in roots {
+            let node = node.as_ref();
+            let (mut state, mut buffer) = State::new_with_size(16);
+            state.encode_u64(node.index() as u64, &mut buffer);
+            state.encode_u64(node.len() as u64, &mut buffer);
+
+            hasher.update(node.hash());
+            hasher.update(&buffer[..8]);
+            hasher.update(&buffer[8..]);
+        }
+
+        Self {
+            hash: hasher.finalize(),
+        }
     }
 }
 
@@ -185,5 +248,40 @@ mod tests {
         assert_eq!(Hash::for_discovery_key(public_key).as_bytes(), expected);
 
         Ok(())
+    }
+
+    // The following uses test data from
+    // https://github.com/mafintosh/hypercore-crypto/blob/master/test.js
+
+    #[test]
+    fn hash_leaf() {
+        let data = b"hello world";
+        check_hash(
+            Hash::data(data),
+            "9f1b578fd57a4df015493d2886aec9600eef913c3bb009768c7f0fb875996308",
+        );
+    }
+
+    #[test]
+    fn hash_parent() {
+        let data = b"hello world";
+        let len = data.len() as u64;
+        let node1 = Node::new(0, Hash::data(data).as_bytes().to_vec(), len);
+        let node2 = Node::new(1, Hash::data(data).as_bytes().to_vec(), len);
+        check_hash(
+            Hash::parent(&node1, &node2),
+            "3ad0c9b58b771d1b7707e1430f37c23a23dd46e0c7c3ab9c16f79d25f7c36804",
+        );
+    }
+
+    #[test]
+    fn hash_tree() {
+        let hash: [u8; 32] = [0; 32];
+        let node1 = Node::new(3, hash.to_vec(), 11);
+        let node2 = Node::new(9, hash.to_vec(), 2);
+        check_hash(
+            Hash::tree(&[&node1, &node2]),
+            "0e576a56b478cddb6ffebab8c494532b6de009466b2e9f7af9143fc54b9eaa36",
+        );
     }
 }
