@@ -470,7 +470,7 @@ impl Oplog {
         // and which newer. The bits indicate the header slot index in this way:
         //
         // [true, false] => [false, false] => [false, true] => [true, true] => [true, false] ...
-        //      0        =>        1       =>       0       =>      1       =>      0
+        //      First    =>     Second     =>     First     =>    Second    =>    First
         if header_bits[0] != header_bits[1] {
             // First slot
             (OplogSlot::FirstHeader, !header_bits[0])

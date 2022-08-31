@@ -66,6 +66,11 @@ where
 
     /// Appends a given batch of bytes to the hypercore.
     pub async fn append_batch(&mut self, batch: Vec<&[u8]>) -> Result<AppendOutcome> {
+        let secret_key = match &self.key_pair.secret {
+            Some(key) => key,
+            None => anyhow::bail!("No secret key, cannot append."),
+        };
+
         Ok(AppendOutcome {
             length: 0,
             byte_length: 0,
