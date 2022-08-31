@@ -7,14 +7,14 @@ use std::convert::{TryFrom, TryInto};
 
 /// Oplog header.
 #[derive(Debug)]
-struct Header {
-    types: HeaderTypes,
+pub struct Header {
+    pub(crate) types: HeaderTypes,
     // TODO: This is a keyValueArray in JS
-    user_data: Vec<String>,
-    tree: HeaderTree,
-    signer: PartialKeypair,
-    hints: HeaderHints,
-    contiguous_length: u64,
+    pub(crate) user_data: Vec<String>,
+    pub(crate) tree: HeaderTree,
+    pub(crate) signer: PartialKeypair,
+    pub(crate) hints: HeaderHints,
+    pub(crate) contiguous_length: u64,
 }
 
 impl Header {
@@ -50,10 +50,10 @@ impl Header {
 
 /// Oplog header types
 #[derive(Debug, PartialEq)]
-struct HeaderTypes {
-    tree: String,
-    bitfield: String,
-    signer: String,
+pub struct HeaderTypes {
+    pub(crate) tree: String,
+    pub(crate) bitfield: String,
+    pub(crate) signer: String,
 }
 impl HeaderTypes {
     pub fn new() -> HeaderTypes {
@@ -92,11 +92,11 @@ impl CompactEncoding<HeaderTypes> for State {
 
 /// Oplog header tree
 #[derive(Debug, PartialEq)]
-struct HeaderTree {
-    fork: u64,
-    length: u64,
-    root_hash: Box<[u8]>,
-    signature: Box<[u8]>,
+pub struct HeaderTree {
+    pub(crate) fork: u64,
+    pub(crate) length: u64,
+    pub(crate) root_hash: Box<[u8]>,
+    pub(crate) signature: Box<[u8]>,
 }
 
 impl HeaderTree {
@@ -191,8 +191,8 @@ impl CompactEncoding<PartialKeypair> for State {
 
 /// Oplog header hints
 #[derive(Debug)]
-struct HeaderHints {
-    reorgs: Vec<String>,
+pub struct HeaderHints {
+    pub(crate) reorgs: Vec<String>,
 }
 
 impl CompactEncoding<HeaderHints> for State {
@@ -272,6 +272,7 @@ pub struct Oplog {
 #[derive(Debug)]
 pub struct OplogOpenOutcome {
     pub oplog: Oplog,
+    pub header: Header,
     pub slices_to_flush: Vec<BufferSlice>,
 }
 
@@ -296,30 +297,40 @@ impl Oplog {
     /// Opens an existing Oplog from existing byte buffer or creates a new one.
     #[allow(dead_code)]
     pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> Result<OplogOpenOutcome> {
+        // First read and validate both headers stored in the existing oplog
         let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
         let h2_outcome = Self::validate_leader(OplogSlot::SecondHeader as usize, &existing)?;
-        if let Some(h1_outcome) = h1_outcome {
-            let header_bits: [bool; 2] = if let Some(h2_outcome) = h2_outcome {
-                [h1_outcome.header_bit, h2_outcome.header_bit]
-            } else {
-                // If the bits match, the next is saved to the second slot, see
-                // `get_next_header_oplog_slot_and_bit_value` for details.
-                [h1_outcome.header_bit, h1_outcome.header_bit]
-            };
+
+        // Depending on what is stored, the state needs to be set accordingly.
+        // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
+        if let Some(mut h1_outcome) = h1_outcome {
+            let (header, header_bits): (Header, [bool; 2]) =
+                if let Some(mut h2_outcome) = h2_outcome {
+                    let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
+                    let header: Header = if header_bits[0] == header_bits[1] {
+                        h1_outcome.state.decode(&existing)
+                    } else {
+                        h2_outcome.state.decode(&existing)
+                    };
+                    (header, header_bits)
+                } else {
+                    (
+                        h1_outcome.state.decode(&existing),
+                        [h1_outcome.header_bit, h1_outcome.header_bit],
+                    )
+                };
             let oplog = Oplog {
                 header_bits,
                 entries_len: 0,
             };
             Ok(OplogOpenOutcome {
                 oplog,
+                header,
                 slices_to_flush: vec![],
             })
-        } else if let Some(h2_outcome) = h2_outcome {
+        } else if let Some(mut h2_outcome) = h2_outcome {
             // This shouldn't happen because the first header is saved to the first slot
             // but Javascript supports this so we should too.
-
-            // When the bits don't match, the next is saved to the first slot, see
-            // `get_next_header_oplog_slot_and_bit_value` for details.
             let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
             let oplog = Oplog {
                 header_bits,
@@ -327,6 +338,7 @@ impl Oplog {
             };
             Ok(OplogOpenOutcome {
                 oplog,
+                header: h2_outcome.state.decode(&existing),
                 slices_to_flush: vec![],
             })
         } else {
@@ -373,6 +385,7 @@ impl Oplog {
         let truncate_index = OplogSlot::Entries as u64 + oplog.entries_len;
         OplogOpenOutcome {
             oplog,
+            header,
             slices_to_flush: vec![
                 BufferSlice {
                     index: oplog_slot as u64,
