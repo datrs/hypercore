@@ -2,7 +2,7 @@
 
 pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 
-use crate::{crypto::generate_keypair, oplog::Oplog};
+use crate::{crypto::generate_keypair, oplog::Oplog, tree::MerkleTree};
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -16,8 +16,7 @@ where
     pub(crate) key_pair: PartialKeypair,
     pub(crate) storage: Storage<T>,
     pub(crate) oplog: Oplog,
-    //     /// Merkle tree instance.
-    //     pub(crate) tree: Merkle,
+    pub(crate) tree: MerkleTree,
     //     /// Bitfield to keep track of which data we own.
     //     pub(crate) bitfield: Bitfield,
 }
@@ -51,16 +50,24 @@ where
         mut storage: Storage<T>,
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>> {
+        // Open/create oplog
         let oplog_bytes = storage.read_all(Store::Oplog).await?;
         let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
             .flush_slices(Store::Oplog, oplog_open_outcome.slices_to_flush)
             .await?;
 
+        // Open/create tree
+        let header_tree_length = oplog_open_outcome.header.tree.length;
+        let slice_instructions = MerkleTree::get_slice_instructions_to_read(header_tree_length);
+        let slices = storage.read_slices(Store::Tree, slice_instructions).await?;
+        let tree = MerkleTree::open(header_tree_length, slices)?;
+
         Ok(Hypercore {
             key_pair,
             storage,
             oplog: oplog_open_outcome.oplog,
+            tree,
         })
     }
 

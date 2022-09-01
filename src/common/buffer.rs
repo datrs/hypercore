@@ -6,3 +6,10 @@ pub struct BufferSlice {
     pub(crate) index: u64,
     pub(crate) data: Option<Box<[u8]>>,
 }
+
+/// Represents an instruction to read a known buffer.
+#[derive(Debug)]
+pub struct BufferSliceInstruction {
+    pub(crate) index: u64,
+    pub(crate) len: u64,
+}

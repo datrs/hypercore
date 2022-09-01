@@ -273,7 +273,7 @@ pub struct Oplog {
 pub struct OplogOpenOutcome {
     pub oplog: Oplog,
     pub header: Header,
-    pub slices_to_flush: Vec<BufferSlice>,
+    pub slices_to_flush: Box<[BufferSlice]>,
 }
 
 enum OplogSlot {
@@ -326,7 +326,7 @@ impl Oplog {
             Ok(OplogOpenOutcome {
                 oplog,
                 header,
-                slices_to_flush: vec![],
+                slices_to_flush: Box::new([]),
             })
         } else if let Some(mut h2_outcome) = h2_outcome {
             // This shouldn't happen because the first header is saved to the first slot
@@ -339,7 +339,7 @@ impl Oplog {
             Ok(OplogOpenOutcome {
                 oplog,
                 header: h2_outcome.state.decode(&existing),
-                slices_to_flush: vec![],
+                slices_to_flush: Box::new([]),
             })
         } else {
             // There is nothing in the oplog, start from new.
@@ -395,7 +395,8 @@ impl Oplog {
                     index: truncate_index,
                     data: None,
                 },
-            ],
+            ]
+            .into_boxed_slice(),
         }
     }
 

@@ -61,6 +61,8 @@ mod replicate;
 mod storage;
 #[cfg(feature = "v10")]
 mod storage_v10;
+#[cfg(feature = "v10")]
+mod tree;
 
 pub use crate::common::Node;
 #[cfg(feature = "v10")]

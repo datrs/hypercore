@@ -10,7 +10,7 @@ use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use crate::common::BufferSlice;
+use crate::common::{BufferSlice, BufferSliceInstruction};
 
 /// Key pair where for read-only hypercores the secret key can also be missing.
 #[derive(Debug)]
@@ -97,12 +97,34 @@ where
         Ok(buf.into_boxed_slice())
     }
 
+    /// Read slices from a store based on given instructions
+    pub async fn read_slices(
+        &mut self,
+        store: Store,
+        slice_instructions: Box<[BufferSliceInstruction]>,
+    ) -> Result<Box<[BufferSlice]>> {
+        let storage = self.get_random_access(store);
+
+        let mut slices: Vec<BufferSlice> = Vec::with_capacity(slice_instructions.len());
+        for instruction in slice_instructions.iter() {
+            let buf = storage
+                .read(instruction.index, instruction.len)
+                .await
+                .map_err(|e| anyhow!(e))?;
+            slices.push(BufferSlice {
+                index: instruction.index,
+                data: Some(buf.into_boxed_slice()),
+            });
+        }
+        Ok(slices.into_boxed_slice())
+    }
+
     /// Flushes slices. Either writes directly to a random access storage or truncates the storage
     /// to the length of given index.
-    pub async fn flush_slices(&mut self, store: Store, slices: Vec<BufferSlice>) -> Result<()> {
+    pub async fn flush_slices(&mut self, store: Store, slices: Box<[BufferSlice]>) -> Result<()> {
         let storage = self.get_random_access(store);
-        for slice in slices {
-            match slice.data {
+        for slice in slices.iter() {
+            match &slice.data {
                 Some(data) => {
                     storage
                         .write(slice.index, &data.to_vec())
