@@ -199,7 +199,7 @@ impl State {
     }
 
     /// Encode a byte buffer
-    pub fn encode_buffer(&mut self, value: &Box<[u8]>, buffer: &mut [u8]) {
+    pub fn encode_buffer(&mut self, value: &[u8], buffer: &mut [u8]) {
         let len = value.len();
         self.encode_usize_var(&len, buffer);
         buffer[self.start..self.start + len].copy_from_slice(value);
