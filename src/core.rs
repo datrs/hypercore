@@ -58,7 +58,7 @@ where
             .await?;
 
         // Open/create tree
-        let header_tree_length = oplog_open_outcome.header.tree.length;
+        let header_tree_length = &oplog_open_outcome.header.tree.length;
         let slice_instructions = MerkleTree::get_slice_instructions_to_read(header_tree_length);
         let slices = storage.read_slices(Store::Tree, slice_instructions).await?;
         let tree = MerkleTree::open(header_tree_length, slices)?;

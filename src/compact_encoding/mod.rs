@@ -37,7 +37,7 @@ impl State {
     }
 
     /// Create a state from existing buffer.
-    pub fn from_buffer(buffer: &Box<[u8]>) -> State {
+    pub fn from_buffer(buffer: &[u8]) -> State {
         State::new_with_start_and_end(0, buffer.len())
     }
 
@@ -62,7 +62,7 @@ impl State {
     }
 
     /// Decode a String
-    pub fn decode_string(&mut self, buffer: &Box<[u8]>) -> String {
+    pub fn decode_string(&mut self, buffer: &[u8]) -> String {
         let len = self.decode_usize_var(buffer);
         let value = std::str::from_utf8(&buffer[self.start..self.start + len])
             .expect("string is invalid UTF-8");
@@ -84,7 +84,7 @@ impl State {
     }
 
     /// Decode a fixed length u16
-    pub fn decode_u16(&mut self, buffer: &Box<[u8]>) -> u16 {
+    pub fn decode_u16(&mut self, buffer: &[u8]) -> u16 {
         let value: u16 =
             ((buffer[self.start] as u16) << 0) | ((buffer[self.start + 1] as u16) << 8);
         self.start += 2;
@@ -114,7 +114,7 @@ impl State {
     }
 
     /// Decode a variable length u32
-    pub fn decode_u32_var(&mut self, buffer: &Box<[u8]>) -> u32 {
+    pub fn decode_u32_var(&mut self, buffer: &[u8]) -> u32 {
         let first = buffer[self.start];
         self.start += 1;
         if first < U16_SIGNIFIER {
@@ -127,7 +127,7 @@ impl State {
     }
 
     /// Decode a fixed length u32
-    pub fn decode_u32(&mut self, buffer: &Box<[u8]>) -> u32 {
+    pub fn decode_u32(&mut self, buffer: &[u8]) -> u32 {
         let value: u32 = ((buffer[self.start] as u32) << 0)
             | ((buffer[self.start + 1] as u32) << 8)
             | ((buffer[self.start + 2] as u32) << 16)
@@ -163,7 +163,7 @@ impl State {
     }
 
     /// Decode a variable length u64
-    pub fn decode_u64_var(&mut self, buffer: &Box<[u8]>) -> u64 {
+    pub fn decode_u64_var(&mut self, buffer: &[u8]) -> u64 {
         let first = buffer[self.start];
         self.start += 1;
         if first < U16_SIGNIFIER {
@@ -178,7 +178,7 @@ impl State {
     }
 
     /// Decode a fixed length u64
-    pub fn decode_u64(&mut self, buffer: &Box<[u8]>) -> u64 {
+    pub fn decode_u64(&mut self, buffer: &[u8]) -> u64 {
         let value: u64 = ((buffer[self.start] as u64) << 0)
             | ((buffer[self.start + 1] as u64) << 8)
             | ((buffer[self.start + 2] as u64) << 16)
@@ -207,7 +207,7 @@ impl State {
     }
 
     /// Decode a byte buffer
-    pub fn decode_buffer(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
+    pub fn decode_buffer(&mut self, buffer: &[u8]) -> Box<[u8]> {
         let len = self.decode_usize_var(buffer);
         let value = buffer[self.start..self.start + len]
             .to_vec()
@@ -235,7 +235,7 @@ impl State {
     }
 
     /// Decode a String array
-    pub fn decode_string_array(&mut self, buffer: &Box<[u8]>) -> Vec<String> {
+    pub fn decode_string_array(&mut self, buffer: &[u8]) -> Vec<String> {
         let len = self.decode_usize_var(buffer);
         let mut value = Vec::with_capacity(len);
         for _ in 0..len {
@@ -299,7 +299,7 @@ impl State {
         }
     }
 
-    fn decode_usize_var(&mut self, buffer: &Box<[u8]>) -> usize {
+    fn decode_usize_var(&mut self, buffer: &[u8]) -> usize {
         let first = buffer[self.start];
         self.start += 1;
         // NB: the from_le_bytes needs a [u8; 2] and that can't be efficiently
@@ -330,7 +330,7 @@ where
     fn encode(&mut self, value: &T, buffer: &mut Box<[u8]>);
 
     /// Decode
-    fn decode(&mut self, buffer: &Box<[u8]>) -> T;
+    fn decode(&mut self, buffer: &[u8]) -> T;
 }
 
 impl CompactEncoding<String> for State {
@@ -342,7 +342,7 @@ impl CompactEncoding<String> for State {
         self.encode_str(value, buffer)
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> String {
+    fn decode(&mut self, buffer: &[u8]) -> String {
         self.decode_string(buffer)
     }
 }
@@ -356,7 +356,7 @@ impl CompactEncoding<u32> for State {
         self.encode_u32_var(value, buffer)
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> u32 {
+    fn decode(&mut self, buffer: &[u8]) -> u32 {
         self.decode_u32_var(buffer)
     }
 }
@@ -370,7 +370,7 @@ impl CompactEncoding<u64> for State {
         self.encode_u64_var(value, buffer)
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> u64 {
+    fn decode(&mut self, buffer: &[u8]) -> u64 {
         self.decode_u64_var(buffer)
     }
 }
@@ -384,7 +384,7 @@ impl CompactEncoding<usize> for State {
         self.encode_usize_var(value, buffer)
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> usize {
+    fn decode(&mut self, buffer: &[u8]) -> usize {
         self.decode_usize_var(buffer)
     }
 }
@@ -398,7 +398,7 @@ impl CompactEncoding<Box<[u8]>> for State {
         self.encode_buffer(value, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> Box<[u8]> {
+    fn decode(&mut self, buffer: &[u8]) -> Box<[u8]> {
         self.decode_buffer(buffer)
     }
 }
@@ -412,7 +412,7 @@ impl CompactEncoding<Vec<String>> for State {
         self.encode_string_array(value, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> Vec<String> {
+    fn decode(&mut self, buffer: &[u8]) -> Vec<String> {
         self.decode_string_array(buffer)
     }
 }

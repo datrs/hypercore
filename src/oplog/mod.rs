@@ -78,7 +78,7 @@ impl CompactEncoding<HeaderTypes> for State {
         self.encode(&value.signer, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> HeaderTypes {
+    fn decode(&mut self, buffer: &[u8]) -> HeaderTypes {
         let tree: String = self.decode(buffer);
         let bitfield: String = self.decode(buffer);
         let signer: String = self.decode(buffer);
@@ -125,7 +125,7 @@ impl CompactEncoding<HeaderTree> for State {
         self.encode(&value.signature, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> HeaderTree {
+    fn decode(&mut self, buffer: &[u8]) -> HeaderTree {
         let fork: u64 = self.decode(buffer);
         let length: u64 = self.decode(buffer);
         let root_hash: Box<[u8]> = self.decode(buffer);
@@ -173,7 +173,7 @@ impl CompactEncoding<PartialKeypair> for State {
         }
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> PartialKeypair {
+    fn decode(&mut self, buffer: &[u8]) -> PartialKeypair {
         let public_key_bytes: Box<[u8]> = self.decode(buffer);
         let secret_key_bytes: Box<[u8]> = self.decode(buffer);
         let secret: Option<SecretKey> = if secret_key_bytes.len() == 0 {
@@ -204,7 +204,7 @@ impl CompactEncoding<HeaderHints> for State {
         self.encode(&value.reorgs, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> HeaderHints {
+    fn decode(&mut self, buffer: &[u8]) -> HeaderHints {
         HeaderHints {
             reorgs: self.decode(buffer),
         }
@@ -233,7 +233,7 @@ impl CompactEncoding<Header> for State {
         self.encode(&value.contiguous_length, buffer);
     }
 
-    fn decode(&mut self, buffer: &Box<[u8]>) -> Header {
+    fn decode(&mut self, buffer: &[u8]) -> Header {
         let version: u8 = buffer[self.start];
         self.start += 1;
         if version != 0 {

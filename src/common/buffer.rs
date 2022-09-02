@@ -7,6 +7,15 @@ pub struct BufferSlice {
     pub(crate) data: Option<Box<[u8]>>,
 }
 
+impl BufferSlice {
+    pub fn get_data_mut(&self) -> Box<[u8]> {
+        let data = self.data.as_ref().unwrap();
+        let mut buffer = vec![0; data.len()];
+        buffer.copy_from_slice(&data);
+        buffer.into_boxed_slice()
+    }
+}
+
 /// Represents an instruction to read a known buffer.
 #[derive(Debug)]
 pub struct BufferSliceInstruction {
