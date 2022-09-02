@@ -12,6 +12,8 @@ use crate::{
 #[derive(Debug)]
 pub struct MerkleTree {
     roots: Vec<Node>,
+    length: u64,
+    byte_length: u64,
 }
 
 const NODE_SIZE: u64 = 40;
@@ -23,9 +25,9 @@ impl MerkleTree {
     pub fn get_slice_instructions_to_read(
         header_tree_length: &u64,
     ) -> Box<[BufferSliceInstruction]> {
-        let roots = get_root_indices(header_tree_length);
+        let root_indices = get_root_indices(header_tree_length);
 
-        roots
+        root_indices
             .iter()
             .map(|&index| BufferSliceInstruction {
                 index: NODE_SIZE * index,
@@ -39,21 +41,31 @@ impl MerkleTree {
     /// before calling this to find out which slices to read. The given slices
     /// need to be in the same order as the instructions from `get_slice_instructions_to_read`!
     pub fn open(header_tree_length: &u64, slices: Box<[BufferSlice]>) -> Result<Self> {
-        let roots = get_root_indices(header_tree_length);
+        let root_indices = get_root_indices(header_tree_length);
 
-        let mut nodes: Vec<Node> = Vec::with_capacity(slices.len());
-        for i in 0..roots.len() {
-            let index = roots[i];
+        let mut roots: Vec<Node> = Vec::with_capacity(slices.len());
+        let mut byte_length: u64 = 0;
+        let mut length: u64 = 0;
+        for i in 0..root_indices.len() {
+            let index = root_indices[i];
             ensure!(
                 index == slices[i].index / NODE_SIZE,
                 "Given slices vector not in the correct order"
             );
             let data = slices[i].data.as_ref().unwrap();
             let node = node_from_bytes(&index, data);
-            nodes.push(node);
+            byte_length += node.length;
+            // This is totalSpan in Javascript
+            length += 2 * ((node.index - length) + 1);
+
+            roots.push(node);
         }
 
-        Ok(Self { roots: nodes })
+        Ok(Self {
+            roots,
+            length,
+            byte_length,
+        })
     }
 }
 
