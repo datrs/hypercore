@@ -72,7 +72,7 @@ impl CompactEncoding<HeaderTypes> for State {
         self.preencode(&value.signer);
     }
 
-    fn encode(&mut self, value: &HeaderTypes, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &HeaderTypes, buffer: &mut [u8]) {
         self.encode(&value.tree, buffer);
         self.encode(&value.bitfield, buffer);
         self.encode(&value.signer, buffer);
@@ -118,7 +118,7 @@ impl CompactEncoding<HeaderTree> for State {
         self.preencode(&value.signature);
     }
 
-    fn encode(&mut self, value: &HeaderTree, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &HeaderTree, buffer: &mut [u8]) {
         self.encode(&value.fork, buffer);
         self.encode(&value.length, buffer);
         self.encode(&value.root_hash, buffer);
@@ -155,7 +155,7 @@ impl CompactEncoding<PartialKeypair> for State {
         }
     }
 
-    fn encode(&mut self, value: &PartialKeypair, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &PartialKeypair, buffer: &mut [u8]) {
         let public_key_bytes: Box<[u8]> = value.public.as_bytes().to_vec().into_boxed_slice();
         self.encode(&public_key_bytes, buffer);
         match &value.secret {
@@ -200,7 +200,7 @@ impl CompactEncoding<HeaderHints> for State {
         self.preencode(&value.reorgs);
     }
 
-    fn encode(&mut self, value: &HeaderHints, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &HeaderHints, buffer: &mut [u8]) {
         self.encode(&value.reorgs, buffer);
     }
 
@@ -222,7 +222,7 @@ impl CompactEncoding<Header> for State {
         self.preencode(&value.contiguous_length);
     }
 
-    fn encode(&mut self, value: &Header, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &Header, buffer: &mut [u8]) {
         buffer[self.start] = 0; // Version
         self.start += 1;
         self.encode(&value.types, buffer);

@@ -54,7 +54,7 @@ impl State {
     }
 
     /// Encode a string slice
-    pub fn encode_str(&mut self, value: &str, buffer: &mut Box<[u8]>) {
+    pub fn encode_str(&mut self, value: &str, buffer: &mut [u8]) {
         let len = value.len();
         self.encode_usize_var(&len, buffer);
         buffer[self.start..self.start + len].copy_from_slice(value.as_bytes());
@@ -92,7 +92,7 @@ impl State {
     }
 
     /// Encode a variable length u32
-    pub fn encode_u32_var(&mut self, value: &u32, buffer: &mut Box<[u8]>) {
+    pub fn encode_u32_var(&mut self, value: &u32, buffer: &mut [u8]) {
         if *value < U16_SIGNIFIER.into() {
             let bytes = value.to_le_bytes();
             buffer[self.start] = bytes[0];
@@ -109,7 +109,7 @@ impl State {
     }
 
     /// Encode u32 to 4 LE bytes.
-    pub fn encode_u32(&mut self, uint: u32, buffer: &mut Box<[u8]>) {
+    pub fn encode_u32(&mut self, uint: u32, buffer: &mut [u8]) {
         self.encode_uint32_bytes(&uint.to_le_bytes(), buffer);
     }
 
@@ -137,7 +137,7 @@ impl State {
     }
 
     /// Encode a variable length u64
-    pub fn encode_u64_var(&mut self, value: &u64, buffer: &mut Box<[u8]>) {
+    pub fn encode_u64_var(&mut self, value: &u64, buffer: &mut [u8]) {
         if *value < U16_SIGNIFIER.into() {
             let bytes = value.to_le_bytes();
             buffer[self.start] = bytes[0];
@@ -158,7 +158,7 @@ impl State {
     }
 
     /// Encode u64 to 8 LE bytes.
-    pub fn encode_u64(&mut self, uint: u64, buffer: &mut Box<[u8]>) {
+    pub fn encode_u64(&mut self, uint: u64, buffer: &mut [u8]) {
         self.encode_uint64_bytes(&uint.to_le_bytes(), buffer);
     }
 
@@ -199,7 +199,7 @@ impl State {
     }
 
     /// Encode a byte buffer
-    pub fn encode_buffer(&mut self, value: &Box<[u8]>, buffer: &mut Box<[u8]>) {
+    pub fn encode_buffer(&mut self, value: &Box<[u8]>, buffer: &mut [u8]) {
         let len = value.len();
         self.encode_usize_var(&len, buffer);
         buffer[self.start..self.start + len].copy_from_slice(value);
@@ -226,7 +226,7 @@ impl State {
     }
 
     /// Encode a String array
-    pub fn encode_string_array(&mut self, value: &Vec<String>, buffer: &mut Box<[u8]>) {
+    pub fn encode_string_array(&mut self, value: &Vec<String>, buffer: &mut [u8]) {
         let len = value.len();
         self.encode_usize_var(&len, buffer);
         for string_value in value {
@@ -244,20 +244,20 @@ impl State {
         value
     }
 
-    fn encode_uint16_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+    fn encode_uint16_bytes(&mut self, bytes: &[u8], buffer: &mut [u8]) {
         buffer[self.start] = bytes[0];
         buffer[self.start + 1] = bytes[1];
         self.start += 2;
     }
 
-    fn encode_uint32_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+    fn encode_uint32_bytes(&mut self, bytes: &[u8], buffer: &mut [u8]) {
         self.encode_uint16_bytes(bytes, buffer);
         buffer[self.start] = bytes[2];
         buffer[self.start + 1] = bytes[3];
         self.start += 2;
     }
 
-    fn encode_uint64_bytes(&mut self, bytes: &[u8], buffer: &mut Box<[u8]>) {
+    fn encode_uint64_bytes(&mut self, bytes: &[u8], buffer: &mut [u8]) {
         self.encode_uint32_bytes(bytes, buffer);
         buffer[self.start] = bytes[4];
         buffer[self.start + 1] = bytes[5];
@@ -279,7 +279,7 @@ impl State {
         };
     }
 
-    fn encode_usize_var(&mut self, value: &usize, buffer: &mut Box<[u8]>) {
+    fn encode_usize_var(&mut self, value: &usize, buffer: &mut [u8]) {
         if *value <= 0xfc {
             let bytes = value.to_le_bytes();
             buffer[self.start] = bytes[0];
@@ -327,7 +327,7 @@ where
     fn preencode(&mut self, value: &T);
 
     /// Encode
-    fn encode(&mut self, value: &T, buffer: &mut Box<[u8]>);
+    fn encode(&mut self, value: &T, buffer: &mut [u8]);
 
     /// Decode
     fn decode(&mut self, buffer: &[u8]) -> T;
@@ -338,7 +338,7 @@ impl CompactEncoding<String> for State {
         self.preencode_str(value)
     }
 
-    fn encode(&mut self, value: &String, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &String, buffer: &mut [u8]) {
         self.encode_str(value, buffer)
     }
 
@@ -352,7 +352,7 @@ impl CompactEncoding<u32> for State {
         self.preencode_uint_var(value)
     }
 
-    fn encode(&mut self, value: &u32, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &u32, buffer: &mut [u8]) {
         self.encode_u32_var(value, buffer)
     }
 
@@ -366,7 +366,7 @@ impl CompactEncoding<u64> for State {
         self.preencode_uint_var(value)
     }
 
-    fn encode(&mut self, value: &u64, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &u64, buffer: &mut [u8]) {
         self.encode_u64_var(value, buffer)
     }
 
@@ -380,7 +380,7 @@ impl CompactEncoding<usize> for State {
         self.preencode_usize_var(value)
     }
 
-    fn encode(&mut self, value: &usize, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &usize, buffer: &mut [u8]) {
         self.encode_usize_var(value, buffer)
     }
 
@@ -394,7 +394,7 @@ impl CompactEncoding<Box<[u8]>> for State {
         self.preencode_buffer(value);
     }
 
-    fn encode(&mut self, value: &Box<[u8]>, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &Box<[u8]>, buffer: &mut [u8]) {
         self.encode_buffer(value, buffer);
     }
 
@@ -408,7 +408,7 @@ impl CompactEncoding<Vec<String>> for State {
         self.preencode_string_array(value);
     }
 
-    fn encode(&mut self, value: &Vec<String>, buffer: &mut Box<[u8]>) {
+    fn encode(&mut self, value: &Vec<String>, buffer: &mut [u8]) {
         self.encode_string_array(value, buffer);
     }
 
