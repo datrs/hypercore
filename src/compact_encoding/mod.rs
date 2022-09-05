@@ -216,6 +216,13 @@ impl State {
         value
     }
 
+    /// Encode a raw byte buffer, skipping the length byte
+    pub fn encode_raw_buffer(&mut self, value: &[u8], buffer: &mut [u8]) {
+        let len = value.len();
+        buffer[self.start..self.start + len].copy_from_slice(value);
+        self.start += len;
+    }
+
     /// Preencode a string array
     pub fn preencode_string_array(&mut self, value: &Vec<String>) {
         let len = value.len();

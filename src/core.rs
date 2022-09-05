@@ -2,7 +2,7 @@
 
 pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 
-use crate::{crypto::generate_keypair, oplog::Oplog, tree::MerkleTree};
+use crate::{crypto::generate_keypair, oplog::Oplog, sign, tree::MerkleTree};
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -58,10 +58,10 @@ where
             .await?;
 
         // Open/create tree
-        let header_tree_length = &oplog_open_outcome.header.tree.length;
-        let slice_instructions = MerkleTree::get_slice_instructions_to_read(header_tree_length);
+        let slice_instructions =
+            MerkleTree::get_slice_instructions_to_read(&oplog_open_outcome.header.tree);
         let slices = storage.read_slices(Store::Tree, slice_instructions).await?;
-        let tree = MerkleTree::open(header_tree_length, slices)?;
+        let tree = MerkleTree::open(&oplog_open_outcome.header.tree, slices)?;
 
         Ok(Hypercore {
             key_pair,
@@ -77,6 +77,13 @@ where
             Some(key) => key,
             None => anyhow::bail!("No secret key, cannot append."),
         };
+
+        let mut changeset = self.tree.changeset();
+        for data in batch {
+            changeset.append(data);
+        }
+        let hash = changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+        println!("HASH {:?} SIGNATURE {:?}", hash, changeset.signature);
 
         Ok(AppendOutcome {
             length: 0,

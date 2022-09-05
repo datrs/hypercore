@@ -1,7 +1,7 @@
 pub use blake2_rfc::blake2b::Blake2bResult;
 
 use crate::common::Node;
-use crate::compact_encoding::{CompactEncoding, State};
+use crate::compact_encoding::State;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 use ed25519_dalek::PublicKey;
@@ -15,6 +15,21 @@ const LEAF_TYPE: [u8; 1] = [0x00];
 const PARENT_TYPE: [u8; 1] = [0x01];
 const ROOT_TYPE: [u8; 1] = [0x02];
 const HYPERCORE: [u8; 9] = *b"hypercore";
+
+// These the output of, see `hash_namespace` test below for how they are produced
+// https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js#L9
+const TREE: [u8; 32] = [
+    0x9F, 0xAC, 0x70, 0xB5, 0xC, 0xA1, 0x4E, 0xFC, 0x4E, 0x91, 0xC8, 0x33, 0xB2, 0x4, 0xE7, 0x5B,
+    0x8B, 0x5A, 0xAD, 0x8B, 0x58, 0x81, 0xBF, 0xC0, 0xAD, 0xB5, 0xEF, 0x38, 0xA3, 0x27, 0x5B, 0x9C,
+];
+const REPLICATE_INITIATOR: [u8; 32] = [
+    0x51, 0x81, 0x2A, 0x2A, 0x35, 0x9B, 0x50, 0x36, 0x95, 0x36, 0x77, 0x5D, 0xF8, 0x9E, 0x18, 0xE4,
+    0x77, 0x40, 0xF3, 0xDB, 0x72, 0xAC, 0xA, 0xE7, 0xB, 0x29, 0x59, 0x4C, 0x19, 0x4D, 0xC3, 0x16,
+];
+const REPLICATE_RESPONDER: [u8; 32] = [
+    0x4, 0x38, 0x49, 0x2D, 0x2, 0x97, 0xC, 0xC1, 0x35, 0x28, 0xAC, 0x2, 0x62, 0xBC, 0xA0, 0x7,
+    0x4E, 0x9, 0x26, 0x26, 0x2, 0x56, 0x86, 0x5A, 0xCC, 0xC0, 0xBF, 0x15, 0xBD, 0x79, 0x12, 0x7D,
+];
 
 /// `BLAKE2b` hash.
 #[derive(Debug, Clone, PartialEq)]
@@ -174,12 +189,30 @@ impl DerefMut for Hash {
     }
 }
 
+/// Create a signable buffer for tree. This is treeSignable in Javascript.
+pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
+    let (mut state, mut buffer) = State::new_with_size(80);
+    state.encode_raw_buffer(&TREE, &mut buffer);
+    state.encode_raw_buffer(&hash, &mut buffer);
+    state.encode_u64(length, &mut buffer);
+    state.encode_u64(fork, &mut buffer);
+    buffer
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use self::data_encoding::HEXLOWER;
     use data_encoding;
+
+    fn hash_with_extra_byte(data: &[u8], byte: u8) -> Box<[u8]> {
+        let mut hasher = Blake2b::new(32);
+        hasher.update(&data);
+        hasher.update(&[byte]);
+        let hash = hasher.finalize();
+        hash.as_bytes().into()
+    }
 
     fn hex_bytes(hex: &str) -> Vec<u8> {
         HEXLOWER.decode(hex.as_bytes()).unwrap()
@@ -283,5 +316,22 @@ mod tests {
             Hash::tree(&[&node1, &node2]),
             "0e576a56b478cddb6ffebab8c494532b6de009466b2e9f7af9143fc54b9eaa36",
         );
+    }
+
+    // This is the rust version from
+    // https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js
+    // and validates that our arrays match
+    #[test]
+    fn hash_namespace() {
+        let mut hasher = Blake2b::new(32);
+        hasher.update(&HYPERCORE);
+        let hash = hasher.finalize();
+        let ns = hash.as_bytes();
+        let tree: Box<[u8]> = { hash_with_extra_byte(ns, 0).into() };
+        assert_eq!(tree, TREE.into());
+        let replicate_initiator: Box<[u8]> = { hash_with_extra_byte(ns, 1).into() };
+        assert_eq!(replicate_initiator, REPLICATE_INITIATOR.into());
+        let replicate_responder: Box<[u8]> = { hash_with_extra_byte(ns, 2).into() };
+        assert_eq!(replicate_responder, REPLICATE_RESPONDER.into());
     }
 }
