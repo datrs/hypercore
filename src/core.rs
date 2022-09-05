@@ -83,7 +83,6 @@ where
             changeset.append(data);
         }
         let hash = changeset.hash_and_sign(&self.key_pair.public, &secret_key);
-        println!("HASH {:?} SIGNATURE {:?}", hash, changeset.signature);
 
         Ok(AppendOutcome {
             length: 0,
