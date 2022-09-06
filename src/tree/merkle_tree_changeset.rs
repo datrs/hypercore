@@ -33,12 +33,13 @@ impl MerkleTreeChangeset {
         }
     }
 
-    pub fn append(&mut self, data: &[u8]) {
-        let len = data.len() as u64;
+    pub fn append(&mut self, data: &[u8]) -> usize {
+        let len = data.len();
         let head = self.length * 2;
         let iter = flat_tree::Iterator::new(head);
-        let node = Node::new(head, Hash::data(data).as_bytes().to_vec(), len);
+        let node = Node::new(head, Hash::data(data).as_bytes().to_vec(), len as u64);
         self.append_root(node, iter);
+        len
     }
 
     pub fn append_root(&mut self, node: Node, iter: flat_tree::Iterator) {

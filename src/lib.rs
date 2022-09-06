@@ -48,6 +48,8 @@ mod common;
 #[cfg(feature = "v10")]
 mod core;
 mod crypto;
+#[cfg(feature = "v10")]
+mod data;
 mod event;
 #[cfg(not(feature = "v10"))]
 mod feed;

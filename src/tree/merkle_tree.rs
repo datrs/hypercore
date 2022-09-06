@@ -14,10 +14,10 @@ use super::MerkleTreeChangeset;
 /// See https://github.com/hypercore-protocol/hypercore/blob/master/lib/merkle-tree.js
 #[derive(Debug)]
 pub struct MerkleTree {
-    roots: Vec<Node>,
-    length: u64,
-    byte_length: u64,
-    fork: u64,
+    pub(crate) roots: Vec<Node>,
+    pub(crate) length: u64,
+    pub(crate) byte_length: u64,
+    pub(crate) fork: u64,
 }
 
 const NODE_SIZE: u64 = 40;

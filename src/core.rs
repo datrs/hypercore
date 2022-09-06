@@ -2,7 +2,7 @@
 
 pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 
-use crate::{crypto::generate_keypair, oplog::Oplog, sign, tree::MerkleTree};
+use crate::{crypto::generate_keypair, data::BlockStore, oplog::Oplog, sign, tree::MerkleTree};
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -17,6 +17,7 @@ where
     pub(crate) storage: Storage<T>,
     pub(crate) oplog: Oplog,
     pub(crate) tree: MerkleTree,
+    pub(crate) block_store: BlockStore,
     //     /// Bitfield to keep track of which data we own.
     //     pub(crate) bitfield: Bitfield,
 }
@@ -63,15 +64,19 @@ where
         let slices = storage.read_slices(Store::Tree, slice_instructions).await?;
         let tree = MerkleTree::open(&oplog_open_outcome.header.tree, slices)?;
 
+        // Create block store instance
+        let block_store = BlockStore::default();
+
         Ok(Hypercore {
             key_pair,
             storage,
             oplog: oplog_open_outcome.oplog,
             tree,
+            block_store,
         })
     }
 
-    /// Appends a given batch of bytes to the hypercore.
+    /// Appends a given batch of data blobs to the hypercore.
     pub async fn append_batch(&mut self, batch: Vec<&[u8]>) -> Result<AppendOutcome> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
@@ -79,10 +84,15 @@ where
         };
 
         let mut changeset = self.tree.changeset();
-        for data in batch {
-            changeset.append(data);
+        let mut batch_length: usize = 0;
+        for data in &batch {
+            batch_length += changeset.append(data);
         }
         let hash = changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+        let slice = self
+            .block_store
+            .append_batch(batch, batch_length, self.tree.byte_length);
+        self.storage.flush_slice(Store::Data, slice).await?;
 
         Ok(AppendOutcome {
             length: 0,
