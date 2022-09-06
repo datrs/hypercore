@@ -16,6 +16,7 @@ pub struct MerkleTreeChangeset {
     pub(crate) length: u64,
     pub(crate) ancestors: u64,
     pub(crate) byte_length: u64,
+    pub(crate) batch_length: u64,
     pub(crate) fork: u64,
     pub(crate) roots: Vec<Node>,
     pub(crate) nodes: Vec<Node>,
@@ -28,6 +29,7 @@ impl MerkleTreeChangeset {
             length,
             ancestors: length,
             byte_length,
+            batch_length: 0,
             fork,
             roots,
             nodes: vec![],
@@ -38,37 +40,37 @@ impl MerkleTreeChangeset {
     pub fn append(&mut self, data: &[u8]) -> usize {
         let len = data.len();
         let head = self.length * 2;
-        let iter = flat_tree::Iterator::new(head);
+        let mut iter = flat_tree::Iterator::new(head);
         let node = Node::new(head, Hash::data(data).as_bytes().to_vec(), len as u64);
-        self.append_root(node, iter);
+        self.append_root(node, &mut iter);
+        self.batch_length += 1;
         len
     }
 
-    pub fn append_root(&mut self, node: Node, iter: flat_tree::Iterator) {
+    pub fn append_root(&mut self, node: Node, iter: &mut flat_tree::Iterator) {
         self.length += iter.factor() / 2;
         self.byte_length += node.length;
         self.roots.push(node.clone());
         self.nodes.push(node);
 
-        // TODO: Javascript has this
-        //
-        // while (this.roots.length > 1) {
-        //   const a = this.roots[this.roots.length - 1]
-        //   const b = this.roots[this.roots.length - 2]
+        while self.roots.len() > 1 {
+            let a = &self.roots[self.roots.len() - 1];
+            let b = &self.roots[self.roots.len() - 2];
+            if iter.sibling() != b.index {
+                iter.sibling(); // unset so it always points to last root
+                break;
+            }
 
-        //   // TODO: just have a peek sibling instead? (pretty sure it's always the left sib as well)
-        //   if (ite.sibling() !== b.index) {
-        //     ite.sibling() // unset so it always points to last root
-        //     break
-        //   }
-
-        //   const node = parentNode(this.tree.crypto, ite.parent(), a, b)
-        //   this.nodes.push(node)
-        //   this.roots.pop()
-        //   this.roots.pop()
-        //   this.roots.push(node)
-        // }
-        // }
+            let node = Node::new(
+                iter.parent(),
+                Hash::parent(&a, &b).as_bytes().into(),
+                a.length + b.length,
+            );
+            let _ = &self.nodes.push(node.clone());
+            let _ = &self.roots.pop();
+            let _ = &self.roots.pop();
+            let _ = &self.roots.push(node);
+        }
     }
 
     /// Hashes and signs the changeset

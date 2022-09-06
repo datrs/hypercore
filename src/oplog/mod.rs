@@ -1,6 +1,7 @@
 use crate::common::BufferSlice;
 use crate::compact_encoding::{CompactEncoding, State};
-use crate::PartialKeypair;
+use crate::tree::MerkleTreeChangeset;
+use crate::{Node, PartialKeypair};
 use anyhow::{anyhow, Result};
 use std::convert::{TryFrom, TryInto};
 
@@ -102,13 +103,41 @@ impl Oplog {
         }
     }
 
-    /// Appends a entry to the Oplog.
-    pub fn append(&mut self, entry: Entry, atomic: bool) -> Result<Box<[BufferSlice]>> {
-        self.append_batch(&[entry], atomic)
+    /// Appends a changeset to the Oplog.
+    pub fn append_changeset(
+        &mut self,
+        changeset: &MerkleTreeChangeset,
+        atomic: bool,
+    ) -> Result<Box<[BufferSlice]>> {
+        // TODO: Unsure if clone() is absolutely needed here or not.
+        let tree_nodes: Vec<Node> = changeset.nodes.clone();
+        let entry: Entry = Entry {
+            user_data: vec![],
+            tree_nodes,
+            tree_upgrade: Some(EntryTreeUpgrade {
+                fork: changeset.fork,
+                ancestors: changeset.ancestors,
+                length: changeset.length,
+                signature: changeset
+                    .hash_and_signature
+                    .as_ref()
+                    .unwrap()
+                    .1
+                    .to_bytes()
+                    .into(),
+            }),
+            bitfield: Some(EntryBitfieldUpdate {
+                drop: false,
+                start: changeset.ancestors,
+                length: changeset.batch_length,
+            }),
+        };
+
+        self.append_entries(&[entry], atomic)
     }
 
     /// Appends a batch of entries to the Oplog.
-    pub fn append_batch(&mut self, batch: &[Entry], atomic: bool) -> Result<Box<[BufferSlice]>> {
+    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Result<Box<[BufferSlice]>> {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
         // Leave room for leaders
@@ -134,11 +163,12 @@ impl Oplog {
             );
         }
 
+        let index = OplogSlot::Entries as u64 + self.entries_byte_length;
         self.entries_length += len as u64;
         self.entries_byte_length += buffer.len() as u64;
 
         Ok(vec![BufferSlice {
-            index: OplogSlot::Entries as u64 + self.entries_byte_length,
+            index,
             data: Some(buffer),
         }]
         .into_boxed_slice())

@@ -104,26 +104,8 @@ where
             .append_batch(batch, batch_length, self.tree.byte_length);
         self.storage.flush_slice(Store::Data, slice).await?;
 
-        // Create an Oplog entry from the changeset
-        let tree_nodes: Vec<Node> = changeset.nodes;
-        let entry: Entry = Entry {
-            user_data: vec![],
-            tree_nodes,
-            tree_upgrade: Some(EntryTreeUpgrade {
-                fork: changeset.fork,
-                ancestors: changeset.ancestors,
-                length: changeset.length,
-                signature: changeset.hash_and_signature.unwrap().1.to_bytes().into(),
-            }),
-            bitfield: Some(EntryBitfieldUpdate {
-                drop: false,
-                start: changeset.ancestors,
-                length: batch.len() as u64,
-            }),
-        };
-
-        // Write the oplog entry to the oplog store
-        let slices = self.oplog.append(entry, false)?;
+        // Append the changeset to the Oplog
+        let slices = self.oplog.append_changeset(&changeset, false)?;
         self.storage.flush_slices(Store::Oplog, &slices).await?;
 
         // TODO: write bitfield
