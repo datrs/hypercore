@@ -5,10 +5,8 @@ pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 use crate::{
     crypto::generate_keypair,
     data::BlockStore,
-    oplog::{Entry, EntryBitfieldUpdate, EntryTreeUpgrade, Oplog},
-    sign,
+    oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     tree::MerkleTree,
-    Node,
 };
 use anyhow::Result;
 use random_access_storage::RandomAccess;
@@ -27,6 +25,8 @@ where
     pub(crate) block_store: BlockStore,
     //     /// Bitfield to keep track of which data we own.
     //     pub(crate) bitfield: Bitfield,
+    skip_flush_count: u8, // autoFlush in Javascript
+    header: Header,
 }
 
 /// Response from append, matches that of the Javascript result
@@ -80,6 +80,8 @@ where
             oplog: oplog_open_outcome.oplog,
             tree,
             block_store,
+            skip_flush_count: 0,
+            header: oplog_open_outcome.header,
         })
     }
 
@@ -105,14 +107,46 @@ where
         self.storage.flush_slice(Store::Data, slice).await?;
 
         // Append the changeset to the Oplog
-        let slices = self.oplog.append_changeset(&changeset, false)?;
-        self.storage.flush_slices(Store::Oplog, &slices).await?;
+        let outcome = self.oplog.append_changeset(&changeset, false, &self.header);
+        self.storage
+            .flush_slices(Store::Oplog, &outcome.slices_to_flush)
+            .await?;
+        self.header = outcome.header;
 
         // TODO: write bitfield
+        //
+        if self.should_flush_bitfield_and_tree_and_oplog() {
+            self.flush_bitfield_and_tree_and_oplog().await?;
+        }
 
         Ok(AppendOutcome {
             length: 0,
             byte_length: 0,
         })
+    }
+
+    fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {
+        if self.skip_flush_count == 0
+            || self.oplog.entries_byte_length >= MAX_OPLOG_ENTRIES_BYTE_SIZE
+        {
+            self.skip_flush_count = 4;
+            true
+        } else {
+            self.skip_flush_count -= 1;
+            false
+        }
+    }
+
+    async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<()> {
+        // TODO:
+        // let slices = self.bitfield.flush();
+        // self.storage.flush_slices(Store::Bitfield, &slices).await?;
+        // let slices = self.tree.flush();
+        // self.storage.flush_slices(Store::Tree, &slices).await?;
+        let slices_to_flush = self.oplog.flush(&self.header);
+        self.storage
+            .flush_slices(Store::Oplog, &slices_to_flush)
+            .await?;
+        Ok(())
     }
 }

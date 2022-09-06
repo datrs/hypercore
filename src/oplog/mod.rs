@@ -11,6 +11,8 @@ mod header;
 pub use entry::{Entry, EntryBitfieldUpdate, EntryTreeUpgrade};
 pub use header::{Header, HeaderTree};
 
+pub const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
+
 /// Oplog.
 ///
 /// There are two memory areas for an `Header` in `RandomAccessStorage`: one is the current
@@ -19,16 +21,33 @@ pub use header::{Header, HeaderTree};
 #[derive(Debug)]
 pub struct Oplog {
     header_bits: [bool; 2],
-    entries_length: u64,
-    entries_byte_length: u64,
+    pub(crate) entries_length: u64,
+    pub(crate) entries_byte_length: u64,
 }
 
-/// Oplog
+/// Oplog create header outcome
+#[derive(Debug)]
+pub struct OplogCreateHeaderOutcome {
+    pub header: Header,
+    pub slices_to_flush: Box<[BufferSlice]>,
+}
+
+/// Oplog open outcome
 #[derive(Debug)]
 pub struct OplogOpenOutcome {
     pub oplog: Oplog,
     pub header: Header,
     pub slices_to_flush: Box<[BufferSlice]>,
+}
+
+impl OplogOpenOutcome {
+    pub fn new(oplog: Oplog, create_header_outcome: OplogCreateHeaderOutcome) -> Self {
+        Self {
+            oplog,
+            header: create_header_outcome.header,
+            slices_to_flush: create_header_outcome.slices_to_flush,
+        }
+    }
 }
 
 enum OplogSlot {
@@ -108,9 +127,14 @@ impl Oplog {
         &mut self,
         changeset: &MerkleTreeChangeset,
         atomic: bool,
-    ) -> Result<Box<[BufferSlice]>> {
-        // TODO: Unsure if clone() is absolutely needed here or not.
+        header: &Header,
+    ) -> OplogCreateHeaderOutcome {
         let tree_nodes: Vec<Node> = changeset.nodes.clone();
+        let (hash, signature) = changeset
+            .hash_and_signature
+            .as_ref()
+            .expect("Changeset must be signed before appended");
+        let signature: Box<[u8]> = signature.to_bytes().into();
         let entry: Entry = Entry {
             user_data: vec![],
             tree_nodes,
@@ -118,13 +142,7 @@ impl Oplog {
                 fork: changeset.fork,
                 ancestors: changeset.ancestors,
                 length: changeset.length,
-                signature: changeset
-                    .hash_and_signature
-                    .as_ref()
-                    .unwrap()
-                    .1
-                    .to_bytes()
-                    .into(),
+                signature: signature.clone(),
             }),
             bitfield: Some(EntryBitfieldUpdate {
                 drop: false,
@@ -133,11 +151,28 @@ impl Oplog {
             }),
         };
 
-        self.append_entries(&[entry], atomic)
+        let mut header: Header = header.clone();
+        header.tree.length = changeset.batch_length;
+        header.tree.root_hash = hash.clone();
+        header.tree.signature = signature;
+
+        OplogCreateHeaderOutcome {
+            header,
+            slices_to_flush: self.append_entries(&[entry], atomic),
+        }
+    }
+
+    /// Flushes pending changes, returns buffer slices to write to storage.
+    pub fn flush(&mut self, header: &Header) -> Box<[BufferSlice]> {
+        let (new_header_bits, slices_to_flush) = Self::insert_header(header, 0, self.header_bits);
+        self.entries_byte_length = 0;
+        self.entries_length = 0;
+        self.header_bits = new_header_bits;
+        slices_to_flush
     }
 
     /// Appends a batch of entries to the Oplog.
-    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Result<Box<[BufferSlice]>> {
+    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Box<[BufferSlice]> {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
         // Leave room for leaders
@@ -167,37 +202,62 @@ impl Oplog {
         self.entries_length += len as u64;
         self.entries_byte_length += buffer.len() as u64;
 
-        Ok(vec![BufferSlice {
+        vec![BufferSlice {
             index,
             data: Some(buffer),
         }]
-        .into_boxed_slice())
+        .into_boxed_slice()
     }
 
     fn new(key_pair: PartialKeypair) -> OplogOpenOutcome {
+        let entries_length: u64 = 0;
+        let entries_byte_length: u64 = 0;
+        let header = Header::new(key_pair);
+        let (header_bits, slices_to_flush) =
+            Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS);
         let oplog = Oplog {
-            header_bits: INITIAL_HEADER_BITS,
-            entries_length: 0,
-            entries_byte_length: 0,
+            header_bits,
+            entries_length,
+            entries_byte_length,
         };
+        OplogOpenOutcome::new(
+            oplog,
+            OplogCreateHeaderOutcome {
+                header,
+                slices_to_flush,
+            },
+        )
+    }
 
+    fn insert_header(
+        header: &Header,
+        entries_byte_length: u64,
+        current_header_bits: [bool; 2],
+    ) -> ([bool; 2], Box<[BufferSlice]>) {
         // The first 8 bytes will be filled with `prepend_leader`.
         let data_start_index: usize = 8;
         let mut state = State::new_with_start_and_end(data_start_index, data_start_index);
 
         // Get the right slot and header bit
         let (oplog_slot, header_bit) =
-            Oplog::get_next_header_oplog_slot_and_bit_value(&oplog.header_bits);
+            Oplog::get_next_header_oplog_slot_and_bit_value(&current_header_bits);
+        let mut new_header_bits = current_header_bits.clone();
+        match oplog_slot {
+            OplogSlot::FirstHeader => new_header_bits[0] = header_bit,
+            OplogSlot::SecondHeader => new_header_bits[1] = header_bit,
+            _ => {
+                panic!("Invalid oplog slot");
+            }
+        }
 
-        // Preencode a new header
-        let header = Header::new(key_pair);
-        state.preencode(&header);
+        // Preencode the new header
+        state.preencode(header);
 
         // Create a buffer for the needed data
         let mut buffer = state.create_buffer();
 
         // Encode the header
-        state.encode(&header, &mut buffer);
+        state.encode(header, &mut buffer);
 
         // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
         Self::prepend_leader(
@@ -210,11 +270,10 @@ impl Oplog {
 
         // The oplog is always truncated to the minimum byte size, which is right after
         // the all of the entries in the oplog finish.
-        let truncate_index = OplogSlot::Entries as u64 + oplog.entries_byte_length;
-        OplogOpenOutcome {
-            oplog,
-            header,
-            slices_to_flush: vec![
+        let truncate_index = OplogSlot::Entries as u64 + entries_byte_length;
+        (
+            new_header_bits,
+            vec![
                 BufferSlice {
                     index: oplog_slot as u64,
                     data: Some(buffer),
@@ -225,7 +284,7 @@ impl Oplog {
                 },
             ]
             .into_boxed_slice(),
-        }
+        )
     }
 
     /// Prepends given `State` with 4 bytes of CRC followed by 4 bytes containing length of

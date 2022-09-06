@@ -3,7 +3,7 @@ use crate::crypto::{PublicKey, SecretKey};
 use crate::PartialKeypair;
 
 /// Oplog header.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Header {
     pub(crate) types: HeaderTypes,
     // TODO: This is a keyValueArray in JS
@@ -16,8 +16,8 @@ pub struct Header {
 
 impl Header {
     /// Creates a new Header from given key pair
-    pub fn new(key_pair: PartialKeypair) -> Header {
-        Header {
+    pub fn new(key_pair: PartialKeypair) -> Self {
+        Self {
             types: HeaderTypes::new(),
             user_data: vec![],
             tree: HeaderTree::new(),
@@ -46,15 +46,15 @@ impl Header {
 }
 
 /// Oplog header types
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct HeaderTypes {
     pub(crate) tree: String,
     pub(crate) bitfield: String,
     pub(crate) signer: String,
 }
 impl HeaderTypes {
-    pub fn new() -> HeaderTypes {
-        HeaderTypes {
+    pub fn new() -> Self {
+        Self {
             tree: "blake2b".to_string(),
             bitfield: "raw".to_string(),
             signer: "ed25519".to_string(),
@@ -88,7 +88,7 @@ impl CompactEncoding<HeaderTypes> for State {
 }
 
 /// Oplog header tree
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct HeaderTree {
     pub(crate) fork: u64,
     pub(crate) length: u64,
@@ -97,8 +97,8 @@ pub struct HeaderTree {
 }
 
 impl HeaderTree {
-    pub fn new() -> HeaderTree {
-        HeaderTree {
+    pub fn new() -> Self {
+        Self {
             fork: 0,
             length: 0,
             root_hash: Box::new([]),
@@ -187,7 +187,7 @@ impl CompactEncoding<PartialKeypair> for State {
 }
 
 /// Oplog header hints
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HeaderHints {
     pub(crate) reorgs: Vec<String>,
 }
