@@ -25,11 +25,11 @@ fn init() {
 async fn js_interop_js_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_JS_FIRST);
-    assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_0_hash(), create_hypercore_hash(&work_dir));
     js_run_step(1, TEST_SET_JS_FIRST);
-    assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_1_hash(), create_hypercore_hash(&work_dir));
     step_2_append_hello_world(&work_dir).await?;
-    assert_eq!(get_step_2_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_2_hash(), create_hypercore_hash(&work_dir));
     Ok(())
 }
 
@@ -39,11 +39,11 @@ async fn js_interop_js_first() -> Result<()> {
 async fn js_interop_rs_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_RS_FIRST);
-    assert_eq!(get_step_0_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_0_hash(), create_hypercore_hash(&work_dir));
     step_1_create(&work_dir).await?;
-    assert_eq!(get_step_1_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_1_hash(), create_hypercore_hash(&work_dir));
     js_run_step(2, TEST_SET_RS_FIRST);
-    assert_eq!(get_step_2_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(step_2_hash(), create_hypercore_hash(&work_dir));
     Ok(())
 }
 
@@ -66,7 +66,7 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
     Ok(())
 }
 
-fn get_step_0_hash() -> common::HypercoreHash {
+fn step_0_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: None,
         data: None,
@@ -75,7 +75,7 @@ fn get_step_0_hash() -> common::HypercoreHash {
     }
 }
 
-fn get_step_1_hash() -> common::HypercoreHash {
+fn step_1_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: None,
         data: None,
@@ -84,7 +84,7 @@ fn get_step_1_hash() -> common::HypercoreHash {
     }
 }
 
-fn get_step_2_hash() -> common::HypercoreHash {
+fn step_2_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: Some("0E2E1FF956A39192CBB68D2212288FE75B32733AB0C442B9F0471E254A0382A2".into()),
         data: Some("872E4E50CE9990D8B041330C47C9DDD11BEC6B503AE9386A99DA8584E9BB12C4".into()),

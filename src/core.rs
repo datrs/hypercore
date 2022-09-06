@@ -5,7 +5,7 @@ pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 use crate::{
     crypto::generate_keypair,
     data::BlockStore,
-    oplog::{Entry, EntryBitfieldUpdate, Oplog},
+    oplog::{Entry, EntryBitfieldUpdate, EntryTreeUpgrade, Oplog},
     sign,
     tree::MerkleTree,
     Node,
@@ -90,26 +90,43 @@ where
             None => anyhow::bail!("No secret key, cannot append."),
         };
 
+        // Create a changeset for the tree
         let mut changeset = self.tree.changeset();
         let mut batch_length: usize = 0;
         for data in batch.iter() {
             batch_length += changeset.append(data);
         }
-        let hash = changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+        changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+
+        // Write the received data to the block store
         let slice = self
             .block_store
             .append_batch(batch, batch_length, self.tree.byte_length);
         self.storage.flush_slice(Store::Data, slice).await?;
 
+        // Create an Oplog entry from the changeset
         let tree_nodes: Vec<Node> = changeset.nodes;
         let entry: Entry = Entry {
             user_data: vec![],
             tree_nodes,
-            tree_upgrade: None,
-            bitfield: None,
+            tree_upgrade: Some(EntryTreeUpgrade {
+                fork: changeset.fork,
+                ancestors: changeset.ancestors,
+                length: changeset.length,
+                signature: changeset.hash_and_signature.unwrap().1.to_bytes().into(),
+            }),
+            bitfield: Some(EntryBitfieldUpdate {
+                drop: false,
+                start: changeset.ancestors,
+                length: batch.len() as u64,
+            }),
         };
+
+        // Write the oplog entry to the oplog store
         let slices = self.oplog.append(entry, false)?;
         self.storage.flush_slices(Store::Oplog, &slices).await?;
+
+        // TODO: write bitfield
 
         Ok(AppendOutcome {
             length: 0,

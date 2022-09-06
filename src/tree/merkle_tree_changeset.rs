@@ -14,22 +14,24 @@ use crate::{
 #[derive(Debug)]
 pub struct MerkleTreeChangeset {
     pub(crate) length: u64,
+    pub(crate) ancestors: u64,
     pub(crate) byte_length: u64,
     pub(crate) fork: u64,
     pub(crate) roots: Vec<Node>,
     pub(crate) nodes: Vec<Node>,
-    pub(crate) signature: Option<Signature>,
+    pub(crate) hash_and_signature: Option<(Box<[u8]>, Signature)>,
 }
 
 impl MerkleTreeChangeset {
     pub fn new(length: u64, byte_length: u64, fork: u64, roots: Vec<Node>) -> MerkleTreeChangeset {
         Self {
             length,
+            ancestors: length,
             byte_length,
             fork,
             roots,
             nodes: vec![],
-            signature: None,
+            hash_and_signature: None,
         }
     }
 
@@ -70,12 +72,11 @@ impl MerkleTreeChangeset {
     }
 
     /// Hashes and signs the changeset
-    pub fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) -> Box<[u8]> {
+    pub fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
         let hash = self.hash();
         let signable = signable_tree(&hash, self.length, self.fork);
         let signature = sign(&public_key, &secret_key, &signable);
-        self.signature = Some(signature);
-        hash
+        self.hash_and_signature = Some((hash, signature));
     }
 
     /// Calculates a hash of the current set of roots
