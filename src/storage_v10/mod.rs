@@ -121,12 +121,12 @@ where
 
     /// Flush slice to storage. Convenience method to `flush_slices`.
     pub async fn flush_slice(&mut self, store: Store, slice: BufferSlice) -> Result<()> {
-        self.flush_slices(store, [slice].into()).await
+        self.flush_slices(store, &[slice]).await
     }
 
     /// Flush slices to storage. Either writes directly to a random access storage or truncates the storage
     /// to the length of given index.
-    pub async fn flush_slices(&mut self, store: Store, slices: Box<[BufferSlice]>) -> Result<()> {
+    pub async fn flush_slices(&mut self, store: Store, slices: &[BufferSlice]) -> Result<()> {
         let storage = self.get_random_access(store);
         for slice in slices.iter() {
             match &slice.data {

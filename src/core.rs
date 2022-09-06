@@ -2,7 +2,14 @@
 
 pub use crate::storage_v10::{PartialKeypair, Storage, Store};
 
-use crate::{crypto::generate_keypair, data::BlockStore, oplog::Oplog, sign, tree::MerkleTree};
+use crate::{
+    crypto::generate_keypair,
+    data::BlockStore,
+    oplog::{Entry, EntryBitfieldUpdate, Oplog},
+    sign,
+    tree::MerkleTree,
+    Node,
+};
 use anyhow::Result;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -55,7 +62,7 @@ where
         let oplog_bytes = storage.read_all(Store::Oplog).await?;
         let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
-            .flush_slices(Store::Oplog, oplog_open_outcome.slices_to_flush)
+            .flush_slices(Store::Oplog, &oplog_open_outcome.slices_to_flush)
             .await?;
 
         // Open/create tree
@@ -77,7 +84,7 @@ where
     }
 
     /// Appends a given batch of data blobs to the hypercore.
-    pub async fn append_batch(&mut self, batch: Vec<&[u8]>) -> Result<AppendOutcome> {
+    pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
             None => anyhow::bail!("No secret key, cannot append."),
@@ -85,7 +92,7 @@ where
 
         let mut changeset = self.tree.changeset();
         let mut batch_length: usize = 0;
-        for data in &batch {
+        for data in batch.iter() {
             batch_length += changeset.append(data);
         }
         let hash = changeset.hash_and_sign(&self.key_pair.public, &secret_key);
@@ -93,6 +100,16 @@ where
             .block_store
             .append_batch(batch, batch_length, self.tree.byte_length);
         self.storage.flush_slice(Store::Data, slice).await?;
+
+        let tree_nodes: Vec<Node> = changeset.nodes;
+        let entry: Entry = Entry {
+            user_data: vec![],
+            tree_nodes,
+            tree_upgrade: None,
+            bitfield: None,
+        };
+        let slices = self.oplog.append(entry, false)?;
+        self.storage.flush_slices(Store::Oplog, &slices).await?;
 
         Ok(AppendOutcome {
             length: 0,

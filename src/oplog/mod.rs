@@ -7,7 +7,7 @@ use std::convert::{TryFrom, TryInto};
 mod entry;
 mod header;
 
-pub use entry::Entry;
+pub use entry::{Entry, EntryBitfieldUpdate, EntryTreeUpgrade};
 pub use header::{Header, HeaderTree};
 
 /// Oplog.
@@ -18,7 +18,8 @@ pub use header::{Header, HeaderTree};
 #[derive(Debug)]
 pub struct Oplog {
     header_bits: [bool; 2],
-    entries_len: u64,
+    entries_length: u64,
+    entries_byte_length: u64,
 }
 
 /// Oplog
@@ -48,7 +49,6 @@ const INITIAL_HEADER_BITS: [bool; 2] = [true, false];
 
 impl Oplog {
     /// Opens an existing Oplog from existing byte buffer or creates a new one.
-    #[allow(dead_code)]
     pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> Result<OplogOpenOutcome> {
         // First read and validate both headers stored in the existing oplog
         let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
@@ -74,7 +74,8 @@ impl Oplog {
                 };
             let oplog = Oplog {
                 header_bits,
-                entries_len: 0,
+                entries_length: 0,
+                entries_byte_length: 0,
             };
             Ok(OplogOpenOutcome {
                 oplog,
@@ -87,7 +88,8 @@ impl Oplog {
             let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
             let oplog = Oplog {
                 header_bits,
-                entries_len: 0,
+                entries_length: 0,
+                entries_byte_length: 0,
             };
             Ok(OplogOpenOutcome {
                 oplog,
@@ -100,10 +102,53 @@ impl Oplog {
         }
     }
 
+    /// Appends a entry to the Oplog.
+    pub fn append(&mut self, entry: Entry, atomic: bool) -> Result<Box<[BufferSlice]>> {
+        self.append_batch(&[entry], atomic)
+    }
+
+    /// Appends a batch of entries to the Oplog.
+    pub fn append_batch(&mut self, batch: &[Entry], atomic: bool) -> Result<Box<[BufferSlice]>> {
+        let len = batch.len();
+        let header_bit = self.get_current_header_bit();
+        // Leave room for leaders
+        let mut state = State::new_with_start_and_end(0, len * 8);
+
+        for entry in batch.iter() {
+            state.preencode(entry);
+        }
+
+        let mut buffer = state.create_buffer();
+        for i in 0..len {
+            let entry = &batch[i];
+            state.start += 8;
+            let start = state.start;
+            let partial_bit: bool = atomic && i < len - 1;
+            state.encode(entry, &mut buffer);
+            Self::prepend_leader(
+                state.start - start,
+                header_bit,
+                partial_bit,
+                &mut state,
+                &mut buffer,
+            );
+        }
+
+        self.entries_length += len as u64;
+        self.entries_byte_length += buffer.len() as u64;
+
+        Ok(vec![BufferSlice {
+            index: OplogSlot::Entries as u64 + self.entries_byte_length,
+            data: Some(buffer),
+        }]
+        .into_boxed_slice())
+    }
+
     fn new(key_pair: PartialKeypair) -> OplogOpenOutcome {
         let oplog = Oplog {
             header_bits: INITIAL_HEADER_BITS,
-            entries_len: 0,
+            entries_length: 0,
+            entries_byte_length: 0,
         };
 
         // The first 8 bytes will be filled with `prepend_leader`.
@@ -135,7 +180,7 @@ impl Oplog {
 
         // The oplog is always truncated to the minimum byte size, which is right after
         // the all of the entries in the oplog finish.
-        let truncate_index = OplogSlot::Entries as u64 + oplog.entries_len;
+        let truncate_index = OplogSlot::Entries as u64 + oplog.entries_byte_length;
         OplogOpenOutcome {
             oplog,
             header,
@@ -214,6 +259,11 @@ impl Oplog {
             partial_bit,
             state,
         }))
+    }
+
+    /// Gets the current header bit
+    fn get_current_header_bit(&self) -> bool {
+        self.header_bits[0] != self.header_bits[1]
     }
 
     /// Based on given header_bits, determines if saving the header should be done to the first

@@ -62,7 +62,7 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, false).await?;
     let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
-    let _append_outcome = hypercore.append_batch(vec![b"Hello", b"World"]).await?;
+    let _append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
     Ok(())
 }
 
