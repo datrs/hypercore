@@ -113,7 +113,7 @@ where
             .await?;
         self.header = outcome.header;
 
-        // TODO: write bitfield
+        // TODO: write bitfield and contiguous length
         //
         if self.should_flush_bitfield_and_tree_and_oplog() {
             self.flush_bitfield_and_tree_and_oplog().await?;

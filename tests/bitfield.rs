@@ -1,9 +1,12 @@
 use rand;
 
+#[cfg(not(feature = "v10"))]
 use hypercore::bitfield::{Bitfield, Change::*};
+#[cfg(not(feature = "v10"))]
 use rand::Rng;
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn set_and_get() {
     let (mut b, _) = Bitfield::new();
 
@@ -19,6 +22,7 @@ fn set_and_get() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn set_and_get_tree() {
     let (mut b, mut tree) = Bitfield::new();
 
@@ -39,6 +43,7 @@ fn set_and_get_tree() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn set_and_index() {
     let (mut b, _) = Bitfield::new();
 
@@ -97,6 +102,7 @@ fn set_and_index() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn set_and_index_random() {
     let (mut b, _) = Bitfield::new();
 
@@ -136,6 +142,7 @@ fn set_and_index_random() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn get_total_positive_bits() {
     let (mut b, _) = Bitfield::new();
 
@@ -154,6 +161,7 @@ fn get_total_positive_bits() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn bitfield_dedup() {
     let (mut b, mut tree) = Bitfield::new();
 
@@ -173,6 +181,7 @@ fn bitfield_dedup() {
 }
 
 #[test]
+#[cfg(not(feature = "v10"))]
 fn bitfield_compress() {
     let (mut b, _) = Bitfield::new();
     assert_eq!(b.compress(0, 0).unwrap(), vec![0]);

@@ -39,11 +39,15 @@
 //! [Dat]: https://github.com/datrs
 //! [Feed]: crate::feed::Feed
 
+#[cfg(not(feature = "v10"))]
 pub mod bitfield;
 pub mod compact_encoding;
 pub mod prelude;
 
 mod audit;
+
+#[cfg(feature = "v10")]
+mod bitfield_v10;
 mod common;
 #[cfg(feature = "v10")]
 mod core;
