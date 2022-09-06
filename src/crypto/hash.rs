@@ -192,8 +192,8 @@ impl DerefMut for Hash {
 /// Create a signable buffer for tree. This is treeSignable in Javascript.
 pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
     let (mut state, mut buffer) = State::new_with_size(80);
-    state.encode_raw_buffer(&TREE, &mut buffer);
-    state.encode_raw_buffer(&hash, &mut buffer);
+    state.encode_fixed_32(&TREE, &mut buffer);
+    state.encode_fixed_32(&hash, &mut buffer);
     state.encode_u64(length, &mut buffer);
     state.encode_u64(fork, &mut buffer);
     buffer

@@ -83,6 +83,13 @@ impl State {
         };
     }
 
+    /// Decode a fixed length u8
+    pub fn decode_u8(&mut self, buffer: &[u8]) -> u8 {
+        let value: u8 = buffer[self.start];
+        self.start += 1;
+        value
+    }
+
     /// Decode a fixed length u16
     pub fn decode_u16(&mut self, buffer: &[u8]) -> u16 {
         let value: u16 =
@@ -216,11 +223,24 @@ impl State {
         value
     }
 
-    /// Encode a raw byte buffer, skipping the length byte
-    pub fn encode_raw_buffer(&mut self, value: &[u8], buffer: &mut [u8]) {
-        let len = value.len();
-        buffer[self.start..self.start + len].copy_from_slice(value);
-        self.start += len;
+    /// Preencode a fixed 32 byte buffer
+    pub fn preencode_fixed_32(&mut self) {
+        self.end += 32;
+    }
+
+    /// Encode a fixed 32 byte buffer
+    pub fn encode_fixed_32(&mut self, value: &[u8], buffer: &mut [u8]) {
+        buffer[self.start..self.start + 32].copy_from_slice(value);
+        self.start += 32;
+    }
+
+    /// Encode a fixed 32 byte buffer
+    pub fn decode_fixed_32(&mut self, buffer: &[u8]) -> Box<[u8]> {
+        let value = buffer[self.start..self.start + 32]
+            .to_vec()
+            .into_boxed_slice();
+        self.start += 32;
+        value
     }
 
     /// Preencode a string array
