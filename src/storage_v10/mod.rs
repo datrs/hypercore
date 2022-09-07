@@ -10,7 +10,7 @@ use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use crate::common::{BufferSlice, BufferSliceInstruction};
+use crate::common::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType};
 
 /// Key pair where for read-only hypercores the secret key can also be missing.
 #[derive(Debug)]
@@ -35,19 +35,6 @@ impl Clone for PartialKeypair {
             secret,
         }
     }
-}
-
-/// The types of stores that can be created.
-#[derive(Debug)]
-pub enum Store {
-    /// Tree
-    Tree,
-    /// Data
-    Data,
-    /// Bitfield
-    Bitfield,
-    /// Oplog
-    Oplog,
 }
 
 /// Save data to a desired storage backend.
@@ -91,63 +78,96 @@ where
 
     /// Read fully a store.
     pub async fn read_all(&mut self, store: Store) -> Result<Box<[u8]>> {
-        let storage = self.get_random_access(store);
+        let storage = self.get_random_access(&store);
         let len = storage.len().await.map_err(|e| anyhow!(e))?;
         let buf = storage.read(0, len).await.map_err(|e| anyhow!(e))?;
         Ok(buf.into_boxed_slice())
     }
 
-    /// Read slices from a store based on given instructions
-    pub async fn read_slices(
+    /// Read infos from a store based on given instructions
+    pub async fn read_infos(
         &mut self,
-        store: Store,
-        slice_instructions: Box<[BufferSliceInstruction]>,
-    ) -> Result<Box<[BufferSlice]>> {
-        let storage = self.get_random_access(store);
-
-        let mut slices: Vec<BufferSlice> = Vec::with_capacity(slice_instructions.len());
-        for instruction in slice_instructions.iter() {
-            let buf = storage
-                .read(instruction.index, instruction.len)
-                .await
-                .map_err(|e| anyhow!(e))?;
-            slices.push(BufferSlice {
-                index: instruction.index,
-                data: Some(buf.into_boxed_slice()),
-            });
+        info_instructions: Box<[StoreInfoInstruction]>,
+    ) -> Result<Box<[StoreInfo]>> {
+        if info_instructions.is_empty() {
+            return Ok(vec![].into_boxed_slice());
         }
-        Ok(slices.into_boxed_slice())
-    }
-
-    /// Flush slice to storage. Convenience method to `flush_slices`.
-    pub async fn flush_slice(&mut self, store: Store, slice: BufferSlice) -> Result<()> {
-        self.flush_slices(store, &[slice]).await
-    }
-
-    /// Flush slices to storage. Either writes directly to a random access storage or truncates the storage
-    /// to the length of given index.
-    pub async fn flush_slices(&mut self, store: Store, slices: &[BufferSlice]) -> Result<()> {
-        let storage = self.get_random_access(store);
-        for slice in slices.iter() {
-            match &slice.data {
-                Some(data) => {
-                    storage
-                        .write(slice.index, &data.to_vec())
+        let mut current_store: Store = info_instructions[0].store.clone();
+        let mut storage = self.get_random_access(&current_store);
+        let mut infos: Vec<StoreInfo> = Vec::with_capacity(info_instructions.len());
+        for instruction in info_instructions.iter() {
+            if instruction.store != current_store {
+                current_store = instruction.store.clone();
+                storage = self.get_random_access(&current_store);
+            }
+            match instruction.info_type {
+                StoreInfoType::Content => {
+                    let buf = storage
+                        .read(instruction.index, instruction.length.unwrap())
                         .await
                         .map_err(|e| anyhow!(e))?;
+                    infos.push(StoreInfo::new_content(
+                        instruction.store.clone(),
+                        instruction.index,
+                        &buf,
+                    ));
                 }
-                None => {
-                    storage
-                        .truncate(slice.index)
-                        .await
-                        .map_err(|e| anyhow!(e))?;
+                StoreInfoType::Size => {
+                    let length = storage.len().await.map_err(|e| anyhow!(e))?;
+                    infos.push(StoreInfo::new_size(
+                        instruction.store.clone(),
+                        instruction.index,
+                        length - instruction.index,
+                    ));
+                }
+            }
+        }
+        Ok(infos.into_boxed_slice())
+    }
+
+    /// Flush info to storage. Convenience method to `flush_infos`.
+    pub async fn flush_info(&mut self, slice: StoreInfo) -> Result<()> {
+        self.flush_infos(&[slice]).await
+    }
+
+    /// Flush infos to storage
+    pub async fn flush_infos(&mut self, infos: &[StoreInfo]) -> Result<()> {
+        if infos.is_empty() {
+            return Ok(());
+        }
+        let mut current_store: Store = infos[0].store.clone();
+        let mut storage = self.get_random_access(&current_store);
+        for info in infos.iter() {
+            if info.store != current_store {
+                current_store = info.store.clone();
+                storage = self.get_random_access(&current_store);
+            }
+            match info.info_type {
+                StoreInfoType::Content => {
+                    if !info.drop {
+                        if let Some(data) = &info.data {
+                            storage
+                                .write(info.index, &data.to_vec())
+                                .await
+                                .map_err(|e| anyhow!(e))?;
+                        }
+                    } else {
+                        unimplemented!("Deleting not implemented yet")
+                    }
+                }
+                StoreInfoType::Size => {
+                    if info.drop {
+                        storage.truncate(info.index).await.map_err(|e| anyhow!(e))?;
+                    } else {
+                        panic!("Flushing a size that isn't drop, is not supported");
+                    }
                 }
             }
         }
         Ok(())
     }
 
-    fn get_random_access(&mut self, store: Store) -> &mut T {
+    fn get_random_access(&mut self, store: &Store) -> &mut T {
         match store {
             Store::Tree => &mut self.tree,
             Store::Data => &mut self.data,

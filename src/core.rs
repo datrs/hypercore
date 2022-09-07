@@ -1,11 +1,11 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
-pub use crate::storage_v10::{PartialKeypair, Storage, Store};
-
 use crate::{
+    common::Store,
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
+    storage_v10::{PartialKeypair, Storage},
     tree::MerkleTree,
 };
 use anyhow::Result;
@@ -62,14 +62,14 @@ where
         let oplog_bytes = storage.read_all(Store::Oplog).await?;
         let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
-            .flush_slices(Store::Oplog, &oplog_open_outcome.slices_to_flush)
+            .flush_infos(&oplog_open_outcome.infos_to_flush)
             .await?;
 
         // Open/create tree
-        let slice_instructions =
-            MerkleTree::get_slice_instructions_to_read(&oplog_open_outcome.header.tree);
-        let slices = storage.read_slices(Store::Tree, slice_instructions).await?;
-        let tree = MerkleTree::open(&oplog_open_outcome.header.tree, slices)?;
+        let info_instructions =
+            MerkleTree::get_info_instructions_to_read(&oplog_open_outcome.header.tree);
+        let infos = storage.read_infos(info_instructions).await?;
+        let tree = MerkleTree::open(&oplog_open_outcome.header.tree, infos)?;
 
         // Create block store instance
         let block_store = BlockStore::default();
@@ -101,16 +101,14 @@ where
         changeset.hash_and_sign(&self.key_pair.public, &secret_key);
 
         // Write the received data to the block store
-        let slice = self
+        let info = self
             .block_store
             .append_batch(batch, batch_length, self.tree.byte_length);
-        self.storage.flush_slice(Store::Data, slice).await?;
+        self.storage.flush_info(info).await?;
 
         // Append the changeset to the Oplog
         let outcome = self.oplog.append_changeset(&changeset, false, &self.header);
-        self.storage
-            .flush_slices(Store::Oplog, &outcome.slices_to_flush)
-            .await?;
+        self.storage.flush_infos(&outcome.infos_to_flush).await?;
         self.header = outcome.header;
 
         // TODO: write bitfield and contiguous length
@@ -139,14 +137,12 @@ where
 
     async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<()> {
         // TODO:
-        // let slices = self.bitfield.flush();
-        // self.storage.flush_slices(Store::Bitfield, &slices).await?;
-        // let slices = self.tree.flush();
-        // self.storage.flush_slices(Store::Tree, &slices).await?;
-        let slices_to_flush = self.oplog.flush(&self.header);
-        self.storage
-            .flush_slices(Store::Oplog, &slices_to_flush)
-            .await?;
+        // let infos = self.bitfield.flush();
+        // self.storage.flush_infos(Store::Bitfield, &infos).await?;
+        // let infos = self.tree.flush();
+        // self.storage.flush_infos(Store::Tree, &infos).await?;
+        let infos_to_flush = self.oplog.flush(&self.header);
+        self.storage.flush_infos(&infos_to_flush).await?;
         Ok(())
     }
 }

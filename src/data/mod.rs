@@ -1,4 +1,4 @@
-use crate::common::BufferSlice;
+use crate::common::{Store, StoreInfo};
 
 /// Block store
 #[derive(Debug, Default)]
@@ -10,14 +10,11 @@ impl BlockStore {
         batch: &[&[u8]],
         batch_length: usize,
         byte_length: u64,
-    ) -> BufferSlice {
+    ) -> StoreInfo {
         let mut buffer: Vec<u8> = Vec::with_capacity(batch_length);
         for data in batch.iter() {
             buffer.extend_from_slice(data);
         }
-        BufferSlice {
-            index: byte_length,
-            data: Some(buffer.into_boxed_slice()),
-        }
+        StoreInfo::new_content(Store::Data, byte_length, &buffer)
     }
 }

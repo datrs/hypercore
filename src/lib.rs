@@ -70,7 +70,7 @@ mod storage_v10;
 #[cfg(feature = "v10")]
 mod tree;
 
-pub use crate::common::Node;
+pub use crate::common::{Node, Store};
 #[cfg(feature = "v10")]
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
@@ -84,7 +84,7 @@ pub use crate::replicate::Peer;
 #[cfg(not(feature = "v10"))]
 pub use crate::storage::{NodeTrait, PartialKeypair, Storage, Store};
 #[cfg(feature = "v10")]
-pub use crate::storage_v10::{PartialKeypair, Storage, Store};
+pub use crate::storage_v10::{PartialKeypair, Storage};
 pub use ed25519_dalek::{PublicKey, SecretKey};
 
 use std::path::Path;

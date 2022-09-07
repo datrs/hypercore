@@ -3,8 +3,9 @@ use anyhow::Result;
 
 use crate::compact_encoding::State;
 use crate::oplog::HeaderTree;
+use crate::Store;
 use crate::{
-    common::{BufferSlice, BufferSliceInstruction},
+    common::{StoreInfo, StoreInfoInstruction},
     Node,
 };
 
@@ -26,25 +27,22 @@ impl MerkleTree {
     /// Gets instructions to slices that should be read from storage
     /// based on `HeaderTree` `length` field. Call this before
     /// calling `open`.
-    pub fn get_slice_instructions_to_read(
-        header_tree: &HeaderTree,
-    ) -> Box<[BufferSliceInstruction]> {
+    pub fn get_info_instructions_to_read(header_tree: &HeaderTree) -> Box<[StoreInfoInstruction]> {
         let root_indices = get_root_indices(&header_tree.length);
 
         root_indices
             .iter()
-            .map(|&index| BufferSliceInstruction {
-                index: NODE_SIZE * index,
-                len: NODE_SIZE,
+            .map(|&index| {
+                StoreInfoInstruction::new_content(Store::Tree, NODE_SIZE * index, NODE_SIZE)
             })
-            .collect::<Vec<BufferSliceInstruction>>()
+            .collect::<Vec<StoreInfoInstruction>>()
             .into_boxed_slice()
     }
 
-    /// Opens MerkleTree, based on read byte slices. Call `get_slice_instructions_to_read`
+    /// Opens MerkleTree, based on read byte slices. Call `get_info_instructions_to_read`
     /// before calling this to find out which slices to read. The given slices
-    /// need to be in the same order as the instructions from `get_slice_instructions_to_read`!
-    pub fn open(header_tree: &HeaderTree, slices: Box<[BufferSlice]>) -> Result<Self> {
+    /// need to be in the same order as the instructions from `get_info_instructions_to_read`!
+    pub fn open(header_tree: &HeaderTree, slices: Box<[StoreInfo]>) -> Result<Self> {
         let root_indices = get_root_indices(&header_tree.length);
 
         let mut roots: Vec<Node> = Vec::with_capacity(slices.len());

@@ -1,4 +1,4 @@
-use crate::common::BufferSlice;
+use crate::common::{Store, StoreInfo};
 use crate::compact_encoding::{CompactEncoding, State};
 use crate::tree::MerkleTreeChangeset;
 use crate::{Node, PartialKeypair};
@@ -29,7 +29,7 @@ pub struct Oplog {
 #[derive(Debug)]
 pub struct OplogCreateHeaderOutcome {
     pub header: Header,
-    pub slices_to_flush: Box<[BufferSlice]>,
+    pub infos_to_flush: Box<[StoreInfo]>,
 }
 
 /// Oplog open outcome
@@ -37,7 +37,7 @@ pub struct OplogCreateHeaderOutcome {
 pub struct OplogOpenOutcome {
     pub oplog: Oplog,
     pub header: Header,
-    pub slices_to_flush: Box<[BufferSlice]>,
+    pub infos_to_flush: Box<[StoreInfo]>,
 }
 
 impl OplogOpenOutcome {
@@ -45,7 +45,7 @@ impl OplogOpenOutcome {
         Self {
             oplog,
             header: create_header_outcome.header,
-            slices_to_flush: create_header_outcome.slices_to_flush,
+            infos_to_flush: create_header_outcome.infos_to_flush,
         }
     }
 }
@@ -100,7 +100,7 @@ impl Oplog {
             Ok(OplogOpenOutcome {
                 oplog,
                 header,
-                slices_to_flush: Box::new([]),
+                infos_to_flush: Box::new([]),
             })
         } else if let Some(mut h2_outcome) = h2_outcome {
             // This shouldn't happen because the first header is saved to the first slot
@@ -114,7 +114,7 @@ impl Oplog {
             Ok(OplogOpenOutcome {
                 oplog,
                 header: h2_outcome.state.decode(&existing),
-                slices_to_flush: Box::new([]),
+                infos_to_flush: Box::new([]),
             })
         } else {
             // There is nothing in the oplog, start from new.
@@ -158,21 +158,21 @@ impl Oplog {
 
         OplogCreateHeaderOutcome {
             header,
-            slices_to_flush: self.append_entries(&[entry], atomic),
+            infos_to_flush: self.append_entries(&[entry], atomic),
         }
     }
 
     /// Flushes pending changes, returns buffer slices to write to storage.
-    pub fn flush(&mut self, header: &Header) -> Box<[BufferSlice]> {
-        let (new_header_bits, slices_to_flush) = Self::insert_header(header, 0, self.header_bits);
+    pub fn flush(&mut self, header: &Header) -> Box<[StoreInfo]> {
+        let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits);
         self.entries_byte_length = 0;
         self.entries_length = 0;
         self.header_bits = new_header_bits;
-        slices_to_flush
+        infos_to_flush
     }
 
     /// Appends a batch of entries to the Oplog.
-    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Box<[BufferSlice]> {
+    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Box<[StoreInfo]> {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
         // Leave room for leaders
@@ -202,18 +202,14 @@ impl Oplog {
         self.entries_length += len as u64;
         self.entries_byte_length += buffer.len() as u64;
 
-        vec![BufferSlice {
-            index,
-            data: Some(buffer),
-        }]
-        .into_boxed_slice()
+        vec![StoreInfo::new_content(Store::Oplog, index, &buffer)].into_boxed_slice()
     }
 
     fn new(key_pair: PartialKeypair) -> OplogOpenOutcome {
         let entries_length: u64 = 0;
         let entries_byte_length: u64 = 0;
         let header = Header::new(key_pair);
-        let (header_bits, slices_to_flush) =
+        let (header_bits, infos_to_flush) =
             Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS);
         let oplog = Oplog {
             header_bits,
@@ -224,7 +220,7 @@ impl Oplog {
             oplog,
             OplogCreateHeaderOutcome {
                 header,
-                slices_to_flush,
+                infos_to_flush,
             },
         )
     }
@@ -233,7 +229,7 @@ impl Oplog {
         header: &Header,
         entries_byte_length: u64,
         current_header_bits: [bool; 2],
-    ) -> ([bool; 2], Box<[BufferSlice]>) {
+    ) -> ([bool; 2], Box<[StoreInfo]>) {
         // The first 8 bytes will be filled with `prepend_leader`.
         let data_start_index: usize = 8;
         let mut state = State::new_with_start_and_end(data_start_index, data_start_index);
@@ -274,14 +270,8 @@ impl Oplog {
         (
             new_header_bits,
             vec![
-                BufferSlice {
-                    index: oplog_slot as u64,
-                    data: Some(buffer),
-                },
-                BufferSlice {
-                    index: truncate_index,
-                    data: None,
-                },
+                StoreInfo::new_content(Store::Oplog, oplog_slot as u64, &buffer),
+                StoreInfo::new_truncate(Store::Oplog, truncate_index),
             ]
             .into_boxed_slice(),
         )
