@@ -1,4 +1,5 @@
-const FIXED_BITFIELD_LENGTH: usize = 1024;
+pub(crate) const FIXED_BITFIELD_LENGTH: usize = 1024;
+pub(crate) const FIXED_BITFIELD_BYTES_LENGTH: usize = FIXED_BITFIELD_LENGTH * 4;
 // u32 has 4 bytes and a byte has 8 bits
 const FIXED_BITFIELD_BITS_PER_ELEM: u32 = 4 * 8;
 use std::convert::TryInto;
@@ -7,7 +8,7 @@ use std::convert::TryInto;
 /// see:
 /// https://github.com/holepunchto/bits-to-bytes/blob/main/index.js
 /// for implementations.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct FixedBitfield {
     pub(crate) parent_index: u64,
     pub(crate) dirty: bool,
@@ -21,6 +22,41 @@ impl FixedBitfield {
             dirty: false,
             bitfield: [0; FIXED_BITFIELD_LENGTH],
         }
+    }
+
+    pub fn from_data(parent_index: u64, data_index: usize, data: &[u8]) -> Self {
+        let mut bitfield = [0; FIXED_BITFIELD_LENGTH];
+        if data.len() >= data_index + 4 {
+            let mut i = data_index;
+            let limit = std::cmp::min(data_index + FIXED_BITFIELD_BYTES_LENGTH, data.len()) - 4;
+            while i <= limit {
+                let value: u32 = ((data[i] as u32) << 0)
+                    | ((data[i + 1] as u32) << 8)
+                    | ((data[i + 2] as u32) << 16)
+                    | ((data[i + 3] as u32) << 24);
+                bitfield[i / 4] = value;
+                i += 4;
+            }
+        }
+        Self {
+            parent_index,
+            dirty: false,
+            bitfield,
+        }
+    }
+
+    pub fn to_bytes(&self) -> Box<[u8]> {
+        let mut data: [u8; FIXED_BITFIELD_BYTES_LENGTH] = [0; FIXED_BITFIELD_BYTES_LENGTH];
+        let mut i = 0;
+        for elem in self.bitfield {
+            let bytes = &elem.to_le_bytes();
+            data[i] = bytes[0];
+            data[i + 1] = bytes[1];
+            data[i + 2] = bytes[2];
+            data[i + 3] = bytes[3];
+            i += 4;
+        }
+        data.into()
     }
 
     pub fn get(&self, index: u32) -> bool {

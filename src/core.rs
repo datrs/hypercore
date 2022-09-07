@@ -128,10 +128,16 @@ where
         self.header = outcome.header;
 
         // Write to bitfield
-        // TODO
-        //     this.bitfield.setRange(batch.ancestors, batch.length - batch.ancestors, true)
+        self.bitfield.set_range(
+            changeset.ancestors,
+            changeset.length - changeset.ancestors,
+            true,
+        );
 
-        // TODO:  contiguous length
+        // Contiguous length is known only now
+        self.update_contiguous_length(false, changeset.ancestors, changeset.batch_length);
+
+        // Now ready to flush
         if self.should_flush_bitfield_and_tree_and_oplog() {
             self.flush_bitfield_and_tree_and_oplog().await?;
         }
@@ -154,12 +160,38 @@ where
         }
     }
 
+    fn update_contiguous_length(
+        &mut self,
+        bitfield_drop: bool,
+        bitfield_start: u64,
+        bitfield_length: u64,
+    ) {
+        let end = bitfield_start + bitfield_length;
+        let mut c = self.header.contiguous_length;
+        if bitfield_drop {
+            if c <= end && c > bitfield_start {
+                c = bitfield_start;
+            }
+        } else {
+            if c <= end && c >= bitfield_start {
+                c = end;
+                while self.bitfield.get(c) {
+                    c += 1;
+                }
+            }
+        }
+
+        if c != self.header.contiguous_length {
+            self.header.contiguous_length = c;
+        }
+    }
+
     async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<()> {
+        let infos = self.bitfield.flush();
+        self.storage.flush_infos(&infos).await?;
         // TODO:
-        // let infos = self.bitfield.flush();
-        // self.storage.flush_infos(Store::Bitfield, &infos).await?;
         // let infos = self.tree.flush();
-        // self.storage.flush_infos(Store::Tree, &infos).await?;
+        // self.storage.flush_infos(&infos).await?;
         let infos_to_flush = self.oplog.flush(&self.header);
         self.storage.flush_infos(&infos_to_flush).await?;
         Ok(())

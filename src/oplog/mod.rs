@@ -162,7 +162,7 @@ impl Oplog {
         }
     }
 
-    /// Flushes pending changes, returns buffer slices to write to storage.
+    /// Flushes pending changes, returns info slices to write to storage.
     pub fn flush(&mut self, header: &Header) -> Box<[StoreInfo]> {
         let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits);
         self.entries_byte_length = 0;

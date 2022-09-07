@@ -1,4 +1,4 @@
-use super::fixed::FixedBitfield;
+use super::fixed::{FixedBitfield, FIXED_BITFIELD_BYTES_LENGTH, FIXED_BITFIELD_LENGTH};
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
     Store,
@@ -27,10 +27,46 @@ impl DynamicBitfield {
     }
 
     pub fn open(info: StoreInfo) -> Self {
-        Self {
-            pages: intmap::IntMap::new(),
-            unflushed: vec![],
+        let data = info.data.unwrap();
+        let resumed = data.len() >= 4;
+        if resumed {
+            let mut pages: intmap::IntMap<RefCell<FixedBitfield>> = intmap::IntMap::new();
+            let mut data_index = 0;
+            while data_index < data.len() {
+                let parent_index: u64 = (data_index / FIXED_BITFIELD_LENGTH) as u64;
+                pages.insert(
+                    parent_index,
+                    RefCell::new(FixedBitfield::from_data(parent_index, data_index, &data)),
+                );
+                data_index += FIXED_BITFIELD_LENGTH;
+            }
+            Self {
+                pages,
+                unflushed: vec![],
+            }
+        } else {
+            Self {
+                pages: intmap::IntMap::new(),
+                unflushed: vec![],
+            }
         }
+    }
+
+    /// Flushes pending changes, returns info slices to write to storage.
+    pub fn flush(&mut self) -> Box<[StoreInfo]> {
+        let mut infos_to_flush: Vec<StoreInfo> = Vec::with_capacity(self.unflushed.len());
+        for unflushed_id in &self.unflushed {
+            let mut p = self.pages.get_mut(*unflushed_id).unwrap().borrow_mut();
+            let data = p.to_bytes();
+            infos_to_flush.push(StoreInfo::new_content(
+                Store::Bitfield,
+                *unflushed_id * data.len() as u64,
+                &data,
+            ));
+            p.dirty = false;
+        }
+        self.unflushed = vec![];
+        infos_to_flush.into_boxed_slice()
     }
 
     pub fn get(&self, index: u64) -> bool {
