@@ -7,9 +7,10 @@ use std::convert::TryInto;
 /// see:
 /// https://github.com/holepunchto/bits-to-bytes/blob/main/index.js
 /// for implementations.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct FixedBitfield {
     pub(crate) parent_index: u64,
+    pub(crate) dirty: bool,
     bitfield: [u32; FIXED_BITFIELD_LENGTH],
 }
 
@@ -17,6 +18,7 @@ impl FixedBitfield {
     pub fn new(parent_index: u64) -> Self {
         Self {
             parent_index,
+            dirty: false,
             bitfield: [0; FIXED_BITFIELD_LENGTH],
         }
     }
@@ -51,10 +53,11 @@ impl FixedBitfield {
         true
     }
 
-    pub fn set_range(&mut self, start: u32, end: u32, value: bool) -> bool {
+    pub fn set_range(&mut self, start: u32, length: u32, value: bool) -> bool {
+        let end: u32 = start + length;
         let n = FIXED_BITFIELD_BITS_PER_ELEM;
 
-        let mut remaining: i64 = (end - start).into();
+        let mut remaining: i64 = end as i64 - start as i64;
         let mut offset = start & (n - 1);
         let mut i: usize = ((start - offset) / n).try_into().unwrap();
 
@@ -100,8 +103,8 @@ impl FixedBitfield {
 mod tests {
     use super::*;
 
-    fn assert_value_range(bitfield: &FixedBitfield, start: u32, end: u32, value: bool) {
-        for i in start..end {
+    fn assert_value_range(bitfield: &FixedBitfield, start: u32, length: u32, value: bool) {
+        for i in start..start + length {
             assert_eq!(bitfield.get(i), value);
         }
     }
@@ -113,51 +116,51 @@ mod tests {
         bitfield.set(0, true);
         assert_eq!(bitfield.get(0), true);
 
-        assert_value_range(&bitfield, 1, 64, false);
+        assert_value_range(&bitfield, 1, 63, false);
         bitfield.set(31, true);
         assert_eq!(bitfield.get(31), true);
 
-        assert_value_range(&bitfield, 32, 64, false);
+        assert_value_range(&bitfield, 32, 32, false);
         assert_eq!(bitfield.get(32), false);
         bitfield.set(32, true);
         assert_eq!(bitfield.get(32), true);
-        assert_value_range(&bitfield, 33, 64, false);
+        assert_value_range(&bitfield, 33, 31, false);
 
-        assert_value_range(&bitfield, 32760, 32768, false);
+        assert_value_range(&bitfield, 32760, 8, false);
         assert_eq!(bitfield.get(32767), false);
         bitfield.set(32767, true);
         assert_eq!(bitfield.get(32767), true);
-        assert_value_range(&bitfield, 32760, 32767, false);
+        assert_value_range(&bitfield, 32760, 7, false);
     }
 
     #[test]
-    fn bitfield_set_range() {
+    fn bitfield_fixed_set_range() {
         let mut bitfield = FixedBitfield::new(0);
         bitfield.set_range(0, 2, true);
         assert_value_range(&bitfield, 0, 2, true);
-        assert_value_range(&bitfield, 3, 64, false);
+        assert_value_range(&bitfield, 3, 61, false);
 
-        bitfield.set_range(2, 5, true);
+        bitfield.set_range(2, 3, true);
         assert_value_range(&bitfield, 0, 5, true);
-        assert_value_range(&bitfield, 6, 64, false);
+        assert_value_range(&bitfield, 5, 59, false);
 
-        bitfield.set_range(1, 4, false);
+        bitfield.set_range(1, 3, false);
         assert_eq!(bitfield.get(0), true);
-        assert_value_range(&bitfield, 1, 4, false);
-        assert_value_range(&bitfield, 4, 5, true);
-        assert_value_range(&bitfield, 6, 64, false);
+        assert_value_range(&bitfield, 1, 3, false);
+        assert_value_range(&bitfield, 4, 1, true);
+        assert_value_range(&bitfield, 5, 59, false);
 
-        bitfield.set_range(31, 31000, true);
-        assert_value_range(&bitfield, 6, 31, false);
-        assert_value_range(&bitfield, 31, 100, true);
-        assert_value_range(&bitfield, 30050, 31000, true);
-        assert_value_range(&bitfield, 31000, 31050, false);
+        bitfield.set_range(30, 30070, true);
+        assert_value_range(&bitfield, 5, 25, false);
+        assert_value_range(&bitfield, 30, 100, true);
+        assert_value_range(&bitfield, 30050, 50, true);
+        assert_value_range(&bitfield, 31000, 50, false);
 
-        bitfield.set_range(32750, 32768, true);
-        assert_value_range(&bitfield, 32750, 32768, true);
+        bitfield.set_range(32750, 18, true);
+        assert_value_range(&bitfield, 32750, 18, true);
 
-        bitfield.set_range(32765, 32768, false);
-        assert_value_range(&bitfield, 32750, 32765, true);
-        assert_value_range(&bitfield, 32765, 32768, false);
+        bitfield.set_range(32765, 3, false);
+        assert_value_range(&bitfield, 32750, 15, true);
+        assert_value_range(&bitfield, 32765, 3, false);
     }
 }
