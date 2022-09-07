@@ -1,6 +1,7 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
 use crate::{
+    bitfield_v10::Bitfield,
     common::{Store, StoreInfoInstruction},
     crypto::generate_keypair,
     data::BlockStore,
@@ -23,8 +24,7 @@ where
     pub(crate) oplog: Oplog,
     pub(crate) tree: MerkleTree,
     pub(crate) block_store: BlockStore,
-    //     /// Bitfield to keep track of which data we own.
-    //     pub(crate) bitfield: Bitfield,
+    pub(crate) bitfield: Bitfield,
     skip_flush_count: u8, // autoFlush in Javascript
     header: Header,
 }
@@ -79,12 +79,23 @@ where
         // Create block store instance
         let block_store = BlockStore::default();
 
+        // Open bitfield
+        let bitfield_store_length = storage
+            .read_info(StoreInfoInstruction::new_size(Store::Bitfield, 0))
+            .await?
+            .length
+            .expect("Did not get store length with size instruction");
+        let info_instruction = Bitfield::get_info_instruction_to_read(bitfield_store_length);
+        let info = storage.read_info(info_instruction).await?;
+        let bitfield = Bitfield::open(info);
+
         Ok(Hypercore {
             key_pair,
             storage,
             oplog: oplog_open_outcome.oplog,
             tree,
             block_store,
+            bitfield,
             skip_flush_count: 0,
             header: oplog_open_outcome.header,
         })
@@ -116,8 +127,11 @@ where
         self.storage.flush_infos(&outcome.infos_to_flush).await?;
         self.header = outcome.header;
 
-        // TODO: write bitfield and contiguous length
-        //
+        // Write to bitfield
+        // TODO
+        //     this.bitfield.setRange(batch.ancestors, batch.length - batch.ancestors, true)
+
+        // TODO:  contiguous length
         if self.should_flush_bitfield_and_tree_and_oplog() {
             self.flush_bitfield_and_tree_and_oplog().await?;
         }
