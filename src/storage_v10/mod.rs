@@ -76,21 +76,29 @@ where
         Ok(instance)
     }
 
-    /// Read fully a store.
-    pub async fn read_all(&mut self, store: Store) -> Result<Box<[u8]>> {
-        let storage = self.get_random_access(&store);
-        let len = storage.len().await.map_err(|e| anyhow!(e))?;
-        let buf = storage.read(0, len).await.map_err(|e| anyhow!(e))?;
-        Ok(buf.into_boxed_slice())
+    /// Read info from store based on given instruction. Convenience method to `read_infos`.
+    pub async fn read_info(&mut self, info_instruction: StoreInfoInstruction) -> Result<StoreInfo> {
+        let mut infos = self.read_infos_to_vec(&[info_instruction]).await?;
+        Ok(infos
+            .pop()
+            .expect("Should have gotten one info with one instruction"))
     }
 
-    /// Read infos from a store based on given instructions
+    /// Read infos from stores based on given instructions
     pub async fn read_infos(
         &mut self,
-        info_instructions: Box<[StoreInfoInstruction]>,
+        info_instructions: &[StoreInfoInstruction],
     ) -> Result<Box<[StoreInfo]>> {
+        let infos = self.read_infos_to_vec(info_instructions).await?;
+        Ok(infos.into_boxed_slice())
+    }
+
+    async fn read_infos_to_vec(
+        &mut self,
+        info_instructions: &[StoreInfoInstruction],
+    ) -> Result<Vec<StoreInfo>> {
         if info_instructions.is_empty() {
-            return Ok(vec![].into_boxed_slice());
+            return Ok(vec![]);
         }
         let mut current_store: Store = info_instructions[0].store.clone();
         let mut storage = self.get_random_access(&current_store);
@@ -102,8 +110,12 @@ where
             }
             match instruction.info_type {
                 StoreInfoType::Content => {
+                    let length = match instruction.length {
+                        Some(length) => length,
+                        None => storage.len().await.map_err(|e| anyhow!(e))?,
+                    };
                     let buf = storage
-                        .read(instruction.index, instruction.length.unwrap())
+                        .read(instruction.index, length)
                         .await
                         .map_err(|e| anyhow!(e))?;
                     infos.push(StoreInfo::new_content(
@@ -122,7 +134,7 @@ where
                 }
             }
         }
-        Ok(infos.into_boxed_slice())
+        Ok(infos)
     }
 
     /// Flush info to storage. Convenience method to `flush_infos`.

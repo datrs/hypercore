@@ -86,6 +86,15 @@ impl StoreInfoInstruction {
         }
     }
 
+    pub fn new_all_content(store: Store) -> Self {
+        Self {
+            store,
+            info_type: StoreInfoType::Content,
+            index: 0,
+            length: None,
+        }
+    }
+
     pub fn new_size(store: Store, index: u64) -> Self {
         Self {
             store,

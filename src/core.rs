@@ -1,7 +1,7 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
 use crate::{
-    common::Store,
+    common::{Store, StoreInfoInstruction},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
@@ -59,7 +59,12 @@ where
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>> {
         // Open/create oplog
-        let oplog_bytes = storage.read_all(Store::Oplog).await?;
+        let oplog_bytes = storage
+            .read_info(StoreInfoInstruction::new_all_content(Store::Oplog))
+            .await?
+            .data
+            .expect("Did not receive data");
+
         let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
             .flush_infos(&oplog_open_outcome.infos_to_flush)
@@ -68,7 +73,7 @@ where
         // Open/create tree
         let info_instructions =
             MerkleTree::get_info_instructions_to_read(&oplog_open_outcome.header.tree);
-        let infos = storage.read_infos(info_instructions).await?;
+        let infos = storage.read_infos(&info_instructions).await?;
         let tree = MerkleTree::open(&oplog_open_outcome.header.tree, infos)?;
 
         // Create block store instance
