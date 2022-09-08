@@ -70,7 +70,9 @@ mod storage_v10;
 #[cfg(feature = "v10")]
 mod tree;
 
-pub use crate::common::{Node, Store};
+pub use crate::common::Node;
+#[cfg(feature = "v10")]
+pub use crate::common::Store;
 #[cfg(feature = "v10")]
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};

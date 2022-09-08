@@ -22,6 +22,7 @@ fn init() {
 
 #[async_std::test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
+#[cfg(feature = "v10")]
 async fn js_interop_js_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_JS_FIRST);
