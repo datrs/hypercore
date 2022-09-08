@@ -41,6 +41,17 @@ impl Node {
         }
     }
 
+    /// Creates a new blank node
+    pub fn new_blank(index: u64) -> Self {
+        Self {
+            index,
+            hash: vec![0, 32],
+            length: 0,
+            parent: 0,
+            data: None,
+        }
+    }
+
     /// Convert a vector to a new instance.
     ///
     /// Requires the index at which the buffer was read to be passed.

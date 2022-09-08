@@ -137,6 +137,9 @@ where
         // Contiguous length is known only now
         self.update_contiguous_length(false, changeset.ancestors, changeset.batch_length);
 
+        // Commit changeset to in-memory tree
+        self.tree.commit(changeset)?;
+
         // Now ready to flush
         if self.should_flush_bitfield_and_tree_and_oplog() {
             self.flush_bitfield_and_tree_and_oplog().await?;
@@ -189,9 +192,8 @@ where
     async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<()> {
         let infos = self.bitfield.flush();
         self.storage.flush_infos(&infos).await?;
-        // TODO:
-        // let infos = self.tree.flush();
-        // self.storage.flush_infos(&infos).await?;
+        let infos = self.tree.flush();
+        self.storage.flush_infos(&infos).await?;
         let infos_to_flush = self.oplog.flush(&self.header);
         self.storage.flush_infos(&infos_to_flush).await?;
         Ok(())

@@ -21,6 +21,11 @@ pub struct MerkleTreeChangeset {
     pub(crate) roots: Vec<Node>,
     pub(crate) nodes: Vec<Node>,
     pub(crate) hash_and_signature: Option<(Box<[u8]>, Signature)>,
+    pub(crate) upgraded: bool,
+
+    // Safeguarding values
+    pub(crate) original_tree_length: u64,
+    pub(crate) original_tree_fork: u64,
 }
 
 impl MerkleTreeChangeset {
@@ -34,6 +39,9 @@ impl MerkleTreeChangeset {
             roots,
             nodes: vec![],
             hash_and_signature: None,
+            upgraded: false,
+            original_tree_length: length,
+            original_tree_fork: fork,
         }
     }
 
@@ -48,6 +56,7 @@ impl MerkleTreeChangeset {
     }
 
     pub fn append_root(&mut self, node: Node, iter: &mut flat_tree::Iterator) {
+        self.upgraded = true;
         self.length += iter.factor() / 2;
         self.byte_length += node.length;
         self.roots.push(node.clone());
