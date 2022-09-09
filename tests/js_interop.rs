@@ -26,11 +26,13 @@ fn init() {
 async fn js_interop_js_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_JS_FIRST);
-    assert_eq!(step_0_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_0_hash());
     js_run_step(1, TEST_SET_JS_FIRST);
-    assert_eq!(step_1_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_1_hash());
     step_2_append_hello_world(&work_dir).await?;
-    assert_eq!(step_2_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_2_hash());
+    js_run_step(3, TEST_SET_JS_FIRST);
+    assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
     Ok(())
 }
 
@@ -40,11 +42,13 @@ async fn js_interop_js_first() -> Result<()> {
 async fn js_interop_rs_first() -> Result<()> {
     init();
     let work_dir = prepare_test_set(TEST_SET_RS_FIRST);
-    assert_eq!(step_0_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_0_hash());
     step_1_create(&work_dir).await?;
-    assert_eq!(step_1_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_1_hash());
     js_run_step(2, TEST_SET_RS_FIRST);
-    assert_eq!(step_2_hash(), create_hypercore_hash(&work_dir));
+    assert_eq!(create_hypercore_hash(&work_dir), step_2_hash());
+    step_3_read_and_append_unflushed(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
     Ok(())
 }
 
@@ -63,7 +67,18 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, false).await?;
     let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
-    let _append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
+    let append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
+    assert_eq!(append_outcome.length, 2);
+    assert_eq!(append_outcome.byte_length, 10);
+    Ok(())
+}
+
+#[cfg(feature = "v10")]
+async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
+    let path = Path::new(work_dir).to_owned();
+    let key_pair = get_test_key_pair();
+    let storage = Storage::new_disk(&path, false).await?;
+    let mut _hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
     Ok(())
 }
 
@@ -91,5 +106,14 @@ fn step_2_hash() -> common::HypercoreHash {
         data: Some("872E4E50CE9990D8B041330C47C9DDD11BEC6B503AE9386A99DA8584E9BB12C4".into()),
         oplog: Some("E374F3CFEA62D333E3ADE22A24A0EA50E5AF09CF45E2DEDC0F56F5A214081156".into()),
         tree: Some("8577B24ADC763F65D562CD11204F938229AD47F27915B0821C46A0470B80813A".into()),
+    }
+}
+
+fn step_3_hash() -> common::HypercoreHash {
+    common::HypercoreHash {
+        bitfield: Some("DEC1593A7456C8C9407B9B8B9C89682DFFF33C3892BCC9D9F06956FEE0A1B949".into()),
+        data: Some("402670849413BB97FAC3A322FC1EE3DE20F7F0D9C641B0F70BC4C619B3032C50".into()),
+        oplog: Some("0536819D13798DADFCA9A8607D10DDD14254902FBCC35E97043039E4308869B5".into()),
+        tree: Some("38788609A8634DC8D34F9AE723F3169ADB20768ACFDFF266A43B7E217750DD1E".into()),
     }
 }

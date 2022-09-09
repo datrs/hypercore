@@ -146,8 +146,9 @@ where
         }
 
         Ok(AppendOutcome {
-            length: 0,
-            byte_length: 0,
+            length: self.tree.length,
+            // TODO: This comes in JS from the block store write result
+            byte_length: self.tree.byte_length,
         })
     }
 

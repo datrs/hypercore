@@ -30,18 +30,49 @@ if (process.argv[2] === '1') {
     step2AppendHelloWorld(process.argv[3]).then(result => {
         console.log("step2 ready", result);
     });
+} else if (process.argv[2] === '3'){
+    step3iReadAndAppendUnflushed(process.argv[3]).then(result => {
+        console.log("step3 ready", result);
+    });
 } else {
     console.error(`Invalid test step {}`, process.argv[2]);
     process.exit(2);
 }
 
 async function step1Create(testSet) {
-    let core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
     await core.close();
 };
 
 async function step2AppendHelloWorld(testSet) {
     const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
-    await core.append(['Hello', 'World']);
+    const result = await core.append([Buffer.from('Hello'), Buffer.from('World')]);
+    if (result.length != 2 || result.byteLength != 10) {
+        throw new Error(`Invalid append result: ${result.length} or ${result.byteLength}`);
+    }
+    await core.close();
+};
+
+async function step3iReadAndAppendUnflushed(testSet) {
+    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+    const hello = (await core.get(0)).toString();
+    const world = (await core.get(1)).toString();
+    if (hello != "Hello" || world != "World")  {
+        throw new Error(`Read invalid data from hypercore: ${hello} or ${world}`);
+    }
+    let result = await core.append(Buffer.from('first'));
+    if (result.length != 3 || result.byteLength != 15) {
+        throw new Error(`Invalid append result: ${result.length} or ${result.byteLength}`);
+    }
+    result = await core.append([Buffer.from('second'), Buffer.from('third')]);
+    if (result.length != 5 || result.byteLength != 26) {
+        throw new Error(`Invalid append result: ${result.length} or ${result.byteLength}`);
+    }
+    const first = (await core.get(2)).toString();
+    const second = (await core.get(3)).toString();
+    const third = (await core.get(4)).toString();
+    if (first != "first" || second != "second" || third != "third")  {
+        throw new Error(`Read invalid data from hypercore: ${first} or ${second} or ${third}`);
+    }
     await core.close();
 };
