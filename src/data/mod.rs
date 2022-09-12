@@ -1,4 +1,5 @@
-use crate::common::{Store, StoreInfo};
+use crate::common::{NodeByteRange, Store, StoreInfo, StoreInfoInstruction};
+use futures::future::Either;
 
 /// Block store
 #[derive(Debug, Default)]
@@ -16,5 +17,21 @@ impl BlockStore {
             buffer.extend_from_slice(data);
         }
         StoreInfo::new_content(Store::Data, byte_length, &buffer)
+    }
+
+    pub fn read(
+        &self,
+        byte_range: &NodeByteRange,
+        info: Option<StoreInfo>,
+    ) -> Either<StoreInfoInstruction, Box<[u8]>> {
+        if let Some(info) = info {
+            Either::Right(info.data.unwrap())
+        } else {
+            Either::Left(StoreInfoInstruction::new_content(
+                Store::Data,
+                byte_range.index,
+                byte_range.length,
+            ))
+        }
     }
 }

@@ -9,7 +9,8 @@ use crate::{
     storage_v10::{PartialKeypair, Storage},
     tree::MerkleTree,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use futures::future::Either;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 
@@ -101,7 +102,12 @@ where
         })
     }
 
-    /// Appends a given batch of data blobs to the hypercore.
+    /// Appends a data slice to the hypercore.
+    pub async fn append(&mut self, data: &[u8]) -> Result<AppendOutcome> {
+        self.append_batch(&[data]).await
+    }
+
+    /// Appends a given batch of data slices to the hypercore.
     pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
@@ -150,6 +156,42 @@ where
             // TODO: This comes in JS from the block store write result
             byte_length: self.tree.byte_length,
         })
+    }
+
+    /// Read value at given index, if any.
+    pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>> {
+        if !self.bitfield.get(index) {
+            return Ok(None);
+        }
+
+        // TODO: Figure out a way to generalize this Either processing stack!
+        let byte_range = match self.tree.byte_range(index, None)? {
+            Either::Right(byte_range) => byte_range,
+            Either::Left(instructions) => {
+                let infos = self.storage.read_infos(&instructions).await?;
+                match self.tree.byte_range(index, Some(&infos))? {
+                    Either::Right(byte_range) => byte_range,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not read byte range"));
+                    }
+                }
+            }
+        };
+
+        let data = match self.block_store.read(&byte_range, None) {
+            Either::Right(data) => data,
+            Either::Left(instruction) => {
+                let info = self.storage.read_info(instruction).await?;
+                match self.block_store.read(&byte_range, Some(info)) {
+                    Either::Right(data) => data,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not read block storage range"));
+                    }
+                }
+            }
+        };
+
+        Ok(Some(data.to_vec()))
     }
 
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {

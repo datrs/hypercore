@@ -15,6 +15,13 @@ use std::io::Cursor;
 
 use crate::crypto::Hash;
 
+/// Node byte range
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeByteRange {
+    pub(crate) index: u64,
+    pub(crate) length: u64,
+}
+
 /// Nodes that are persisted to disk.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
 // rewriting the Blake2b crate to support `.from_bytes()` to serialize from
@@ -26,6 +33,7 @@ pub struct Node {
     pub(crate) length: u64,
     pub(crate) parent: u64,
     pub(crate) data: Option<Vec<u8>>,
+    pub(crate) blank: bool,
 }
 
 impl Node {
@@ -38,6 +46,7 @@ impl Node {
             length: length as u64,
             parent: flat_tree::parent(index),
             data: Some(Vec::with_capacity(0)),
+            blank: false,
         }
     }
 
@@ -49,6 +58,7 @@ impl Node {
             length: 0,
             parent: 0,
             data: None,
+            blank: true,
         }
     }
 
@@ -65,8 +75,13 @@ impl Node {
         // TODO: subslice directly, move cursor forward.
         let capacity = 32;
         let mut hash = Vec::with_capacity(capacity);
+        let mut blank = true;
         for _ in 0..capacity {
-            hash.push(reader.read_u8()?);
+            let byte = reader.read_u8()?;
+            if blank && byte != 0 {
+                blank = false;
+            };
+            hash.push(byte);
         }
 
         let length = reader.read_u64::<BigEndian>()?;
@@ -76,6 +91,7 @@ impl Node {
             index,
             parent,
             data: Some(Vec::with_capacity(0)),
+            blank,
         })
     }
 
@@ -154,13 +170,22 @@ impl From<NodeParts<Hash>> for Node {
             NodeKind::Leaf(data) => Some(data.clone()),
             NodeKind::Parent => None,
         };
+        let hash: Vec<u8> = parts.hash().as_bytes().into();
+        let mut blank = true;
+        for byte in &hash {
+            if *byte != 0 {
+                blank = false;
+                break;
+            }
+        }
 
         Node {
             index: partial.index(),
             parent: partial.parent,
             length: partial.len() as u64,
-            hash: parts.hash().as_bytes().into(),
+            hash,
             data,
+            blank,
         }
     }
 }

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use anyhow::{anyhow, ensure};
 use ed25519_dalek::Signature;
+use futures::future::Either;
 
+use crate::common::NodeByteRange;
 use crate::compact_encoding::State;
 use crate::oplog::HeaderTree;
 use crate::Store;
@@ -44,22 +46,22 @@ impl MerkleTree {
             .into_boxed_slice()
     }
 
-    /// Opens MerkleTree, based on read byte slices. Call `get_info_instructions_to_read`
-    /// before calling this to find out which slices to read. The given slices
+    /// Opens MerkleTree, based on read infos. Call `get_info_instructions_to_read`
+    /// before calling this to find out which infos to read. The given infos
     /// need to be in the same order as the instructions from `get_info_instructions_to_read`!
-    pub fn open(header_tree: &HeaderTree, slices: Box<[StoreInfo]>) -> Result<Self> {
+    pub fn open(header_tree: &HeaderTree, infos: Box<[StoreInfo]>) -> Result<Self> {
         let root_indices = get_root_indices(&header_tree.length);
 
-        let mut roots: Vec<Node> = Vec::with_capacity(slices.len());
+        let mut roots: Vec<Node> = Vec::with_capacity(infos.len());
         let mut byte_length: u64 = 0;
         let mut length: u64 = 0;
         for i in 0..root_indices.len() {
             let index = root_indices[i];
             ensure!(
-                index == slices[i].index / NODE_SIZE,
+                index == index_from_info(&infos[i]),
                 "Given slices vector not in the correct order"
             );
-            let data = slices[i].data.as_ref().unwrap();
+            let data = infos[i].data.as_ref().unwrap();
             let node = node_from_bytes(&index, data);
             byte_length += node.length;
             // This is totalSpan in Javascript
@@ -113,6 +115,7 @@ impl MerkleTree {
         Ok(())
     }
 
+    /// Flush committed made changes to the tree
     pub fn flush(&mut self) -> Box<[StoreInfo]> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::new();
         if self.truncated {
@@ -120,6 +123,82 @@ impl MerkleTree {
         }
         infos_to_flush.extend(self.flush_nodes());
         infos_to_flush.into_boxed_slice()
+    }
+
+    /// Get storage byte range of given hypercore index
+    pub fn byte_range(
+        &self,
+        hypercore_index: u64,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>> {
+        // Converts a hypercore index into a merkle tree index
+        let index = 2 * hypercore_index;
+
+        // Check bounds
+        let head = 2 * self.length;
+        let compare_index = if index & 1 == 0 {
+            index
+        } else {
+            flat_tree::right_span(index)
+        };
+        if compare_index >= head {
+            return Err(anyhow!(
+                "Hypercore index {} is out of bounds",
+                hypercore_index
+            ));
+        }
+
+        // Get nodes out of incoming infos
+        let nodes: Vec<Node> = match infos {
+            Some(infos) => infos
+                .iter()
+                .map(|info| node_from_bytes(&index_from_info(&info), info.data.as_ref().unwrap()))
+                .collect(),
+            None => vec![],
+        };
+
+        // Start with getting the requested node, which will get the length
+        // of the byte range
+        let length_result = self.get_node(index, &nodes)?;
+
+        // As for the offset, that might require a lot more nodes to combine into
+        // an offset
+        let offset_result = self.byte_offset(index, &nodes)?;
+
+        // Construct response of either instructions (Left) or the result (Right)
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut byte_range = NodeByteRange {
+            index: 0,
+            length: 0,
+        };
+        match length_result {
+            Either::Left(instruction) => {
+                if infos.is_some() {
+                    return Err(anyhow!("Could not return size from fetched nodes"));
+                }
+                instructions.push(instruction);
+            }
+            Either::Right(node) => {
+                byte_range.length = node.length;
+            }
+        }
+        match offset_result {
+            Either::Left(offset_instructions) => {
+                if infos.is_some() {
+                    return Err(anyhow!("Could not return offset from fetched nodes"));
+                }
+                instructions.extend(offset_instructions);
+            }
+            Either::Right(offset) => {
+                byte_range.index = offset;
+            }
+        }
+
+        if instructions.is_empty() {
+            Ok(Either::Right(byte_range))
+        } else {
+            Ok(Either::Left(instructions.into_boxed_slice()))
+        }
     }
 
     fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
@@ -208,12 +287,97 @@ impl MerkleTree {
         }
         infos_to_flush
     }
+
+    fn byte_offset(
+        &self,
+        index: u64,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+        let index = if (index & 1) == 1 {
+            flat_tree::left_span(index)
+        } else {
+            index
+        };
+        let mut head: u64 = 0;
+        let mut offset: u64 = 0;
+
+        for root_node in &self.roots {
+            head += 2 * ((root_node.index - head) + 1);
+
+            if index >= head {
+                offset += root_node.length;
+                continue;
+            }
+            let mut iter = flat_tree::Iterator::new(root_node.index);
+
+            let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+            while iter.index() != index {
+                if index < iter.index() {
+                    iter.left_child();
+                } else {
+                    let left_child = iter.left_child();
+                    let node_or_instruction = self.get_node(left_child, nodes)?;
+                    match node_or_instruction {
+                        Either::Left(instruction) => {
+                            instructions.push(instruction);
+                        }
+                        Either::Right(node) => {
+                            offset += node.length;
+                        }
+                    }
+                    iter.sibling();
+                }
+            }
+            return if instructions.is_empty() {
+                Ok(Either::Right(offset))
+            } else {
+                Ok(Either::Left(instructions))
+            };
+        }
+        Err(anyhow!(
+            "Could not calculate byte offset for index {}",
+            index
+        ))
+    }
+
+    fn get_node(
+        &self,
+        index: u64,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<StoreInfoInstruction, Node>> {
+        // First check if unflushed already has the node
+        if let Some(node) = self.unflushed.get(index) {
+            if node.blank || (self.truncated && node.index >= 2 * self.truncate_to) {
+                // The node is either blank or being deleted
+                return Err(anyhow!("Could not load node: {}", index));
+            }
+            return Ok(Either::Right(node.clone()));
+        }
+
+        // Then check if it's already in the incoming nodes
+        for node in nodes {
+            if node.index == index {
+                return Ok(Either::Right(node.clone()));
+            }
+        }
+
+        // If not, retunr an instruction
+        Ok(Either::Left(StoreInfoInstruction::new_content(
+            Store::Tree,
+            40 * index,
+            40,
+        )))
+    }
 }
 
 fn get_root_indices(header_tree_length: &u64) -> Vec<u64> {
     let mut roots = vec![];
     flat_tree::full_roots(header_tree_length * 2, &mut roots);
     roots
+}
+
+fn index_from_info(info: &StoreInfo) -> u64 {
+    info.index / NODE_SIZE
 }
 
 fn node_from_bytes(index: &u64, data: &[u8]) -> Node {
