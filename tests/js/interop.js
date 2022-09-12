@@ -68,6 +68,10 @@ async function step3iReadAndAppendUnflushed(testSet) {
     if (result.length != 5 || result.byteLength != 26) {
         throw new Error(`Invalid append result: ${result.length} or ${result.byteLength}`);
     }
+    result = await core.append([]);
+    if (result.length != 5 || result.byteLength != 26) {
+        throw new Error(`Invalid append result: ${result.length} or ${result.byteLength}`);
+    }
     const first = (await core.get(2)).toString();
     const second = (await core.get(3)).toString();
     const third = (await core.get(4)).toString();

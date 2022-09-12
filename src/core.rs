@@ -114,46 +114,48 @@ where
             None => anyhow::bail!("No secret key, cannot append."),
         };
 
-        // Create a changeset for the tree
-        let mut changeset = self.tree.changeset();
-        let mut batch_length: usize = 0;
-        for data in batch.iter() {
-            batch_length += changeset.append(data);
+        if !batch.is_empty() {
+            // Create a changeset for the tree
+            let mut changeset = self.tree.changeset();
+            let mut batch_length: usize = 0;
+            for data in batch.iter() {
+                batch_length += changeset.append(data);
+            }
+            changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+
+            // Write the received data to the block store
+            let info = self
+                .block_store
+                .append_batch(batch, batch_length, self.tree.byte_length);
+            self.storage.flush_info(info).await?;
+
+            // Append the changeset to the Oplog
+            let outcome = self.oplog.append_changeset(&changeset, false, &self.header);
+            self.storage.flush_infos(&outcome.infos_to_flush).await?;
+            self.header = outcome.header;
+
+            // Write to bitfield
+            self.bitfield.set_range(
+                changeset.ancestors,
+                changeset.length - changeset.ancestors,
+                true,
+            );
+
+            // Contiguous length is known only now
+            self.update_contiguous_length(false, changeset.ancestors, changeset.batch_length);
+
+            // Commit changeset to in-memory tree
+            self.tree.commit(changeset)?;
+
+            // Now ready to flush
+            if self.should_flush_bitfield_and_tree_and_oplog() {
+                self.flush_bitfield_and_tree_and_oplog().await?;
+            }
         }
-        changeset.hash_and_sign(&self.key_pair.public, &secret_key);
 
-        // Write the received data to the block store
-        let info = self
-            .block_store
-            .append_batch(batch, batch_length, self.tree.byte_length);
-        self.storage.flush_info(info).await?;
-
-        // Append the changeset to the Oplog
-        let outcome = self.oplog.append_changeset(&changeset, false, &self.header);
-        self.storage.flush_infos(&outcome.infos_to_flush).await?;
-        self.header = outcome.header;
-
-        // Write to bitfield
-        self.bitfield.set_range(
-            changeset.ancestors,
-            changeset.length - changeset.ancestors,
-            true,
-        );
-
-        // Contiguous length is known only now
-        self.update_contiguous_length(false, changeset.ancestors, changeset.batch_length);
-
-        // Commit changeset to in-memory tree
-        self.tree.commit(changeset)?;
-
-        // Now ready to flush
-        if self.should_flush_bitfield_and_tree_and_oplog() {
-            self.flush_bitfield_and_tree_and_oplog().await?;
-        }
-
+        // Return the new value
         Ok(AppendOutcome {
             length: self.tree.length,
-            // TODO: This comes in JS from the block store write result
             byte_length: self.tree.byte_length,
         })
     }

@@ -135,6 +135,7 @@ impl Oplog {
             .as_ref()
             .expect("Changeset must be signed before appended");
         let signature: Box<[u8]> = signature.to_bytes().into();
+
         let entry: Entry = Entry {
             user_data: vec![],
             tree_nodes,
@@ -152,7 +153,7 @@ impl Oplog {
         };
 
         let mut header: Header = header.clone();
-        header.tree.length = changeset.batch_length;
+        header.tree.length = changeset.length;
         header.tree.root_hash = hash.clone();
         header.tree.signature = signature;
 

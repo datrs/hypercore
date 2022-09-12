@@ -89,11 +89,14 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
     let append_outcome = hypercore.append_batch(&[b"second", b"third"]).await?;
     assert_eq!(append_outcome.length, 5);
     assert_eq!(append_outcome.byte_length, 26);
+    let append_outcome = hypercore.append_batch(&[]).await?;
+    assert_eq!(append_outcome.length, 5);
+    assert_eq!(append_outcome.byte_length, 26);
     let first = hypercore.get(2).await?;
     assert_eq!(first.unwrap(), b"first");
     let second = hypercore.get(3).await?;
     assert_eq!(second.unwrap(), b"second");
-    let third = hypercore.get(3).await?;
+    let third = hypercore.get(4).await?;
     assert_eq!(third.unwrap(), b"third");
     Ok(())
 }

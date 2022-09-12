@@ -55,6 +55,7 @@ impl MerkleTree {
         let mut roots: Vec<Node> = Vec::with_capacity(infos.len());
         let mut byte_length: u64 = 0;
         let mut length: u64 = 0;
+
         for i in 0..root_indices.len() {
             let index = root_indices[i];
             ensure!(
@@ -68,6 +69,9 @@ impl MerkleTree {
             length += 2 * ((node.index - length) + 1);
 
             roots.push(node);
+        }
+        if length > 0 {
+            length = length / 2;
         }
 
         Ok(Self {
@@ -99,6 +103,7 @@ impl MerkleTree {
 
         if changeset.upgraded {
             self.commit_truncation(&changeset);
+
             self.roots = changeset.roots;
             self.length = changeset.length;
             self.byte_length = changeset.byte_length;
