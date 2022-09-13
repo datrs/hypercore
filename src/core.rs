@@ -10,6 +10,7 @@ use crate::{
     tree::MerkleTree,
 };
 use anyhow::{anyhow, Result};
+use ed25519_dalek::Signature;
 use futures::future::Either;
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
@@ -66,7 +67,7 @@ where
             .data
             .expect("Did not receive data");
 
-        let oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
+        let mut oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
         storage
             .flush_infos(&oplog_open_outcome.infos_to_flush)
             .await?;
@@ -75,7 +76,7 @@ where
         let info_instructions =
             MerkleTree::get_info_instructions_to_read(&oplog_open_outcome.header.tree);
         let infos = storage.read_infos(&info_instructions).await?;
-        let tree = MerkleTree::open(&oplog_open_outcome.header.tree, infos)?;
+        let mut tree = MerkleTree::open(&oplog_open_outcome.header.tree, infos)?;
 
         // Create block store instance
         let block_store = BlockStore::default();
@@ -88,7 +89,59 @@ where
             .expect("Did not get store length with size instruction");
         let info_instruction = Bitfield::get_info_instruction_to_read(bitfield_store_length);
         let info = storage.read_info(info_instruction).await?;
-        let bitfield = Bitfield::open(info);
+        let mut bitfield = Bitfield::open(info);
+
+        // Process entries stored only to the oplog and not yet flushed into bitfield or tree
+        if let Some(entries) = oplog_open_outcome.entries {
+            for entry in entries.iter() {
+                for node in &entry.tree_nodes {
+                    tree.add_node(node.clone());
+                }
+
+                if let Some(entry_bitfield) = &entry.bitfield {
+                    bitfield.set_range(
+                        entry_bitfield.start,
+                        entry_bitfield.length,
+                        !entry_bitfield.drop,
+                    );
+                    update_contiguous_length(
+                        &mut oplog_open_outcome.header,
+                        &bitfield,
+                        entry_bitfield.drop,
+                        entry_bitfield.start,
+                        entry_bitfield.length,
+                    );
+                }
+                if let Some(tree_upgrade) = &entry.tree_upgrade {
+                    // TODO: Generalize Either response stack
+                    let mut changeset =
+                        match tree.truncate(tree_upgrade.length, tree_upgrade.fork, None)? {
+                            Either::Right(changeset) => changeset,
+                            Either::Left(instructions) => {
+                                let infos = storage.read_infos(&instructions).await?;
+                                match tree.truncate(
+                                    tree_upgrade.length,
+                                    tree_upgrade.fork,
+                                    Some(&infos),
+                                )? {
+                                    Either::Right(changeset) => changeset,
+                                    Either::Left(_) => {
+                                        return Err(anyhow!("Could not truncate"));
+                                    }
+                                }
+                            }
+                        };
+                    changeset.ancestors = tree_upgrade.ancestors;
+                    changeset.signature = Some(Signature::from_bytes(&tree_upgrade.signature)?);
+
+                    // TODO: Skip reorg hints for now, seems to only have to do with replication
+                    // addReorgHint(header.hints.reorgs, tree, batch)
+
+                    // Commit changeset to in-memory tree
+                    tree.commit(changeset)?;
+                }
+            }
+        }
 
         Ok(Hypercore {
             key_pair,
@@ -142,7 +195,13 @@ where
             );
 
             // Contiguous length is known only now
-            self.update_contiguous_length(false, changeset.ancestors, changeset.batch_length);
+            update_contiguous_length(
+                &mut self.header,
+                &self.bitfield,
+                false,
+                changeset.ancestors,
+                changeset.batch_length,
+            );
 
             // Commit changeset to in-memory tree
             self.tree.commit(changeset)?;
@@ -166,7 +225,7 @@ where
             return Ok(None);
         }
 
-        // TODO: Figure out a way to generalize this Either processing stack!
+        // TODO: Generalize Either response stack
         let byte_range = match self.tree.byte_range(index, None)? {
             Either::Right(byte_range) => byte_range,
             Either::Left(instructions) => {
@@ -180,6 +239,7 @@ where
             }
         };
 
+        // TODO: Generalize Either response stack
         let data = match self.block_store.read(&byte_range, None) {
             Either::Right(data) => data,
             Either::Left(instruction) => {
@@ -200,37 +260,11 @@ where
         if self.skip_flush_count == 0
             || self.oplog.entries_byte_length >= MAX_OPLOG_ENTRIES_BYTE_SIZE
         {
-            self.skip_flush_count = 4;
+            self.skip_flush_count = 3;
             true
         } else {
             self.skip_flush_count -= 1;
             false
-        }
-    }
-
-    fn update_contiguous_length(
-        &mut self,
-        bitfield_drop: bool,
-        bitfield_start: u64,
-        bitfield_length: u64,
-    ) {
-        let end = bitfield_start + bitfield_length;
-        let mut c = self.header.contiguous_length;
-        if bitfield_drop {
-            if c <= end && c > bitfield_start {
-                c = bitfield_start;
-            }
-        } else {
-            if c <= end && c >= bitfield_start {
-                c = end;
-                while self.bitfield.get(c) {
-                    c += 1;
-                }
-            }
-        }
-
-        if c != self.header.contiguous_length {
-            self.header.contiguous_length = c;
         }
     }
 
@@ -242,5 +276,32 @@ where
         let infos_to_flush = self.oplog.flush(&self.header);
         self.storage.flush_infos(&infos_to_flush).await?;
         Ok(())
+    }
+}
+
+fn update_contiguous_length(
+    header: &mut Header,
+    bitfield: &Bitfield,
+    bitfield_drop: bool,
+    bitfield_start: u64,
+    bitfield_length: u64,
+) {
+    let end = bitfield_start + bitfield_length;
+    let mut c = header.contiguous_length;
+    if bitfield_drop {
+        if c <= end && c > bitfield_start {
+            c = bitfield_start;
+        }
+    } else {
+        if c <= end && c >= bitfield_start {
+            c = end;
+            while bitfield.get(c) {
+                c += 1;
+            }
+        }
+    }
+
+    if c != header.contiguous_length {
+        header.contiguous_length = c;
     }
 }

@@ -20,7 +20,8 @@ pub struct MerkleTreeChangeset {
     pub(crate) fork: u64,
     pub(crate) roots: Vec<Node>,
     pub(crate) nodes: Vec<Node>,
-    pub(crate) hash_and_signature: Option<(Box<[u8]>, Signature)>,
+    pub(crate) hash: Option<Box<[u8]>>,
+    pub(crate) signature: Option<Signature>,
     pub(crate) upgraded: bool,
 
     // Safeguarding values
@@ -38,7 +39,8 @@ impl MerkleTreeChangeset {
             fork,
             roots,
             nodes: vec![],
-            hash_and_signature: None,
+            hash: None,
+            signature: None,
             upgraded: false,
             original_tree_length: length,
             original_tree_fork: fork,
@@ -87,7 +89,8 @@ impl MerkleTreeChangeset {
         let hash = self.hash();
         let signable = signable_tree(&hash, self.length, self.fork);
         let signature = sign(&public_key, &secret_key, &signable);
-        self.hash_and_signature = Some((hash, signature));
+        self.hash = Some(hash);
+        self.signature = Some(signature);
     }
 
     /// Calculates a hash of the current set of roots

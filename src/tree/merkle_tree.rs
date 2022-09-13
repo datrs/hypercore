@@ -108,9 +108,7 @@ impl MerkleTree {
             self.length = changeset.length;
             self.byte_length = changeset.byte_length;
             self.fork = changeset.fork;
-            self.signature = changeset
-                .hash_and_signature
-                .map(|hash_and_signature| hash_and_signature.1);
+            self.signature = changeset.signature;
         }
 
         for node in changeset.nodes {
@@ -154,13 +152,7 @@ impl MerkleTree {
         }
 
         // Get nodes out of incoming infos
-        let nodes: Vec<Node> = match infos {
-            Some(infos) => infos
-                .iter()
-                .map(|info| node_from_bytes(&index_from_info(&info), info.data.as_ref().unwrap()))
-                .collect(),
-            None => vec![],
-        };
+        let nodes: Vec<Node> = infos_to_nodes(infos);
 
         // Start with getting the requested node, which will get the length
         // of the byte range
@@ -201,6 +193,61 @@ impl MerkleTree {
 
         if instructions.is_empty() {
             Ok(Either::Right(byte_range))
+        } else {
+            Ok(Either::Left(instructions.into_boxed_slice()))
+        }
+    }
+
+    pub fn add_node(&mut self, node: Node) {
+        self.unflushed.insert(node.index, node);
+    }
+
+    pub fn truncate(
+        &mut self,
+        length: u64,
+        fork: u64,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>> {
+        let head = length * 2;
+        let mut full_roots = vec![];
+        flat_tree::full_roots(head, &mut full_roots);
+        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let mut changeset = self.changeset();
+
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        for i in 0..full_roots.len() {
+            let root = full_roots[i];
+            if i < changeset.roots.len() && changeset.roots[i].index == root {
+                continue;
+            }
+            while changeset.roots.len() > i {
+                changeset.roots.pop();
+            }
+
+            let node_or_instruction = self.get_node(root, &nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(node) => {
+                    changeset.roots.push(node);
+                }
+            }
+        }
+
+        if instructions.is_empty() {
+            while changeset.roots.len() > full_roots.len() {
+                changeset.roots.pop();
+            }
+            changeset.fork = fork;
+            changeset.length = length;
+            changeset.ancestors = length;
+            changeset.byte_length = changeset
+                .roots
+                .iter()
+                .fold(0, |acc, node| acc + node.length);
+            changeset.upgraded = true;
+            Ok(Either::Right(changeset))
         } else {
             Ok(Either::Left(instructions.into_boxed_slice()))
         }
@@ -391,4 +438,14 @@ fn node_from_bytes(index: &u64, data: &[u8]) -> Node {
     let mut state = State::from_buffer(len_buf);
     let len = state.decode_u64(len_buf);
     Node::new(*index, hash.to_vec(), len)
+}
+
+fn infos_to_nodes(infos: Option<&[StoreInfo]>) -> Vec<Node> {
+    match infos {
+        Some(infos) => infos
+            .iter()
+            .map(|info| node_from_bytes(&index_from_info(&info), info.data.as_ref().unwrap()))
+            .collect(),
+        None => vec![],
+    }
 }

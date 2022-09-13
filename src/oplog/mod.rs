@@ -38,14 +38,27 @@ pub struct OplogOpenOutcome {
     pub oplog: Oplog,
     pub header: Header,
     pub infos_to_flush: Box<[StoreInfo]>,
+    pub entries: Option<Box<[Entry]>>,
 }
 
 impl OplogOpenOutcome {
-    pub fn new(oplog: Oplog, create_header_outcome: OplogCreateHeaderOutcome) -> Self {
+    pub fn new(oplog: Oplog, header: Header, infos_to_flush: Box<[StoreInfo]>) -> Self {
+        Self {
+            oplog,
+            header,
+            infos_to_flush,
+            entries: None,
+        }
+    }
+    pub fn from_create_header_outcome(
+        oplog: Oplog,
+        create_header_outcome: OplogCreateHeaderOutcome,
+    ) -> Self {
         Self {
             oplog,
             header: create_header_outcome.header,
             infos_to_flush: create_header_outcome.infos_to_flush,
+            entries: None,
         }
     }
 }
@@ -76,7 +89,7 @@ impl Oplog {
 
         // Depending on what is stored, the state needs to be set accordingly.
         // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
-        if let Some(mut h1_outcome) = h1_outcome {
+        let mut outcome: OplogOpenOutcome = if let Some(mut h1_outcome) = h1_outcome {
             let (header, header_bits): (Header, [bool; 2]) =
                 if let Some(mut h2_outcome) = h2_outcome {
                     let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
@@ -97,11 +110,7 @@ impl Oplog {
                 entries_length: 0,
                 entries_byte_length: 0,
             };
-            Ok(OplogOpenOutcome {
-                oplog,
-                header,
-                infos_to_flush: Box::new([]),
-            })
+            OplogOpenOutcome::new(oplog, header, Box::new([]))
         } else if let Some(mut h2_outcome) = h2_outcome {
             // This shouldn't happen because the first header is saved to the first slot
             // but Javascript supports this so we should too.
@@ -111,15 +120,37 @@ impl Oplog {
                 entries_length: 0,
                 entries_byte_length: 0,
             };
-            Ok(OplogOpenOutcome {
-                oplog,
-                header: h2_outcome.state.decode(&existing),
-                infos_to_flush: Box::new([]),
-            })
+            OplogOpenOutcome::new(oplog, h2_outcome.state.decode(&existing), Box::new([]))
         } else {
             // There is nothing in the oplog, start from new.
-            Ok(Self::new(key_pair))
+            Self::new(key_pair)
+        };
+
+        // Read headers that might be stored in the existing content
+        if existing.len() > OplogSlot::Entries as usize {
+            let mut entry_offset = OplogSlot::Entries as usize;
+            let mut entries: Vec<Entry> = Vec::new();
+            let mut partials: Vec<bool> = Vec::new();
+            loop {
+                if let Some(mut entry_outcome) =
+                    Self::validate_leader(entry_offset as usize, &existing)?
+                {
+                    let entry: Entry = entry_outcome.state.decode(&existing);
+                    entries.push(entry);
+                    partials.push(entry_outcome.partial_bit);
+                    entry_offset = entry_outcome.state.end;
+                } else {
+                    break;
+                }
+            }
+
+            // Remove all trailing partial entries
+            while partials.len() > 0 && partials[partials.len() - 1] {
+                entries.pop();
+            }
+            outcome.entries = Some(entries.into_boxed_slice());
         }
+        Ok(outcome)
     }
 
     /// Appends a changeset to the Oplog.
@@ -130,9 +161,12 @@ impl Oplog {
         header: &Header,
     ) -> OplogCreateHeaderOutcome {
         let tree_nodes: Vec<Node> = changeset.nodes.clone();
-        let (hash, signature) = changeset
-            .hash_and_signature
+        let hash = changeset
+            .hash
             .as_ref()
+            .expect("Changeset must have a hash before appended");
+        let signature = changeset
+            .signature
             .expect("Changeset must be signed before appended");
         let signature: Box<[u8]> = signature.to_bytes().into();
 
@@ -217,7 +251,7 @@ impl Oplog {
             entries_length,
             entries_byte_length,
         };
-        OplogOpenOutcome::new(
+        OplogOpenOutcome::from_create_header_outcome(
             oplog,
             OplogCreateHeaderOutcome {
                 header,

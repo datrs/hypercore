@@ -107,9 +107,8 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
     let mut hypercore = get_hypercore(work_dir).await?;
     for i in 0..5 {
         let append_outcome = hypercore.append(&[i]).await?;
-        println!("GOT APPEND {:?}", append_outcome);
-        assert_eq!(append_outcome.length, (5 + i + 1) as u64);
-        assert_eq!(append_outcome.byte_length, (26 + i + 1) as u64);
+        assert_eq!(append_outcome.length, (6 + i + 1) as u64);
+        assert_eq!(append_outcome.byte_length, (32 + i + 1) as u64);
     }
     Ok(())
 }
