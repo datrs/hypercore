@@ -7,6 +7,7 @@ use common::{create_hypercore_hash, get_test_key_pair};
 #[cfg(feature = "v10")]
 use hypercore::{Hypercore, Storage};
 use js::{cleanup, install, js_run_step, prepare_test_set};
+use random_access_disk::RandomAccessDisk;
 
 const TEST_SET_JS_FIRST: &str = "jsfirst";
 const TEST_SET_RS_FIRST: &str = "rsfirst";
@@ -33,6 +34,8 @@ async fn js_interop_js_first() -> Result<()> {
     assert_eq!(create_hypercore_hash(&work_dir), step_2_hash());
     js_run_step(3, TEST_SET_JS_FIRST);
     assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
+    step_4_append_with_flush(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
     Ok(())
 }
 
@@ -49,24 +52,20 @@ async fn js_interop_rs_first() -> Result<()> {
     assert_eq!(create_hypercore_hash(&work_dir), step_2_hash());
     step_3_read_and_append_unflushed(&work_dir).await?;
     assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
+    js_run_step(4, TEST_SET_RS_FIRST);
+    assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
     Ok(())
 }
 
 #[cfg(feature = "v10")]
 async fn step_1_create(work_dir: &str) -> Result<()> {
-    let path = Path::new(work_dir).to_owned();
-    let key_pair = get_test_key_pair();
-    let storage = Storage::new_disk(&path, false).await?;
-    Hypercore::new_with_key_pair(storage, key_pair).await?;
+    get_hypercore(work_dir).await?;
     Ok(())
 }
 
 #[cfg(feature = "v10")]
 async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
-    let path = Path::new(work_dir).to_owned();
-    let key_pair = get_test_key_pair();
-    let storage = Storage::new_disk(&path, false).await?;
-    let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
+    let mut hypercore = get_hypercore(work_dir).await?;
     let append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
     assert_eq!(append_outcome.length, 2);
     assert_eq!(append_outcome.byte_length, 10);
@@ -75,10 +74,7 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
 
 #[cfg(feature = "v10")]
 async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
-    let path = Path::new(work_dir).to_owned();
-    let key_pair = get_test_key_pair();
-    let storage = Storage::new_disk(&path, false).await?;
-    let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
+    let mut hypercore = get_hypercore(work_dir).await?;
     let hello = hypercore.get(0).await?;
     assert_eq!(hello.unwrap(), b"Hello");
     let world = hypercore.get(1).await?;
@@ -89,16 +85,41 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
     let append_outcome = hypercore.append_batch(&[b"second", b"third"]).await?;
     assert_eq!(append_outcome.length, 5);
     assert_eq!(append_outcome.byte_length, 26);
+    let append_outcome = hypercore.append(b"fourth").await?;
+    assert_eq!(append_outcome.length, 6);
+    assert_eq!(append_outcome.byte_length, 32);
     let append_outcome = hypercore.append_batch(&[]).await?;
-    assert_eq!(append_outcome.length, 5);
-    assert_eq!(append_outcome.byte_length, 26);
+    assert_eq!(append_outcome.length, 6);
+    assert_eq!(append_outcome.byte_length, 32);
     let first = hypercore.get(2).await?;
     assert_eq!(first.unwrap(), b"first");
     let second = hypercore.get(3).await?;
     assert_eq!(second.unwrap(), b"second");
     let third = hypercore.get(4).await?;
     assert_eq!(third.unwrap(), b"third");
+    let fourth = hypercore.get(5).await?;
+    assert_eq!(fourth.unwrap(), b"fourth");
     Ok(())
+}
+
+#[cfg(feature = "v10")]
+async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
+    let mut hypercore = get_hypercore(work_dir).await?;
+    for i in 0..5 {
+        let append_outcome = hypercore.append(&[i]).await?;
+        println!("GOT APPEND {:?}", append_outcome);
+        assert_eq!(append_outcome.length, (5 + i + 1) as u64);
+        assert_eq!(append_outcome.byte_length, (26 + i + 1) as u64);
+    }
+    Ok(())
+}
+
+#[cfg(feature = "v10")]
+async fn get_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+    let path = Path::new(work_dir).to_owned();
+    let key_pair = get_test_key_pair();
+    let storage = Storage::new_disk(&path, false).await?;
+    Ok(Hypercore::new_with_key_pair(storage, key_pair).await?)
 }
 
 fn step_0_hash() -> common::HypercoreHash {
@@ -131,8 +152,17 @@ fn step_2_hash() -> common::HypercoreHash {
 fn step_3_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: Some("DEC1593A7456C8C9407B9B8B9C89682DFFF33C3892BCC9D9F06956FEE0A1B949".into()),
-        data: Some("402670849413BB97FAC3A322FC1EE3DE20F7F0D9C641B0F70BC4C619B3032C50".into()),
-        oplog: Some("0536819D13798DADFCA9A8607D10DDD14254902FBCC35E97043039E4308869B5".into()),
+        data: Some("A9C34DA27BF72075C2435F8D4EE2DEC75F7AD1ADB31CE4782AFBBC0C6FDEDF1F".into()),
+        oplog: Some("94E4E7CFB873212B7A38EFAEC4B0BB5426741793ADB9EFC15484C0CEBBD6012B".into()),
         tree: Some("38788609A8634DC8D34F9AE723F3169ADB20768ACFDFF266A43B7E217750DD1E".into()),
+    }
+}
+
+fn step_4_hash() -> common::HypercoreHash {
+    common::HypercoreHash {
+        bitfield: Some("9B844E9378A7D13D6CDD4C1FF12FB313013E5CC472C6CB46497033563FE6B8F1".into()),
+        data: Some("ADB6D70826037B3E24EB7A9D8BEE314B6B4596812E5FE9C737EB883CB584EDC2".into()),
+        oplog: Some("39B68580C64A0F96599011E25C539B9F7F89276586DCF12A1F0B1C6446F0D024".into()),
+        tree: Some("4F346485415AE9A068490764F85CA6307E351C0C8DBD4192F16A9608F5D6F339".into()),
     }
 }
