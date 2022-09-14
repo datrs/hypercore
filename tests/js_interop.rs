@@ -89,20 +89,21 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
     let append_outcome = hypercore.append_batch(&[b"second", b"third"]).await?;
     assert_eq!(append_outcome.length, 5);
     assert_eq!(append_outcome.byte_length, 26);
-    let append_outcome = hypercore.append(b"fourth").await?;
+    let multi_block = &[0x61 as u8; 512 * 3];
+    let append_outcome = hypercore.append(multi_block).await?;
     assert_eq!(append_outcome.length, 6);
-    assert_eq!(append_outcome.byte_length, 32);
+    assert_eq!(append_outcome.byte_length, 1562);
     let append_outcome = hypercore.append_batch(&[]).await?;
     assert_eq!(append_outcome.length, 6);
-    assert_eq!(append_outcome.byte_length, 32);
+    assert_eq!(append_outcome.byte_length, 1562);
     let first = hypercore.get(2).await?;
     assert_eq!(first.unwrap(), b"first");
     let second = hypercore.get(3).await?;
     assert_eq!(second.unwrap(), b"second");
     let third = hypercore.get(4).await?;
     assert_eq!(third.unwrap(), b"third");
-    let fourth = hypercore.get(5).await?;
-    assert_eq!(fourth.unwrap(), b"fourth");
+    let multi_block_read = hypercore.get(5).await?;
+    assert_eq!(multi_block_read.unwrap(), multi_block);
     Ok(())
 }
 
@@ -112,7 +113,7 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
     for i in 0..5 {
         let append_outcome = hypercore.append(&[i]).await?;
         assert_eq!(append_outcome.length, (6 + i + 1) as u64);
-        assert_eq!(append_outcome.byte_length, (32 + i + 1) as u64);
+        assert_eq!(append_outcome.byte_length, (1562 + i as u64 + 1) as u64);
     }
     Ok(())
 }
@@ -161,8 +162,8 @@ fn step_2_hash() -> common::HypercoreHash {
 fn step_3_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: Some("DEC1593A7456C8C9407B9B8B9C89682DFFF33C3892BCC9D9F06956FEE0A1B949".into()),
-        data: Some("A9C34DA27BF72075C2435F8D4EE2DEC75F7AD1ADB31CE4782AFBBC0C6FDEDF1F".into()),
-        oplog: Some("94E4E7CFB873212B7A38EFAEC4B0BB5426741793ADB9EFC15484C0CEBBD6012B".into()),
+        data: Some("174BAA59744B5907E90141136A004AE181BE2AC5C2BE569D2FB5D6F182138899".into()),
+        oplog: Some("86A6CE89669506101DA92D8D18881655CE0606AF8ECEE9CBA2696FE8F328ABD6".into()),
         tree: Some("38788609A8634DC8D34F9AE723F3169ADB20768ACFDFF266A43B7E217750DD1E".into()),
     }
 }
@@ -170,17 +171,17 @@ fn step_3_hash() -> common::HypercoreHash {
 fn step_4_hash() -> common::HypercoreHash {
     common::HypercoreHash {
         bitfield: Some("9B844E9378A7D13D6CDD4C1FF12FB313013E5CC472C6CB46497033563FE6B8F1".into()),
-        data: Some("ADB6D70826037B3E24EB7A9D8BEE314B6B4596812E5FE9C737EB883CB584EDC2".into()),
-        oplog: Some("39B68580C64A0F96599011E25C539B9F7F89276586DCF12A1F0B1C6446F0D024".into()),
-        tree: Some("4F346485415AE9A068490764F85CA6307E351C0C8DBD4192F16A9608F5D6F339".into()),
+        data: Some("963FF6E1FE24CB9E645067A8B70C6B87B9E1F1D244FCFCB15D3B8FA0E18E112E".into()),
+        oplog: Some("8415E93F229231CEC9DE9FBEAC562F30CC822BCF95C53C992AF94919B898A70F".into()),
+        tree: Some("263973332D360DC17D025612DCBDC53CBB50BC7554814178DA1783B9CFBB4EEB".into()),
     }
 }
 
 fn step_5_hash() -> common::HypercoreHash {
     common::HypercoreHash {
-        bitfield: Some("F6B695457643DBC7A72787456A75044818A76C95F091067B155B18E9A8ADEAD7".into()),
-        data: Some("DCAD0C96096AE5F966886FD695CD767832E3ABCB5971782927860799C24866F1".into()),
-        oplog: Some("F32F8C0564C3F8449952D220CD6AC9C05A071CCF12270059E8F452E3AB0C6F6A".into()),
-        tree: Some("4F346485415AE9A068490764F85CA6307E351C0C8DBD4192F16A9608F5D6F339".into()),
+        bitfield: Some("40C9CED82AE0B7A397C9FDD14EEB7F70B74E8F1229F3ED931852591972DDC3E0".into()),
+        data: Some("0A7715E260F09879C066053497938FF4BA0EA2FCD5DB3F6723BCF69760F2B639".into()),
+        oplog: Some("2C48E0C47A285C5D764EF7C279FFF23748BCB8B28235B606BE91FF4352F78923".into()),
+        tree: Some("263973332D360DC17D025612DCBDC53CBB50BC7554814178DA1783B9CFBB4EEB".into()),
     }
 }

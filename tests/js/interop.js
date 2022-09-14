@@ -72,20 +72,23 @@ async function step3ReadAndAppendUnflushed(testSet) {
     result = await core.append([Buffer.from('second'), Buffer.from('third')]);
     assert(result.length, 5);
     assert(result.byteLength, 26);
-    result = await core.append(Buffer.from('fourth'));
+    const multiBlock = Buffer.alloc(512*3, 'a');
+    result = await core.append(multiBlock);
     assert(result.length, 6);
-    assert(result.byteLength, 32);
+    assert(result.byteLength, 1562);
     result = await core.append([]);
     assert(result.length, 6);
-    assert(result.byteLength, 32);
+    assert(result.byteLength, 1562);
     const first = (await core.get(2)).toString();
     assert(first, "first");
     const second = (await core.get(3)).toString();
     assert(second, "second");
     const third = (await core.get(4)).toString();
     assert(third, "third");
-    const fourth = (await core.get(5)).toString();
-    assert(fourth, "fourth");
+    const multiBlockRead = await core.get(5);
+    if (!multiBlockRead.equals(multiBlock)) {
+        throw new Error(`Read buffers don't equal, ${multiBlockRead} but expected ${multiBlock}`);
+    }
     await core.close();
 };
 
@@ -94,25 +97,25 @@ async function step4AppendWithFlush(testSet) {
     for (let i=0; i<5; i++) {
         result = await core.append(Buffer.from([i]));
         assert(result.length, 6+i+1);
-        assert(result.byteLength, 32+i+1);
+        assert(result.byteLength, 1562+i+1);
     }
 }
 
 async function step5ClearSome(testSet) {
     const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
-    await core.clear(2);
-    await core.clear(6, 8);
+    await core.clear(5);
+    await core.clear(7, 9);
     let info = await core.info();
     assert(info.length, 11);
-    assert(info.byteLength, 37);
-    let missing = await core.get(2, { wait: false });
-    assert(missing, null);
-    missing = await core.get(6, { wait: false });
+    assert(info.byteLength, 1567);
+    let missing = await core.get(5, { wait: false });
     assert(missing, null);
     missing = await core.get(7, { wait: false });
     assert(missing, null);
-    const second = (await core.get(3)).toString();
-    assert(second, "second");
+    missing = await core.get(8, { wait: false });
+    assert(missing, null);
+    const third = (await core.get(4)).toString();
+    assert(third, "third");
 }
 
 function assert(real, expected) {
