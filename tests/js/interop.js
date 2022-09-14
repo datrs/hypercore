@@ -72,13 +72,13 @@ async function step3ReadAndAppendUnflushed(testSet) {
     result = await core.append([Buffer.from('second'), Buffer.from('third')]);
     assert(result.length, 5);
     assert(result.byteLength, 26);
-    const multiBlock = Buffer.alloc(512*3, 'a');
+    const multiBlock = Buffer.alloc(4096*3, 'a');
     result = await core.append(multiBlock);
     assert(result.length, 6);
-    assert(result.byteLength, 1562);
+    assert(result.byteLength, 12314);
     result = await core.append([]);
     assert(result.length, 6);
-    assert(result.byteLength, 1562);
+    assert(result.byteLength, 12314);
     const first = (await core.get(2)).toString();
     assert(first, "first");
     const second = (await core.get(3)).toString();
@@ -97,7 +97,7 @@ async function step4AppendWithFlush(testSet) {
     for (let i=0; i<5; i++) {
         result = await core.append(Buffer.from([i]));
         assert(result.length, 6+i+1);
-        assert(result.byteLength, 1562+i+1);
+        assert(result.byteLength, 12314+i+1);
     }
 }
 
@@ -107,7 +107,7 @@ async function step5ClearSome(testSet) {
     await core.clear(7, 9);
     let info = await core.info();
     assert(info.length, 11);
-    assert(info.byteLength, 1567);
+    assert(info.byteLength, 12319);
     let missing = await core.get(5, { wait: false });
     assert(missing, null);
     missing = await core.get(7, { wait: false });
