@@ -1,8 +1,9 @@
-use crate::common::{Store, StoreInfo};
+use crate::common::{Store, StoreInfo, StoreInfoInstruction};
 use crate::compact_encoding::{CompactEncoding, State};
 use crate::tree::MerkleTreeChangeset;
 use crate::{Node, PartialKeypair};
 use anyhow::{anyhow, Result};
+use futures::future::Either;
 use std::convert::{TryFrom, TryInto};
 
 mod entry;
@@ -82,75 +83,87 @@ const INITIAL_HEADER_BITS: [bool; 2] = [true, false];
 
 impl Oplog {
     /// Opens an existing Oplog from existing byte buffer or creates a new one.
-    pub fn open(key_pair: PartialKeypair, existing: Box<[u8]>) -> Result<OplogOpenOutcome> {
-        // First read and validate both headers stored in the existing oplog
-        let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
-        let h2_outcome = Self::validate_leader(OplogSlot::SecondHeader as usize, &existing)?;
+    pub fn open(
+        key_pair: &PartialKeypair,
+        info: Option<StoreInfo>,
+    ) -> Result<Either<StoreInfoInstruction, OplogOpenOutcome>> {
+        match info {
+            None => Ok(Either::Left(StoreInfoInstruction::new_all_content(
+                Store::Oplog,
+            ))),
+            Some(info) => {
+                let existing = info.data.expect("Could not get data of existing oplog");
+                // First read and validate both headers stored in the existing oplog
+                let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
+                let h2_outcome =
+                    Self::validate_leader(OplogSlot::SecondHeader as usize, &existing)?;
 
-        // Depending on what is stored, the state needs to be set accordingly.
-        // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
-        let mut outcome: OplogOpenOutcome = if let Some(mut h1_outcome) = h1_outcome {
-            let (header, header_bits): (Header, [bool; 2]) =
-                if let Some(mut h2_outcome) = h2_outcome {
-                    let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
-                    let header: Header = if header_bits[0] == header_bits[1] {
-                        h1_outcome.state.decode(&existing)
-                    } else {
-                        h2_outcome.state.decode(&existing)
+                // Depending on what is stored, the state needs to be set accordingly.
+                // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
+                let mut outcome: OplogOpenOutcome = if let Some(mut h1_outcome) = h1_outcome {
+                    let (header, header_bits): (Header, [bool; 2]) =
+                        if let Some(mut h2_outcome) = h2_outcome {
+                            let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
+                            let header: Header = if header_bits[0] == header_bits[1] {
+                                h1_outcome.state.decode(&existing)
+                            } else {
+                                h2_outcome.state.decode(&existing)
+                            };
+                            (header, header_bits)
+                        } else {
+                            (
+                                h1_outcome.state.decode(&existing),
+                                [h1_outcome.header_bit, h1_outcome.header_bit],
+                            )
+                        };
+                    let oplog = Oplog {
+                        header_bits,
+                        entries_length: 0,
+                        entries_byte_length: 0,
                     };
-                    (header, header_bits)
+                    OplogOpenOutcome::new(oplog, header, Box::new([]))
+                } else if let Some(mut h2_outcome) = h2_outcome {
+                    // This shouldn't happen because the first header is saved to the first slot
+                    // but Javascript supports this so we should too.
+                    let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
+                    let oplog = Oplog {
+                        header_bits,
+                        entries_length: 0,
+                        entries_byte_length: 0,
+                    };
+                    OplogOpenOutcome::new(oplog, h2_outcome.state.decode(&existing), Box::new([]))
                 } else {
-                    (
-                        h1_outcome.state.decode(&existing),
-                        [h1_outcome.header_bit, h1_outcome.header_bit],
-                    )
+                    // There is nothing in the oplog, start from new.
+                    Self::new(key_pair.clone())
                 };
-            let oplog = Oplog {
-                header_bits,
-                entries_length: 0,
-                entries_byte_length: 0,
-            };
-            OplogOpenOutcome::new(oplog, header, Box::new([]))
-        } else if let Some(mut h2_outcome) = h2_outcome {
-            // This shouldn't happen because the first header is saved to the first slot
-            // but Javascript supports this so we should too.
-            let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
-            let oplog = Oplog {
-                header_bits,
-                entries_length: 0,
-                entries_byte_length: 0,
-            };
-            OplogOpenOutcome::new(oplog, h2_outcome.state.decode(&existing), Box::new([]))
-        } else {
-            // There is nothing in the oplog, start from new.
-            Self::new(key_pair)
-        };
 
-        // Read headers that might be stored in the existing content
-        if existing.len() > OplogSlot::Entries as usize {
-            let mut entry_offset = OplogSlot::Entries as usize;
-            let mut entries: Vec<Entry> = Vec::new();
-            let mut partials: Vec<bool> = Vec::new();
-            loop {
-                if let Some(mut entry_outcome) =
-                    Self::validate_leader(entry_offset as usize, &existing)?
-                {
-                    let entry: Entry = entry_outcome.state.decode(&existing);
-                    entries.push(entry);
-                    partials.push(entry_outcome.partial_bit);
-                    entry_offset = entry_outcome.state.end;
-                } else {
-                    break;
+                // Read headers that might be stored in the existing content
+                if existing.len() > OplogSlot::Entries as usize {
+                    let mut entry_offset = OplogSlot::Entries as usize;
+                    let mut entries: Vec<Entry> = Vec::new();
+                    let mut partials: Vec<bool> = Vec::new();
+                    loop {
+                        if let Some(mut entry_outcome) =
+                            Self::validate_leader(entry_offset as usize, &existing)?
+                        {
+                            let entry: Entry = entry_outcome.state.decode(&existing);
+                            entries.push(entry);
+                            partials.push(entry_outcome.partial_bit);
+                            entry_offset = entry_outcome.state.end;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Remove all trailing partial entries
+                    while partials.len() > 0 && partials[partials.len() - 1] {
+                        entries.pop();
+                    }
+                    outcome.entries = Some(entries.into_boxed_slice());
                 }
+                Ok(Either::Right(outcome))
             }
-
-            // Remove all trailing partial entries
-            while partials.len() > 0 && partials[partials.len() - 1] {
-                entries.pop();
-            }
-            outcome.entries = Some(entries.into_boxed_slice());
         }
-        Ok(outcome)
     }
 
     /// Appends a changeset to the Oplog.

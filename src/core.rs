@@ -2,7 +2,6 @@
 
 use crate::{
     bitfield_v10::Bitfield,
-    common::{Store, StoreInfoInstruction},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
@@ -61,13 +60,18 @@ where
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>> {
         // Open/create oplog
-        let oplog_bytes = storage
-            .read_info(StoreInfoInstruction::new_all_content(Store::Oplog))
-            .await?
-            .data
-            .expect("Did not receive data");
-
-        let mut oplog_open_outcome = Oplog::open(key_pair.clone(), oplog_bytes)?;
+        let mut oplog_open_outcome = match Oplog::open(&key_pair, None)? {
+            Either::Right(value) => value,
+            Either::Left(instruction) => {
+                let info = storage.read_info(instruction).await?;
+                match Oplog::open(&key_pair, Some(info))? {
+                    Either::Right(value) => value,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not open tree"));
+                    }
+                }
+            }
+        };
         storage
             .flush_infos(&oplog_open_outcome.infos_to_flush)
             .await?;
