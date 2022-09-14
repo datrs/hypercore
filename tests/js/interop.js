@@ -38,6 +38,10 @@ if (process.argv[2] === '1') {
     step4AppendWithFlush(process.argv[3]).then(result => {
         console.log("step4 ready", result);
     });
+} else if (process.argv[2] === '5'){
+    step5ClearSome(process.argv[3]).then(result => {
+        console.log("step5 ready", result);
+    });
 } else {
     console.error(`Invalid test step {}`, process.argv[2]);
     process.exit(2);
@@ -92,6 +96,23 @@ async function step4AppendWithFlush(testSet) {
         assert(result.length, 6+i+1);
         assert(result.byteLength, 32+i+1);
     }
+}
+
+async function step5ClearSome(testSet) {
+    const core = new Hypercore(`work/${testSet}`, testKeyPair.publicKey, {keyPair: testKeyPair});
+    await core.clear(2);
+    await core.clear(6, 8);
+    let info = await core.info();
+    assert(info.length, 11);
+    assert(info.byteLength, 37);
+    let missing = await core.get(2, { wait: false });
+    assert(missing, null);
+    missing = await core.get(6, { wait: false });
+    assert(missing, null);
+    missing = await core.get(7, { wait: false });
+    assert(missing, null);
+    const second = (await core.get(3)).toString();
+    assert(second, "second");
 }
 
 function assert(real, expected) {

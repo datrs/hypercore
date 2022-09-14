@@ -36,6 +36,8 @@ async fn js_interop_js_first() -> Result<()> {
     assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
     step_4_append_with_flush(&work_dir).await?;
     assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
+    js_run_step(5, TEST_SET_JS_FIRST);
+    assert_eq!(create_hypercore_hash(&work_dir), step_5_hash());
     Ok(())
 }
 
@@ -54,6 +56,8 @@ async fn js_interop_rs_first() -> Result<()> {
     assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
     js_run_step(4, TEST_SET_RS_FIRST);
     assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
+    step_5_clear_some(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_5_hash());
     Ok(())
 }
 
@@ -114,6 +118,12 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
 }
 
 #[cfg(feature = "v10")]
+async fn step_5_clear_some(work_dir: &str) -> Result<()> {
+    let mut hypercore = get_hypercore(work_dir).await?;
+    Ok(())
+}
+
+#[cfg(feature = "v10")]
 async fn get_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
@@ -162,6 +172,15 @@ fn step_4_hash() -> common::HypercoreHash {
         bitfield: Some("9B844E9378A7D13D6CDD4C1FF12FB313013E5CC472C6CB46497033563FE6B8F1".into()),
         data: Some("ADB6D70826037B3E24EB7A9D8BEE314B6B4596812E5FE9C737EB883CB584EDC2".into()),
         oplog: Some("39B68580C64A0F96599011E25C539B9F7F89276586DCF12A1F0B1C6446F0D024".into()),
+        tree: Some("4F346485415AE9A068490764F85CA6307E351C0C8DBD4192F16A9608F5D6F339".into()),
+    }
+}
+
+fn step_5_hash() -> common::HypercoreHash {
+    common::HypercoreHash {
+        bitfield: Some("F6B695457643DBC7A72787456A75044818A76C95F091067B155B18E9A8ADEAD7".into()),
+        data: Some("DCAD0C96096AE5F966886FD695CD767832E3ABCB5971782927860799C24866F1".into()),
+        oplog: Some("F32F8C0564C3F8449952D220CD6AC9C05A071CCF12270059E8F452E3AB0C6F6A".into()),
         tree: Some("4F346485415AE9A068490764F85CA6307E351C0C8DBD4192F16A9608F5D6F339".into()),
     }
 }
