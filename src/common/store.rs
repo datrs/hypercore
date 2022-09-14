@@ -12,7 +12,7 @@ pub enum Store {
 }
 
 /// Information type about a store.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum StoreInfoType {
     /// Read/write content of the store
     Content,

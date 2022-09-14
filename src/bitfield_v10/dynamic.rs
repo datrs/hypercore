@@ -1,8 +1,9 @@
-use super::fixed::{FixedBitfield, FIXED_BITFIELD_BYTES_LENGTH, FIXED_BITFIELD_LENGTH};
+use super::fixed::{FixedBitfield, FIXED_BITFIELD_LENGTH};
 use crate::{
-    common::{StoreInfo, StoreInfoInstruction},
+    common::{StoreInfo, StoreInfoInstruction, StoreInfoType},
     Store,
 };
+use futures::future::Either;
 use std::{cell::RefCell, convert::TryInto};
 
 const DYNAMIC_BITFIELD_PAGE_SIZE: usize = 32768;
@@ -18,36 +19,43 @@ pub struct DynamicBitfield {
 }
 
 impl DynamicBitfield {
-    /// Gets info instruction to read based on the bitfield store length
-    pub fn get_info_instruction_to_read(bitfield_store_length: u64) -> StoreInfoInstruction {
-        // Read only multiples of 4 bytes. Javascript:
-        //    const size = st.size - (st.size & 3)
-        let length = bitfield_store_length - (bitfield_store_length & 3);
-        StoreInfoInstruction::new_content(Store::Bitfield, 0, length)
-    }
-
-    pub fn open(info: StoreInfo) -> Self {
-        let data = info.data.unwrap();
-        let resumed = data.len() >= 4;
-        if resumed {
-            let mut pages: intmap::IntMap<RefCell<FixedBitfield>> = intmap::IntMap::new();
-            let mut data_index = 0;
-            while data_index < data.len() {
-                let parent_index: u64 = (data_index / FIXED_BITFIELD_LENGTH) as u64;
-                pages.insert(
-                    parent_index,
-                    RefCell::new(FixedBitfield::from_data(parent_index, data_index, &data)),
-                );
-                data_index += FIXED_BITFIELD_LENGTH;
-            }
-            Self {
-                pages,
-                unflushed: vec![],
-            }
-        } else {
-            Self {
-                pages: intmap::IntMap::new(),
-                unflushed: vec![],
+    pub fn open(info: Option<StoreInfo>) -> Either<StoreInfoInstruction, Self> {
+        match info {
+            None => Either::Left(StoreInfoInstruction::new_size(Store::Bitfield, 0)),
+            Some(info) => {
+                if info.info_type == StoreInfoType::Size {
+                    let bitfield_store_length = info.length.unwrap();
+                    // Read only multiples of 4 bytes.
+                    let length = bitfield_store_length - (bitfield_store_length & 3);
+                    return Either::Left(StoreInfoInstruction::new_content(
+                        Store::Bitfield,
+                        0,
+                        length,
+                    ));
+                }
+                let data = info.data.expect("Did not receive bitfield store content");
+                let resumed = data.len() >= 4;
+                if resumed {
+                    let mut pages: intmap::IntMap<RefCell<FixedBitfield>> = intmap::IntMap::new();
+                    let mut data_index = 0;
+                    while data_index < data.len() {
+                        let parent_index: u64 = (data_index / FIXED_BITFIELD_LENGTH) as u64;
+                        pages.insert(
+                            parent_index,
+                            RefCell::new(FixedBitfield::from_data(parent_index, data_index, &data)),
+                        );
+                        data_index += FIXED_BITFIELD_LENGTH;
+                    }
+                    Either::Right(Self {
+                        pages,
+                        unflushed: vec![],
+                    })
+                } else {
+                    Either::Right(Self {
+                        pages: intmap::IntMap::new(),
+                        unflushed: vec![],
+                    })
+                }
             }
         }
     }
@@ -142,9 +150,16 @@ mod tests {
         }
     }
 
+    fn get_dynamic_bitfield() -> DynamicBitfield {
+        match DynamicBitfield::open(Some(StoreInfo::new_content(Store::Bitfield, 0, &[]))) {
+            Either::Left(_) => panic!("Could not open bitfield"),
+            Either::Right(bitfield) => bitfield,
+        }
+    }
+
     #[test]
     fn bitfield_dynamic_get_and_set() {
-        let mut bitfield = DynamicBitfield::open(StoreInfo::new_content(Store::Bitfield, 0, &[]));
+        let mut bitfield = get_dynamic_bitfield();
         assert_value_range(&bitfield, 0, 9, false);
         bitfield.set(0, true);
         assert_eq!(bitfield.get(0), true);
@@ -178,7 +193,7 @@ mod tests {
 
     #[test]
     fn bitfield_dynamic_set_range() {
-        let mut bitfield = DynamicBitfield::open(StoreInfo::new_content(Store::Bitfield, 0, &[]));
+        let mut bitfield = get_dynamic_bitfield();
         bitfield.set_range(0, 2, true);
         assert_value_range(&bitfield, 0, 2, true);
         assert_value_range(&bitfield, 3, 61, false);

@@ -31,59 +31,66 @@ pub struct MerkleTree {
 const NODE_SIZE: u64 = 40;
 
 impl MerkleTree {
-    /// Gets instructions to slices that should be read from storage
-    /// based on `HeaderTree` `length` field. Call this before
-    /// calling `open`.
-    pub fn get_info_instructions_to_read(header_tree: &HeaderTree) -> Box<[StoreInfoInstruction]> {
-        let root_indices = get_root_indices(&header_tree.length);
+    /// Opens MerkleTree, based on read infos.
+    pub fn open(
+        header_tree: &HeaderTree,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, Self>> {
+        match infos {
+            None => {
+                let root_indices = get_root_indices(&header_tree.length);
 
-        root_indices
-            .iter()
-            .map(|&index| {
-                StoreInfoInstruction::new_content(Store::Tree, NODE_SIZE * index, NODE_SIZE)
-            })
-            .collect::<Vec<StoreInfoInstruction>>()
-            .into_boxed_slice()
-    }
+                Ok(Either::Left(
+                    root_indices
+                        .iter()
+                        .map(|&index| {
+                            StoreInfoInstruction::new_content(
+                                Store::Tree,
+                                NODE_SIZE * index,
+                                NODE_SIZE,
+                            )
+                        })
+                        .collect::<Vec<StoreInfoInstruction>>()
+                        .into_boxed_slice(),
+                ))
+            }
+            Some(infos) => {
+                let root_indices = get_root_indices(&header_tree.length);
 
-    /// Opens MerkleTree, based on read infos. Call `get_info_instructions_to_read`
-    /// before calling this to find out which infos to read. The given infos
-    /// need to be in the same order as the instructions from `get_info_instructions_to_read`!
-    pub fn open(header_tree: &HeaderTree, infos: Box<[StoreInfo]>) -> Result<Self> {
-        let root_indices = get_root_indices(&header_tree.length);
+                let mut roots: Vec<Node> = Vec::with_capacity(infos.len());
+                let mut byte_length: u64 = 0;
+                let mut length: u64 = 0;
 
-        let mut roots: Vec<Node> = Vec::with_capacity(infos.len());
-        let mut byte_length: u64 = 0;
-        let mut length: u64 = 0;
+                for i in 0..root_indices.len() {
+                    let index = root_indices[i];
+                    ensure!(
+                        index == index_from_info(&infos[i]),
+                        "Given slices vector not in the correct order"
+                    );
+                    let data = infos[i].data.as_ref().unwrap();
+                    let node = node_from_bytes(&index, data);
+                    byte_length += node.length;
+                    // This is totalSpan in Javascript
+                    length += 2 * ((node.index - length) + 1);
 
-        for i in 0..root_indices.len() {
-            let index = root_indices[i];
-            ensure!(
-                index == index_from_info(&infos[i]),
-                "Given slices vector not in the correct order"
-            );
-            let data = infos[i].data.as_ref().unwrap();
-            let node = node_from_bytes(&index, data);
-            byte_length += node.length;
-            // This is totalSpan in Javascript
-            length += 2 * ((node.index - length) + 1);
+                    roots.push(node);
+                }
+                if length > 0 {
+                    length = length / 2;
+                }
 
-            roots.push(node);
+                Ok(Either::Right(Self {
+                    roots,
+                    length,
+                    byte_length,
+                    fork: header_tree.fork,
+                    unflushed: intmap::IntMap::new(),
+                    truncated: false,
+                    truncate_to: 0,
+                    signature: None,
+                }))
+            }
         }
-        if length > 0 {
-            length = length / 2;
-        }
-
-        Ok(Self {
-            roots,
-            length,
-            byte_length,
-            fork: header_tree.fork,
-            unflushed: intmap::IntMap::new(),
-            truncated: false,
-            truncate_to: 0,
-            signature: None,
-        })
     }
 
     /// Initialize a changeset for this tree.

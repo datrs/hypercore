@@ -73,23 +73,41 @@ where
             .await?;
 
         // Open/create tree
-        let info_instructions =
-            MerkleTree::get_info_instructions_to_read(&oplog_open_outcome.header.tree);
-        let infos = storage.read_infos(&info_instructions).await?;
-        let mut tree = MerkleTree::open(&oplog_open_outcome.header.tree, infos)?;
+        let mut tree = match MerkleTree::open(&oplog_open_outcome.header.tree, None)? {
+            Either::Right(value) => value,
+            Either::Left(instructions) => {
+                let infos = storage.read_infos(&instructions).await?;
+                match MerkleTree::open(&oplog_open_outcome.header.tree, Some(&infos))? {
+                    Either::Right(value) => value,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not open tree"));
+                    }
+                }
+            }
+        };
 
         // Create block store instance
         let block_store = BlockStore::default();
 
         // Open bitfield
-        let bitfield_store_length = storage
-            .read_info(StoreInfoInstruction::new_size(Store::Bitfield, 0))
-            .await?
-            .length
-            .expect("Did not get store length with size instruction");
-        let info_instruction = Bitfield::get_info_instruction_to_read(bitfield_store_length);
-        let info = storage.read_info(info_instruction).await?;
-        let mut bitfield = Bitfield::open(info);
+        let mut bitfield = match Bitfield::open(None) {
+            Either::Right(value) => value,
+            Either::Left(instruction) => {
+                let info = storage.read_info(instruction).await?;
+                match Bitfield::open(Some(info)) {
+                    Either::Right(value) => value,
+                    Either::Left(instruction) => {
+                        let info = storage.read_info(instruction).await?;
+                        match Bitfield::open(Some(info)) {
+                            Either::Right(value) => value,
+                            Either::Left(_) => {
+                                return Err(anyhow!("Could not open bitfield"));
+                            }
+                        }
+                    }
+                }
+            }
+        };
 
         // Process entries stored only to the oplog and not yet flushed into bitfield or tree
         if let Some(entries) = oplog_open_outcome.entries {
@@ -116,7 +134,7 @@ where
                     // TODO: Generalize Either response stack
                     let mut changeset =
                         match tree.truncate(tree_upgrade.length, tree_upgrade.fork, None)? {
-                            Either::Right(changeset) => changeset,
+                            Either::Right(value) => value,
                             Either::Left(instructions) => {
                                 let infos = storage.read_infos(&instructions).await?;
                                 match tree.truncate(
@@ -124,7 +142,7 @@ where
                                     tree_upgrade.fork,
                                     Some(&infos),
                                 )? {
-                                    Either::Right(changeset) => changeset,
+                                    Either::Right(value) => value,
                                     Either::Left(_) => {
                                         return Err(anyhow!("Could not truncate"));
                                     }
@@ -227,11 +245,11 @@ where
 
         // TODO: Generalize Either response stack
         let byte_range = match self.tree.byte_range(index, None)? {
-            Either::Right(byte_range) => byte_range,
+            Either::Right(value) => value,
             Either::Left(instructions) => {
                 let infos = self.storage.read_infos(&instructions).await?;
                 match self.tree.byte_range(index, Some(&infos))? {
-                    Either::Right(byte_range) => byte_range,
+                    Either::Right(value) => value,
                     Either::Left(_) => {
                         return Err(anyhow!("Could not read byte range"));
                     }
@@ -241,11 +259,11 @@ where
 
         // TODO: Generalize Either response stack
         let data = match self.block_store.read(&byte_range, None) {
-            Either::Right(data) => data,
+            Either::Right(value) => value,
             Either::Left(instruction) => {
                 let info = self.storage.read_info(instruction).await?;
                 match self.block_store.read(&byte_range, Some(info)) {
-                    Either::Right(data) => data,
+                    Either::Right(value) => value,
                     Either::Left(_) => {
                         return Err(anyhow!("Could not read block storage range"));
                     }
