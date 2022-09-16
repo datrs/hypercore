@@ -1,7 +1,9 @@
 pub(crate) const FIXED_BITFIELD_LENGTH: usize = 1024;
 pub(crate) const FIXED_BITFIELD_BYTES_LENGTH: usize = FIXED_BITFIELD_LENGTH * 4;
+pub(crate) const FIXED_BITFIELD_BITS_LENGTH: usize = FIXED_BITFIELD_BYTES_LENGTH * 8;
 // u32 has 4 bytes and a byte has 8 bits
 const FIXED_BITFIELD_BITS_PER_ELEM: u32 = 4 * 8;
+
 use std::convert::TryInto;
 
 /// Fixed size bitfield
@@ -133,6 +135,26 @@ impl FixedBitfield {
 
         changed
     }
+
+    /// Finds the first index of the value after given position. Returns None if not found.
+    pub fn index_of(&self, value: bool, position: u32) -> Option<u32> {
+        for i in position..FIXED_BITFIELD_BITS_LENGTH as u32 {
+            if self.get(i) == value {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// Finds the last index of the value before given position. Returns None if not found.
+    pub fn last_index_of(&self, value: bool, position: u32) -> Option<u32> {
+        for i in (0..position + 1).rev() {
+            if self.get(i) == value {
+                return Some(i);
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -149,12 +171,24 @@ mod tests {
     fn bitfield_fixed_get_and_set() {
         let mut bitfield = FixedBitfield::new(0);
         assert_value_range(&bitfield, 0, 9, false);
+        assert_eq!(bitfield.index_of(true, 0), None);
+        assert_eq!(bitfield.index_of(false, 0), Some(0));
+        assert_eq!(bitfield.last_index_of(true, 9), None);
+        assert_eq!(bitfield.last_index_of(false, 9), Some(9));
+
         bitfield.set(0, true);
         assert_eq!(bitfield.get(0), true);
+        assert_eq!(bitfield.index_of(true, 0), Some(0));
+        assert_eq!(bitfield.index_of(false, 0), Some(1));
+        assert_eq!(bitfield.last_index_of(true, 9), Some(0));
+        assert_eq!(bitfield.last_index_of(false, 9), Some(9));
+        assert_eq!(bitfield.last_index_of(false, 0), None);
 
         assert_value_range(&bitfield, 1, 63, false);
         bitfield.set(31, true);
         assert_eq!(bitfield.get(31), true);
+        assert_eq!(bitfield.index_of(true, 1), Some(31));
+        assert_eq!(bitfield.index_of(false, 31), Some(32));
 
         assert_value_range(&bitfield, 32, 32, false);
         assert_eq!(bitfield.get(32), false);
@@ -167,6 +201,9 @@ mod tests {
         bitfield.set(32767, true);
         assert_eq!(bitfield.get(32767), true);
         assert_value_range(&bitfield, 32760, 7, false);
+        assert_eq!(bitfield.index_of(true, 33), Some(32767));
+        assert_eq!(bitfield.last_index_of(true, 9), Some(0));
+        assert_eq!(bitfield.last_index_of(true, 32766), Some(32));
     }
 
     #[test]
@@ -191,6 +228,10 @@ mod tests {
         assert_value_range(&bitfield, 30, 100, true);
         assert_value_range(&bitfield, 30050, 50, true);
         assert_value_range(&bitfield, 31000, 50, false);
+        assert_eq!(bitfield.index_of(true, 20), Some(30));
+        assert_eq!(bitfield.index_of(false, 30), Some(30100));
+        assert_eq!(bitfield.last_index_of(true, 32000), Some(30099));
+        assert_eq!(bitfield.last_index_of(false, 30099), Some(29));
 
         bitfield.set_range(32750, 18, true);
         assert_value_range(&bitfield, 32750, 18, true);

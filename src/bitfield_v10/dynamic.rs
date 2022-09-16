@@ -1,4 +1,4 @@
-use super::fixed::{FixedBitfield, FIXED_BITFIELD_LENGTH};
+use super::fixed::{FixedBitfield, FIXED_BITFIELD_BITS_LENGTH, FIXED_BITFIELD_LENGTH};
 use crate::{
     common::{StoreInfo, StoreInfoInstruction, StoreInfoType},
     Store,
@@ -15,6 +15,7 @@ const DYNAMIC_BITFIELD_PAGE_SIZE: usize = 32768;
 #[derive(Debug)]
 pub struct DynamicBitfield {
     pages: intmap::IntMap<RefCell<FixedBitfield>>,
+    biggest_page_index: u64,
     unflushed: Vec<u64>,
 }
 
@@ -35,6 +36,7 @@ impl DynamicBitfield {
                 }
                 let data = info.data.expect("Did not receive bitfield store content");
                 let resumed = data.len() >= 4;
+                let mut biggest_page_index = 0;
                 if resumed {
                     let mut pages: intmap::IntMap<RefCell<FixedBitfield>> = intmap::IntMap::new();
                     let mut data_index = 0;
@@ -44,16 +46,21 @@ impl DynamicBitfield {
                             parent_index,
                             RefCell::new(FixedBitfield::from_data(parent_index, data_index, &data)),
                         );
+                        if parent_index > biggest_page_index {
+                            biggest_page_index = parent_index;
+                        }
                         data_index += FIXED_BITFIELD_LENGTH;
                     }
                     Either::Right(Self {
                         pages,
                         unflushed: vec![],
+                        biggest_page_index,
                     })
                 } else {
                     Either::Right(Self {
                         pages: intmap::IntMap::new(),
                         unflushed: vec![],
+                        biggest_page_index,
                     })
                 }
             }
@@ -94,7 +101,15 @@ impl DynamicBitfield {
         let i = (index - j) / DYNAMIC_BITFIELD_PAGE_SIZE as u64;
 
         if !self.pages.contains_key(i) {
-            self.pages.insert(i, RefCell::new(FixedBitfield::new(i)));
+            if value {
+                self.pages.insert(i, RefCell::new(FixedBitfield::new(i)));
+                if i > self.biggest_page_index {
+                    self.biggest_page_index = i;
+                }
+            } else {
+                // The page does not exist, but when setting false, that doesn't matter
+                return false;
+            }
         }
 
         let mut p = self.pages.get_mut(i).unwrap().borrow_mut();
@@ -115,6 +130,9 @@ impl DynamicBitfield {
         while length > 0 {
             if !self.pages.contains_key(i) {
                 self.pages.insert(i, RefCell::new(FixedBitfield::new(i)));
+                if i > self.biggest_page_index {
+                    self.biggest_page_index = i;
+                }
             }
             let mut p = self.pages.get_mut(i).unwrap().borrow_mut();
 
@@ -137,6 +155,116 @@ impl DynamicBitfield {
             i += 1;
             length -= range_end as u64;
         }
+    }
+
+    /// Finds the first index of the value after given position. Returns None if not found.
+    pub fn index_of(&self, value: bool, position: u64) -> Option<u64> {
+        let first_index = position & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
+        let first_page = (position - first_index) / (DYNAMIC_BITFIELD_PAGE_SIZE as u64);
+
+        if value {
+            // For finding the first positive value, we only care about pages that are set,
+            // not pages that don't exist, as they can't possibly contain the value.
+
+            // To keep the common case fast, first try the same page as the position
+            if let Some(p) = self.pages.get(first_page) {
+                if let Some(index) = p.borrow().index_of(value, first_index as u32) {
+                    return Some(first_page * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                };
+            }
+
+            // It wasn't found on the first page, now get the keys that are bigger
+            // than the given index and sort them.
+            let mut keys: Vec<&u64> = self
+                .pages
+                .keys()
+                .into_iter()
+                .filter(|key| **key > first_page)
+                .collect();
+            keys.sort();
+            for key in keys {
+                if let Some(p) = self.pages.get(*key) {
+                    if let Some(index) = p.borrow().index_of(value, 0) {
+                        return Some(key * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                    };
+                }
+            }
+        } else {
+            // Searching for the false value is easier as it is automatically hit on
+            // a missing page.
+            let mut i = first_page;
+            let mut j = first_index as u32;
+            while i == first_page || i <= self.biggest_page_index {
+                if let Some(p) = self.pages.get(i) {
+                    if let Some(index) = p.borrow().index_of(value, j) {
+                        return Some(i * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                    };
+                } else {
+                    return Some(i * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + j as u64);
+                }
+                i += 1;
+                j = 0; // We start at the beginning of each page
+            }
+        }
+        None
+    }
+
+    /// Finds the last index of the value before given position. Returns None if not found.
+    pub fn last_index_of(&self, value: bool, position: u64) -> Option<u64> {
+        let last_index = position & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
+        let last_page = (position - last_index) / (DYNAMIC_BITFIELD_PAGE_SIZE as u64);
+
+        if value {
+            // For finding the last positive value, we only care about pages that are set,
+            // not pages that don't exist, as they can't possibly contain the value.
+
+            // To keep the common case fast, first try the same page as the position
+            if let Some(p) = self.pages.get(last_page) {
+                if let Some(index) = p.borrow().last_index_of(value, last_index as u32) {
+                    return Some(last_page * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                };
+            }
+
+            // It wasn't found on the last page, now get the keys that are smaller
+            // than the given index and sort them.
+            let mut keys: Vec<&u64> = self
+                .pages
+                .keys()
+                .into_iter()
+                .filter(|key| **key < last_page)
+                .collect();
+            keys.sort();
+            keys.reverse();
+
+            for key in keys {
+                if let Some(p) = self.pages.get(*key) {
+                    if let Some(index) = p
+                        .borrow()
+                        .last_index_of(value, FIXED_BITFIELD_BITS_LENGTH as u32 - 1)
+                    {
+                        return Some(key * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                    };
+                }
+            }
+        } else {
+            // Searching for the false value is easier as it is automatically hit on
+            // a missing page.
+            let mut i = last_page;
+            let mut j = last_index as u32;
+            while i == last_page || i <= 0 {
+                if let Some(p) = self.pages.get(i) {
+                    if let Some(index) = p.borrow().last_index_of(value, j) {
+                        return Some(i * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
+                    };
+                } else {
+                    return Some(i * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + j as u64);
+                }
+                i -= 1;
+                j = FIXED_BITFIELD_BITS_LENGTH as u32 - 1; // We start at end of each page
+            }
+        }
+
+        None
     }
 }
 
@@ -161,8 +289,23 @@ mod tests {
     fn bitfield_dynamic_get_and_set() {
         let mut bitfield = get_dynamic_bitfield();
         assert_value_range(&bitfield, 0, 9, false);
+        assert_eq!(bitfield.index_of(true, 0), None);
+        assert_eq!(bitfield.index_of(false, 0), Some(0));
+        assert_eq!(bitfield.last_index_of(true, 9), None);
+        assert_eq!(bitfield.last_index_of(false, 9), Some(9));
+        assert_eq!(bitfield.index_of(true, 10000000), None);
+        assert_eq!(bitfield.index_of(false, 10000000), Some(10000000));
+        assert_eq!(bitfield.last_index_of(true, 10000000), None);
+        assert_eq!(bitfield.last_index_of(false, 10000000), Some(10000000));
+
         bitfield.set(0, true);
         assert_eq!(bitfield.get(0), true);
+        assert_eq!(bitfield.index_of(true, 0), Some(0));
+        assert_eq!(bitfield.index_of(false, 0), Some(1));
+        assert_eq!(bitfield.last_index_of(true, 9), Some(0));
+        assert_eq!(bitfield.last_index_of(false, 9), Some(9));
+        assert_eq!(bitfield.last_index_of(true, 10000000), Some(0));
+        assert_eq!(bitfield.last_index_of(false, 10000000), Some(10000000));
 
         assert_value_range(&bitfield, 1, 63, false);
         bitfield.set(31, true);
@@ -189,6 +332,9 @@ mod tests {
         assert_eq!(bitfield.get(10000000), true);
         assert_value_range(&bitfield, 9999990, 10, false);
         assert_value_range(&bitfield, 10000001, 9, false);
+        assert_eq!(bitfield.index_of(false, 32767), Some(32769));
+        assert_eq!(bitfield.index_of(true, 32769), Some(10000000));
+        assert_eq!(bitfield.last_index_of(true, 9999999), Some(32768));
     }
 
     #[test]
@@ -231,6 +377,23 @@ mod tests {
         bitfield.set_range(10000000, 50, true);
         assert_value_range(&bitfield, 9999990, 9, false);
         assert_value_range(&bitfield, 10000050, 9, false);
+        assert_eq!(bitfield.index_of(true, 32780), Some(10000000));
+        bitfield.set_range(0, 32780, false);
+        // Manufacture empty pages to test sorting
+        bitfield.set(900000, true);
+        bitfield.set(900000, false);
+        bitfield.set(300000, true);
+        bitfield.set(300000, false);
+        bitfield.set(200000, true);
+        bitfield.set(200000, false);
+        bitfield.set(500000, true);
+        bitfield.set(500000, false);
+        bitfield.set(100000, true);
+        bitfield.set(100000, false);
+        bitfield.set(700000, true);
+        bitfield.set(700000, false);
+        assert_eq!(bitfield.index_of(true, 0), Some(10000000));
+        assert_eq!(bitfield.last_index_of(true, 9999999), None);
 
         bitfield.set_range(10000010, 10, false);
         assert_value_range(&bitfield, 10000000, 10, true);
