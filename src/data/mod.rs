@@ -34,4 +34,9 @@ impl BlockStore {
             ))
         }
     }
+
+    /// Clears a segment, returns infos to write to storage.
+    pub fn clear(&mut self, start: u64, length: u64) -> StoreInfo {
+        StoreInfo::new_delete(Store::Data, start, length)
+    }
 }

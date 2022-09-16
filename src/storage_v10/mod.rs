@@ -93,7 +93,8 @@ where
         Ok(infos.into_boxed_slice())
     }
 
-    async fn read_infos_to_vec(
+    /// Reads infos but retains them as a Vec
+    pub async fn read_infos_to_vec(
         &mut self,
         info_instructions: &[StoreInfoInstruction],
     ) -> Result<Vec<StoreInfo>> {
@@ -164,7 +165,13 @@ where
                                 .map_err(|e| anyhow!(e))?;
                         }
                     } else {
-                        unimplemented!("Deleting not implemented yet")
+                        storage
+                            .del(
+                                info.index,
+                                info.length.expect("When deleting, length must be given"),
+                            )
+                            .await
+                            .map_err(|e| anyhow!(e))?;
                     }
                 }
                 StoreInfoType::Size => {

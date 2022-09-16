@@ -2,6 +2,7 @@
 
 use crate::{
     bitfield_v10::Bitfield,
+    common::StoreInfo,
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
@@ -35,6 +36,14 @@ where
 pub struct AppendOutcome {
     pub length: u64,
     pub byte_length: u64,
+}
+
+/// Info about the hypercore
+#[derive(Debug)]
+pub struct Info {
+    pub length: u64,
+    pub byte_length: u64,
+    pub contiguous_length: u64,
 }
 
 impl<T> Hypercore<T>
@@ -177,6 +186,15 @@ where
         })
     }
 
+    /// Gets basic info about the Hypercore
+    pub fn info(&self) -> Info {
+        Info {
+            length: self.tree.length,
+            byte_length: self.tree.byte_length,
+            contiguous_length: self.header.contiguous_length,
+        }
+    }
+
     /// Appends a data slice to the hypercore.
     pub async fn append(&mut self, data: &[u8]) -> Result<AppendOutcome> {
         self.append_batch(&[data]).await
@@ -276,6 +294,80 @@ where
         };
 
         Ok(Some(data.to_vec()))
+    }
+
+    /// Clear data for entries between start and end (exclusive) indexes.
+    pub async fn clear(&mut self, start: u64, end: u64) -> Result<()> {
+        if start >= end {
+            // NB: This is what javascript does, so we mimic that here
+            return Ok(());
+        }
+        // Write to oplog
+        let infos_to_flush = self.oplog.clear(start, end);
+        self.storage.flush_infos(&infos_to_flush).await?;
+
+        // Set bitfield
+        self.bitfield.set_range(start, end - start, false);
+
+        // Set contiguous length
+        if start < self.header.contiguous_length {
+            self.header.contiguous_length = start;
+        }
+
+        // Find the biggest hole that can be punched into the data
+        let start = if let Some(index) = self.bitfield.last_index_of(true, start) {
+            index + 1
+        } else {
+            0
+        };
+        let end = if let Some(index) = self.bitfield.index_of(true, end) {
+            index
+        } else {
+            self.tree.length
+        };
+
+        // Find byte offset for first value
+        let mut infos: Vec<StoreInfo> = Vec::new();
+        let clear_offset = match self.tree.byte_offset(start, None)? {
+            Either::Right(value) => value,
+            Either::Left(instructions) => {
+                let new_infos = self.storage.read_infos_to_vec(&instructions).await?;
+                infos.extend(new_infos);
+                match self.tree.byte_offset(start, Some(&infos))? {
+                    Either::Right(value) => value,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not read offset for index"));
+                    }
+                }
+            }
+        };
+
+        // Find byte range for last value
+        let last_byte_range = match self.tree.byte_range(end - 1, Some(&infos))? {
+            Either::Right(value) => value,
+            Either::Left(instructions) => {
+                let new_infos = self.storage.read_infos_to_vec(&instructions).await?;
+                infos.extend(new_infos);
+                match self.tree.byte_range(end - 1, Some(&infos))? {
+                    Either::Right(value) => value,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not read byte range"));
+                    }
+                }
+            }
+        };
+        let clear_length = (last_byte_range.index + last_byte_range.length) - clear_offset;
+
+        // Clear blocks
+        let info_to_flush = self.block_store.clear(clear_offset, clear_length);
+        self.storage.flush_info(info_to_flush).await?;
+
+        // Now ready to flush
+        if self.should_flush_bitfield_and_tree_and_oplog() {
+            self.flush_bitfield_and_tree_and_oplog().await?;
+        }
+
+        Ok(())
     }
 
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {

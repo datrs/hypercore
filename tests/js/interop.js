@@ -108,6 +108,9 @@ async function step5ClearSome(testSet) {
     let info = await core.info();
     assert(info.length, 11);
     assert(info.byteLength, 12319);
+    assert(info.contiguousLength, 5);
+    assert(info.padding, 0);
+
     let missing = await core.get(5, { wait: false });
     assert(missing, null);
     missing = await core.get(7, { wait: false });

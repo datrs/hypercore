@@ -57,7 +57,7 @@ async fn js_interop_rs_first() -> Result<()> {
     js_run_step(4, TEST_SET_RS_FIRST);
     assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
     step_5_clear_some(&work_dir).await?;
-    // assert_eq!(create_hypercore_hash(&work_dir), step_5_hash());
+    assert_eq!(create_hypercore_hash(&work_dir), step_5_hash());
     Ok(())
 }
 
@@ -121,6 +121,20 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
 #[cfg(feature = "v10")]
 async fn step_5_clear_some(work_dir: &str) -> Result<()> {
     let mut hypercore = get_hypercore(work_dir).await?;
+    hypercore.clear(5, 6).await?;
+    hypercore.clear(7, 9).await?;
+    let info = hypercore.info();
+    assert_eq!(info.length, 11);
+    assert_eq!(info.byte_length, 12319);
+    assert_eq!(info.contiguous_length, 5);
+    let missing = hypercore.get(5).await?;
+    assert_eq!(missing, None);
+    let missing = hypercore.get(7).await?;
+    assert_eq!(missing, None);
+    let missing = hypercore.get(8).await?;
+    assert_eq!(missing, None);
+    let third = hypercore.get(4).await?;
+    assert_eq!(third.unwrap(), b"third");
     Ok(())
 }
 

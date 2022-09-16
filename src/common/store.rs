@@ -44,6 +44,17 @@ impl StoreInfo {
         }
     }
 
+    pub fn new_delete(store: Store, index: u64, length: u64) -> Self {
+        Self {
+            store,
+            info_type: StoreInfoType::Content,
+            index,
+            length: Some(length),
+            data: None,
+            drop: true,
+        }
+    }
+
     pub fn new_truncate(store: Store, index: u64) -> Self {
         Self {
             store,

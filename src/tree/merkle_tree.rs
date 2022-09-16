@@ -141,23 +141,7 @@ impl MerkleTree {
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>> {
-        // Converts a hypercore index into a merkle tree index
-        let index = 2 * hypercore_index;
-
-        // Check bounds
-        let head = 2 * self.length;
-        let compare_index = if index & 1 == 0 {
-            index
-        } else {
-            flat_tree::right_span(index)
-        };
-        if compare_index >= head {
-            return Err(anyhow!(
-                "Hypercore index {} is out of bounds",
-                hypercore_index
-            ));
-        }
-
+        let index = self.validate_hypercore_index(hypercore_index)?;
         // Get nodes out of incoming infos
         let nodes: Vec<Node> = infos_to_nodes(infos);
 
@@ -165,9 +149,9 @@ impl MerkleTree {
         // of the byte range
         let length_result = self.get_node(index, &nodes)?;
 
-        // As for the offset, that might require a lot more nodes to combine into
-        // an offset
-        let offset_result = self.byte_offset(index, &nodes)?;
+        // As for the offset, that might require fetching a lot more nodes whose
+        // lengths to sum
+        let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
 
         // Construct response of either instructions (Left) or the result (Right)
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
@@ -177,9 +161,6 @@ impl MerkleTree {
         };
         match length_result {
             Either::Left(instruction) => {
-                if infos.is_some() {
-                    return Err(anyhow!("Could not return size from fetched nodes"));
-                }
                 instructions.push(instruction);
             }
             Either::Right(node) => {
@@ -188,9 +169,6 @@ impl MerkleTree {
         }
         match offset_result {
             Either::Left(offset_instructions) => {
-                if infos.is_some() {
-                    return Err(anyhow!("Could not return offset from fetched nodes"));
-                }
                 instructions.extend(offset_instructions);
             }
             Either::Right(offset) => {
@@ -202,6 +180,25 @@ impl MerkleTree {
             Ok(Either::Right(byte_range))
         } else {
             Ok(Either::Left(instructions.into_boxed_slice()))
+        }
+    }
+
+    /// Get the byte offset given hypercore index
+    pub fn byte_offset(
+        &self,
+        hypercore_index: u64,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+        let index = self.validate_hypercore_index(hypercore_index)?;
+        // Get nodes out of incoming infos
+        let nodes: Vec<Node> = infos_to_nodes(infos);
+        // Get offset
+        let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
+        match offset_result {
+            Either::Left(offset_instructions) => {
+                Ok(Either::Left(offset_instructions.into_boxed_slice()))
+            }
+            Either::Right(offset) => Ok(Either::Right(offset)),
         }
     }
 
@@ -347,7 +344,28 @@ impl MerkleTree {
         infos_to_flush
     }
 
-    fn byte_offset(
+    /// Validates given hypercore index and returns tree index
+    fn validate_hypercore_index(&self, hypercore_index: u64) -> Result<u64> {
+        // Converts a hypercore index into a merkle tree index
+        let index = 2 * hypercore_index;
+
+        // Check bounds
+        let head = 2 * self.length;
+        let compare_index = if index & 1 == 0 {
+            index
+        } else {
+            flat_tree::right_span(index)
+        };
+        if compare_index >= head {
+            return Err(anyhow!(
+                "Hypercore index {} is out of bounds",
+                hypercore_index
+            ));
+        }
+        Ok(index)
+    }
+
+    fn byte_offset_from_nodes(
         &self,
         index: u64,
         nodes: &Vec<Node>,
