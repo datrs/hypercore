@@ -2,9 +2,9 @@ extern crate random_access_memory as ram;
 
 mod common;
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 use common::create_feed;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 use hypercore::{generate_keypair, Feed, NodeTrait, PublicKey, SecretKey, Storage};
 use random_access_storage::RandomAccess;
 use std::env::temp_dir;
@@ -13,7 +13,7 @@ use std::fs;
 use std::io::Write;
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn create_with_key() {
     let keypair = generate_keypair();
     let storage = Storage::new_memory().await.unwrap();
@@ -25,7 +25,7 @@ async fn create_with_key() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn display() {
     let feed = create_feed(50).await.unwrap();
     let output = format!("{}", feed);
@@ -33,7 +33,7 @@ async fn display() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 /// Verify `.append()` and `.get()` work.
 async fn set_get() {
     let mut feed = create_feed(50).await.unwrap();
@@ -45,7 +45,7 @@ async fn set_get() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn append() {
     let mut feed = create_feed(50).await.unwrap();
     feed.append(br#"{"hello":"world"}"#).await.unwrap();
@@ -70,7 +70,7 @@ async fn append() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 /// Verify the `.root_hashes()` method returns the right nodes.
 async fn root_hashes() {
     // If no roots exist we should get an error.
@@ -98,7 +98,7 @@ async fn root_hashes() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn verify() {
     let mut feed = create_feed(50).await.unwrap();
     let (public, secret) = copy_keys(&feed);
@@ -135,7 +135,7 @@ async fn verify() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn put() {
     let mut a = create_feed(50).await.unwrap();
     let (public, secret) = copy_keys(&a);
@@ -165,7 +165,7 @@ async fn put() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 /// Put data from one feed into another, while veryfing hashes.
 /// I.e. manual replication between two feeds.
 async fn put_with_data() {
@@ -206,7 +206,7 @@ async fn put_with_data() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn create_with_storage() {
     let storage = Storage::new_memory().await.unwrap();
     assert!(
@@ -216,7 +216,7 @@ async fn create_with_storage() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn create_with_stored_public_key() {
     let mut storage = Storage::new_memory().await.unwrap();
     let keypair = generate_keypair();
@@ -228,7 +228,7 @@ async fn create_with_stored_public_key() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn create_with_stored_keys() {
     let mut storage = Storage::new_memory().await.unwrap();
     let keypair = generate_keypair();
@@ -240,7 +240,7 @@ async fn create_with_stored_keys() {
     );
 }
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 fn copy_keys(
     feed: &Feed<impl RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send>,
 ) -> (PublicKey, SecretKey) {
@@ -259,7 +259,7 @@ fn copy_keys(
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn audit() {
     let mut feed = create_feed(50).await.unwrap();
     feed.append(b"hello").await.unwrap();
@@ -276,7 +276,7 @@ async fn audit() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn audit_bad_data() {
     let mut dir = temp_dir();
     dir.push("audit_bad_data");
@@ -326,7 +326,7 @@ async fn audit_bad_data() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn try_open_missing_dir() {
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
@@ -350,7 +350,7 @@ async fn try_open_missing_dir() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn try_open_file_as_dir() {
     if Feed::open("Cargo.toml").await.is_ok() {
         panic!("Opening path that points to a file must result in error");

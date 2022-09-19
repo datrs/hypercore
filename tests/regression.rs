@@ -1,6 +1,6 @@
 mod common;
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 use common::create_feed;
 
 // Postmortem: errors were happening correctly, but the error check in
@@ -8,7 +8,7 @@ use common::create_feed;
 // checking inclusively `<=`. All we had to do was fix the check, and we all
 // good.
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn regression_01() {
     let mut feed = create_feed(50).await.unwrap();
     assert_eq!(feed.len(), 0);

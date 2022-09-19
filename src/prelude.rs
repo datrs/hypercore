@@ -2,10 +2,10 @@
 //!
 //! ```rust
 //! use hypercore::prelude::*;
-//! #[cfg(not(feature = "v10"))]
+//! #[cfg(feature = "v9")]
 //! let feed = Feed::default();
 //! ```
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub use crate::feed::Feed;
 // pub use feed_builder::FeedBuilder;
 pub use crate::common::Node;
@@ -13,7 +13,7 @@ pub use crate::common::Node;
 pub use crate::common::Store;
 #[cfg(feature = "v10")]
 pub use crate::core::Hypercore;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub use crate::storage::{NodeTrait, Storage, Store};
 #[cfg(feature = "v10")]
 pub use crate::storage_v10::{PartialKeypair, Storage};

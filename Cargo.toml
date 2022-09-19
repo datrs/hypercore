@@ -57,7 +57,9 @@ sha2 = "0.10.2"
 
 [features]
 default = ["v10"]
-# v10 version of the crate, without this, v9 is built
+# v9 version of the crate
+v9 = []
+# v10 version of the crate
 v10 = ["intmap"]
 # Used only in interoperability tests under tests/js-interop which use the javascript version of hypercore
 # to verify that this crate works. To run them, use:

@@ -11,14 +11,14 @@ use std::path::{Path, PathBuf};
 
 use data_encoding::HEXLOWER;
 use ed25519_dalek::{Keypair, Signature};
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 use hypercore::Feed;
 use hypercore::{Storage, Store};
 use random_access_disk::RandomAccessDisk;
 use remove_dir_all::remove_dir_all;
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn deterministic_data_and_tree() {
     let expected_tree = hex_bytes(concat!(
         "0502570200002807424c414b4532620000000000000000000000000000000000ab27d45f509274",
@@ -59,7 +59,7 @@ fn deterministic_data_and_tree_after_replication() {
 }
 
 #[async_std::test]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn deterministic_signatures() {
     let key = hex_bytes("9718a1ff1c4ca79feac551c0c7212a65e4091278ec886b88be01ee4039682238");
     let keypair_bytes = hex_bytes(concat!(
@@ -138,7 +138,7 @@ fn hex_bytes(hex: &str) -> Vec<u8> {
     HEXLOWER.decode(hex.as_bytes()).unwrap()
 }
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
     let filename = match s {
         Store::Tree => "tree",
@@ -152,7 +152,7 @@ fn storage_path<P: AsRef<Path>>(dir: P, s: Store) -> PathBuf {
     dir.as_ref().join(filename)
 }
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
     let temp_dir = tempfile::tempdir().unwrap();
     let dir = temp_dir.into_path();
@@ -168,7 +168,7 @@ async fn mk_storage() -> (PathBuf, Storage<RandomAccessDisk>) {
     (dir, storage)
 }
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 fn read_bytes<P: AsRef<Path>>(dir: P, s: Store) -> Vec<u8> {
     let mut f = File::open(storage_path(dir, s)).unwrap();
     let mut bytes = Vec::new();
@@ -176,7 +176,7 @@ fn read_bytes<P: AsRef<Path>>(dir: P, s: Store) -> Vec<u8> {
     bytes
 }
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 fn mk_keypair(keypair_bytes: &[u8], public_key: &[u8]) -> Keypair {
     let keypair = Keypair::from_bytes(&keypair_bytes).unwrap();
     assert_eq!(

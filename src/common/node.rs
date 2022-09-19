@@ -1,8 +1,8 @@
-#[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
 use anyhow::ensure;
-#[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
 use anyhow::Result;
-#[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use merkle_tree_stream::Node as NodeTrait;
 use merkle_tree_stream::{NodeKind, NodeParts};
@@ -10,7 +10,7 @@ use pretty_hash::fmt as pretty_fmt;
 use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
-#[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
 use std::io::Cursor;
 
 use crate::crypto::Hash;
@@ -65,7 +65,7 @@ impl Node {
     /// Convert a vector to a new instance.
     ///
     /// Requires the index at which the buffer was read to be passed.
-    #[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+    #[cfg(feature = "v9")] // tree module has the byte manipulation for v10
     pub fn from_bytes(index: u64, buffer: &[u8]) -> Result<Self> {
         ensure!(buffer.len() == 40, "buffer should be 40 bytes");
 
@@ -96,7 +96,7 @@ impl Node {
     }
 
     /// Convert to a buffer that can be written to disk.
-    #[cfg(not(feature = "v10"))] // tree module has the byte manipulation for v10
+    #[cfg(feature = "v9")] // tree module has the byte manipulation for v10
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut writer = Vec::with_capacity(40);
         writer.extend_from_slice(&self.hash);

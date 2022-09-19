@@ -1,8 +1,8 @@
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 use hypercore::Feed;
 
 #[async_std::main]
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 async fn main() {
     let mut feed = Feed::open("feed.db").await.expect("Failed to create dir");
 

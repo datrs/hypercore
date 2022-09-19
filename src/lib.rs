@@ -13,7 +13,7 @@
 //!
 //! ## Example
 //! ```rust
-//! #[cfg(not(feature = "v10"))]
+//! #[cfg(feature = "v9")]
 //! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //! # async_std::task::block_on(async {
 //! let mut feed = hypercore::open("./feed.db").await?;
@@ -39,7 +39,7 @@
 //! [Dat]: https://github.com/datrs
 //! [Feed]: crate::feed::Feed
 
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub mod bitfield;
 pub mod compact_encoding;
 pub mod prelude;
@@ -55,15 +55,15 @@ mod crypto;
 #[cfg(feature = "v10")]
 mod data;
 mod event;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 mod feed;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 mod feed_builder;
 #[cfg(feature = "v10")]
 mod oplog;
 mod proof;
 mod replicate;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 mod storage;
 #[cfg(feature = "v10")]
 mod storage_v10;
@@ -77,13 +77,13 @@ pub use crate::common::Store;
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
 pub use crate::event::Event;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub use crate::feed::Feed;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub use crate::feed_builder::FeedBuilder;
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub use crate::storage::{NodeTrait, PartialKeypair, Storage, Store};
 #[cfg(feature = "v10")]
 pub use crate::storage_v10::{PartialKeypair, Storage};
@@ -92,7 +92,7 @@ pub use ed25519_dalek::{PublicKey, SecretKey};
 use std::path::Path;
 
 /// Create a new Hypercore `Feed`.
-#[cfg(not(feature = "v10"))]
+#[cfg(feature = "v9")]
 pub async fn open<P: AsRef<Path>>(
     path: P,
 ) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
