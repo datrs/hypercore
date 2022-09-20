@@ -13,6 +13,7 @@ use anyhow::{anyhow, Result};
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use random_access_storage::RandomAccess;
+use std::convert::TryFrom;
 use std::fmt::Debug;
 
 /// Hypercore is an append-only log structure.
@@ -163,7 +164,7 @@ where
                             }
                         };
                     changeset.ancestors = tree_upgrade.ancestors;
-                    changeset.signature = Some(Signature::from_bytes(&tree_upgrade.signature)?);
+                    changeset.signature = Some(Signature::try_from(&*tree_upgrade.signature)?);
 
                     // TODO: Skip reorg hints for now, seems to only have to do with replication
                     // addReorgHint(header.hints.reorgs, tree, batch)
