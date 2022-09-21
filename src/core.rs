@@ -371,6 +371,11 @@ where
         Ok(())
     }
 
+    /// Access the key pair.
+    pub fn key_pair(&self) -> &PartialKeypair {
+        &self.key_pair
+    }
+
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {
         if self.skip_flush_count == 0
             || self.oplog.entries_byte_length >= MAX_OPLOG_ENTRIES_BYTE_SIZE
