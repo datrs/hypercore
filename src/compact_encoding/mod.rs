@@ -8,7 +8,7 @@ const U32_SIGNIFIER: u8 = 0xfe;
 const U64_SIGNIFIER: u8 = 0xff;
 
 /// State.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State {
     /// Start position
     pub start: usize,
@@ -205,6 +205,13 @@ impl State {
         self.end += len;
     }
 
+    /// Preencode a vector byte buffer
+    pub fn preencode_buffer_vec(&mut self, value: &Vec<u8>) {
+        let len = value.len();
+        self.preencode_usize_var(&len);
+        self.end += len;
+    }
+
     /// Encode a byte buffer
     pub fn encode_buffer(&mut self, value: &[u8], buffer: &mut [u8]) {
         let len = value.len();
@@ -215,10 +222,13 @@ impl State {
 
     /// Decode a byte buffer
     pub fn decode_buffer(&mut self, buffer: &[u8]) -> Box<[u8]> {
+        self.decode_buffer_vec(buffer).into_boxed_slice()
+    }
+
+    /// Decode a vector byte buffer
+    pub fn decode_buffer_vec(&mut self, buffer: &[u8]) -> Vec<u8> {
         let len = self.decode_usize_var(buffer);
-        let value = buffer[self.start..self.start + len]
-            .to_vec()
-            .into_boxed_slice();
+        let value = buffer[self.start..self.start + len].to_vec();
         self.start += value.len();
         value
     }
@@ -427,6 +437,20 @@ impl CompactEncoding<Box<[u8]>> for State {
 
     fn decode(&mut self, buffer: &[u8]) -> Box<[u8]> {
         self.decode_buffer(buffer)
+    }
+}
+
+impl CompactEncoding<Vec<u8>> for State {
+    fn preencode(&mut self, value: &Vec<u8>) {
+        self.preencode_buffer_vec(value);
+    }
+
+    fn encode(&mut self, value: &Vec<u8>, buffer: &mut [u8]) {
+        self.encode_buffer(value, buffer);
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> Vec<u8> {
+        self.decode_buffer_vec(buffer).to_vec()
     }
 }
 

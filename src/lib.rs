@@ -87,7 +87,10 @@ pub use crate::replicate::Peer;
 pub use crate::storage::{NodeTrait, PartialKeypair, Storage, Store};
 #[cfg(feature = "v10")]
 pub use crate::storage_v10::{PartialKeypair, Storage};
-pub use ed25519_dalek::{PublicKey, SecretKey};
+pub use ed25519_dalek::{
+    ExpandedSecretKey, Keypair, PublicKey, SecretKey, EXPANDED_SECRET_KEY_LENGTH, KEYPAIR_LENGTH,
+    PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
+};
 
 use std::path::Path;
 
