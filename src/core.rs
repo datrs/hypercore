@@ -45,6 +45,7 @@ pub struct Info {
     pub length: u64,
     pub byte_length: u64,
     pub contiguous_length: u64,
+    pub fork: u64,
 }
 
 impl<T> Hypercore<T>
@@ -193,6 +194,7 @@ where
             length: self.tree.length,
             byte_length: self.tree.byte_length,
             contiguous_length: self.header.contiguous_length,
+            fork: self.tree.fork,
         }
     }
 

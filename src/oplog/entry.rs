@@ -3,54 +3,6 @@ use crate::{
     Node,
 };
 
-impl CompactEncoding<Node> for State {
-    fn preencode(&mut self, value: &Node) {
-        self.preencode(&value.index);
-        self.preencode(&value.length);
-        self.preencode_fixed_32();
-    }
-
-    fn encode(&mut self, value: &Node, buffer: &mut [u8]) {
-        self.encode(&value.index, buffer);
-        self.encode(&value.length, buffer);
-        self.encode_fixed_32(&value.hash, buffer);
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Node {
-        let index: u64 = self.decode(buffer);
-        let length: u64 = self.decode(buffer);
-        let hash: Box<[u8]> = self.decode_fixed_32(buffer);
-        Node::new(index, hash.to_vec(), length)
-    }
-}
-
-impl CompactEncoding<Vec<Node>> for State {
-    fn preencode(&mut self, value: &Vec<Node>) {
-        let len = value.len();
-        self.preencode(&len);
-        for val in value.into_iter() {
-            self.preencode(val);
-        }
-    }
-
-    fn encode(&mut self, value: &Vec<Node>, buffer: &mut [u8]) {
-        let len = value.len();
-        self.encode(&len, buffer);
-        for val in value {
-            self.encode(val, buffer);
-        }
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Vec<Node> {
-        let len: usize = self.decode(buffer);
-        let mut value = Vec::with_capacity(len);
-        for _ in 0..len {
-            value.push(self.decode(buffer));
-        }
-        value
-    }
-}
-
 /// Entry tree upgrade
 #[derive(Debug)]
 pub struct EntryTreeUpgrade {
