@@ -1,7 +1,32 @@
 use crate::Node;
 
 #[derive(Debug, Clone, PartialEq)]
-/// Block of data
+/// Request of a DataBlock or DataHash from peer
+pub struct RequestBlock {
+    /// Hypercore index
+    pub index: u64,
+    /// TODO: document
+    pub nodes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Request of a DataSeek from peer
+pub struct RequestSeek {
+    /// TODO: document
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Request of a DataUpgrade from peer
+pub struct RequestUpgrade {
+    /// Hypercore start index
+    pub start: u64,
+    /// Length of elements
+    pub length: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Block of data to peer
 pub struct DataBlock {
     /// Hypercore index
     pub index: u64,
@@ -12,7 +37,7 @@ pub struct DataBlock {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Data hash
+/// Data hash to peer
 pub struct DataHash {
     /// Hypercore index
     pub index: u64,

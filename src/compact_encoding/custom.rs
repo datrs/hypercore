@@ -1,6 +1,8 @@
 //! Hypercore-specific compact encodings
 use super::{CompactEncoding, State};
-use crate::{DataBlock, DataHash, DataSeek, DataUpgrade, Node};
+use crate::{
+    DataBlock, DataHash, DataSeek, DataUpgrade, Node, RequestBlock, RequestSeek, RequestUpgrade,
+};
 
 impl CompactEncoding<Node> for State {
     fn preencode(&mut self, value: &Node) {
@@ -47,6 +49,57 @@ impl CompactEncoding<Vec<Node>> for State {
             value.push(self.decode(buffer));
         }
         value
+    }
+}
+
+impl CompactEncoding<RequestBlock> for State {
+    fn preencode(&mut self, value: &RequestBlock) {
+        self.preencode(&value.index);
+        self.preencode(&value.nodes);
+    }
+
+    fn encode(&mut self, value: &RequestBlock, buffer: &mut [u8]) {
+        self.encode(&value.index, buffer);
+        self.encode(&value.nodes, buffer);
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> RequestBlock {
+        let index: u64 = self.decode(buffer);
+        let nodes: u64 = self.decode(buffer);
+        RequestBlock { index, nodes }
+    }
+}
+
+impl CompactEncoding<RequestSeek> for State {
+    fn preencode(&mut self, value: &RequestSeek) {
+        self.preencode(&value.bytes);
+    }
+
+    fn encode(&mut self, value: &RequestSeek, buffer: &mut [u8]) {
+        self.encode(&value.bytes, buffer);
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> RequestSeek {
+        let bytes: u64 = self.decode(buffer);
+        RequestSeek { bytes }
+    }
+}
+
+impl CompactEncoding<RequestUpgrade> for State {
+    fn preencode(&mut self, value: &RequestUpgrade) {
+        self.preencode(&value.start);
+        self.preencode(&value.length);
+    }
+
+    fn encode(&mut self, value: &RequestUpgrade, buffer: &mut [u8]) {
+        self.encode(&value.start, buffer);
+        self.encode(&value.length, buffer);
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> RequestUpgrade {
+        let start: u64 = self.decode(buffer);
+        let length: u64 = self.decode(buffer);
+        RequestUpgrade { start, length }
     }
 }
 

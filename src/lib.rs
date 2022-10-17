@@ -72,7 +72,9 @@ mod tree;
 
 pub use crate::common::Node;
 #[cfg(feature = "v10")]
-pub use crate::common::{DataBlock, DataHash, DataSeek, DataUpgrade, Store};
+pub use crate::common::{
+    DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade, Store,
+};
 #[cfg(feature = "v10")]
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
