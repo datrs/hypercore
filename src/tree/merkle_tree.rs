@@ -272,23 +272,8 @@ impl MerkleTree {
                 let head = 2 * changeset.ancestors;
                 let mut iter = flat_tree::Iterator::new(head - 2);
                 loop {
-                    // TODO: we should implement a contains() method in the Iterator
-                    // similar to the Javascript
-                    // https://github.com/mafintosh/flat-tree/blob/master/index.js#L152
-                    // then this would work:
-                    // if iter.contains(head) && iter.index() < head {
                     let index = iter.index();
-                    let factor = iter.factor();
-                    let contains: bool = if head > index {
-                        head < (index + factor / 2)
-                    } else {
-                        if head < index {
-                            head > (index - factor / 2)
-                        } else {
-                            true
-                        }
-                    };
-                    if contains && index < head {
+                    if iter.contains(head) && index < head {
                         self.unflushed.insert(index, Node::new_blank(index));
                     }
 
