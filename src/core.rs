@@ -2,12 +2,13 @@
 
 use crate::{
     bitfield_v10::Bitfield,
-    common::StoreInfo,
+    common::{Proof, StoreInfo},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     storage_v10::{PartialKeypair, Storage},
     tree::MerkleTree,
+    RequestBlock, RequestSeek, RequestUpgrade,
 };
 use anyhow::{anyhow, Result};
 use ed25519_dalek::Signature;
@@ -378,6 +379,42 @@ where
         &self.key_pair
     }
 
+    /// Create a proof for given request
+    pub async fn create_proof(
+        &mut self,
+        block: Option<RequestBlock>,
+        hash: Option<RequestBlock>,
+        seek: Option<RequestSeek>,
+        upgrade: Option<RequestUpgrade>,
+    ) -> Result<Proof> {
+        // TODO: Generalize Either response stack
+        let proof = match self.tree.create_proof(
+            block.as_ref(),
+            hash.as_ref(),
+            seek.as_ref(),
+            upgrade.as_ref(),
+            None,
+        )? {
+            Either::Right(value) => value,
+            Either::Left(instructions) => {
+                let infos = self.storage.read_infos(&instructions).await?;
+                match self.tree.create_proof(
+                    block.as_ref(),
+                    hash.as_ref(),
+                    seek.as_ref(),
+                    upgrade.as_ref(),
+                    Some(&infos),
+                )? {
+                    Either::Right(value) => value,
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not create proof"));
+                    }
+                }
+            }
+        };
+        Ok(proof)
+    }
+
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {
         if self.skip_flush_count == 0
             || self.oplog.entries_byte_length >= MAX_OPLOG_ENTRIES_BYTE_SIZE
@@ -425,5 +462,303 @@ fn update_contiguous_length(
 
     if c != header.contiguous_length {
         header.contiguous_length = c;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use random_access_memory::RandomAccessMemory;
+
+    #[async_std::test]
+    async fn core_create_proof_block_only() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+
+        let proof = hypercore
+            .create_proof(Some(RequestBlock { index: 4, nodes: 2 }), None, None, None)
+            .await?;
+        let block = proof.block.unwrap();
+        assert_eq!(proof.upgrade, None);
+        assert_eq!(proof.seek, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 2);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(block.nodes[1].index, 13);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 0 }),
+                None,
+                None,
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 10,
+                }),
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(proof.seek, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 3);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(block.nodes[1].index, 13);
+        assert_eq!(block.nodes[2].index, 3);
+        assert_eq!(upgrade.start, 0);
+        assert_eq!(upgrade.length, 10);
+        assert_eq!(upgrade.nodes.len(), 1);
+        assert_eq!(upgrade.nodes[0].index, 17);
+        assert_eq!(upgrade.additional_nodes.len(), 0);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_upgrade_and_additional() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 0 }),
+                None,
+                None,
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 8,
+                }),
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(proof.seek, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 3);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(block.nodes[1].index, 13);
+        assert_eq!(block.nodes[2].index, 3);
+        assert_eq!(upgrade.start, 0);
+        assert_eq!(upgrade.length, 8);
+        assert_eq!(upgrade.nodes.len(), 0);
+        assert_eq!(upgrade.additional_nodes.len(), 1);
+        assert_eq!(upgrade.additional_nodes[0].index, 17);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_upgrade_from_existing_state() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 1, nodes: 0 }),
+                None,
+                None,
+                Some(RequestUpgrade {
+                    start: 1,
+                    length: 9,
+                }),
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(proof.seek, None);
+        assert_eq!(block.index, 1);
+        assert_eq!(block.nodes.len(), 0);
+        assert_eq!(upgrade.start, 1);
+        assert_eq!(upgrade.length, 9);
+        assert_eq!(upgrade.nodes.len(), 3);
+        assert_eq!(upgrade.nodes[0].index, 5);
+        assert_eq!(upgrade.nodes[1].index, 11);
+        assert_eq!(upgrade.nodes[2].index, 17);
+        assert_eq!(upgrade.additional_nodes.len(), 0);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_upgrade_from_existing_state_with_additional() -> Result<()>
+    {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 1, nodes: 0 }),
+                None,
+                None,
+                Some(RequestUpgrade {
+                    start: 1,
+                    length: 5,
+                }),
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(proof.seek, None);
+        assert_eq!(block.index, 1);
+        assert_eq!(block.nodes.len(), 0);
+        assert_eq!(upgrade.start, 1);
+        assert_eq!(upgrade.length, 5);
+        assert_eq!(upgrade.nodes.len(), 2);
+        assert_eq!(upgrade.nodes[0].index, 5);
+        assert_eq!(upgrade.nodes[1].index, 9);
+        assert_eq!(upgrade.additional_nodes.len(), 2);
+        assert_eq!(upgrade.additional_nodes[0].index, 13);
+        assert_eq!(upgrade.additional_nodes[1].index, 17);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_seek_1_no_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 2 }),
+                None,
+                Some(RequestSeek { bytes: 8 }),
+                None,
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        assert_eq!(proof.seek, None); // seek included in block
+        assert_eq!(proof.upgrade, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 2);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(block.nodes[1].index, 13);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_seek_2_no_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 2 }),
+                None,
+                Some(RequestSeek { bytes: 10 }),
+                None,
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        assert_eq!(proof.seek, None); // seek included in block
+        assert_eq!(proof.upgrade, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 2);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(block.nodes[1].index, 13);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_seek_3_no_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 2 }),
+                None,
+                Some(RequestSeek { bytes: 13 }),
+                None,
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let seek = proof.seek.unwrap();
+        assert_eq!(proof.upgrade, None);
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 1);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(seek.nodes.len(), 2);
+        assert_eq!(seek.nodes[0].index, 12);
+        assert_eq!(seek.nodes[1].index, 14);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_seek_to_tree_no_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(16).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 0, nodes: 4 }),
+                None,
+                Some(RequestSeek { bytes: 26 }),
+                None,
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let seek = proof.seek.unwrap();
+        assert_eq!(proof.upgrade, None);
+        assert_eq!(block.nodes.len(), 3);
+        assert_eq!(block.nodes[0].index, 2);
+        assert_eq!(block.nodes[1].index, 5);
+        assert_eq!(block.nodes[2].index, 11);
+        assert_eq!(seek.nodes.len(), 2);
+        assert_eq!(seek.nodes[0].index, 19);
+        assert_eq!(seek.nodes[1].index, 27);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_block_and_seek_with_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                Some(RequestBlock { index: 4, nodes: 2 }),
+                None,
+                Some(RequestSeek { bytes: 13 }),
+                Some(RequestUpgrade {
+                    start: 8,
+                    length: 2,
+                }),
+            )
+            .await?;
+        let block = proof.block.unwrap();
+        let seek = proof.seek.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(block.index, 4);
+        assert_eq!(block.nodes.len(), 1);
+        assert_eq!(block.nodes[0].index, 10);
+        assert_eq!(seek.nodes.len(), 2);
+        assert_eq!(seek.nodes[0].index, 12);
+        assert_eq!(seek.nodes[1].index, 14);
+        assert_eq!(upgrade.nodes.len(), 1);
+        assert_eq!(upgrade.nodes[0].index, 17);
+        assert_eq!(upgrade.additional_nodes.len(), 0);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_create_proof_seek_with_upgrade() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let proof = hypercore
+            .create_proof(
+                None,
+                None,
+                Some(RequestSeek { bytes: 13 }),
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 10,
+                }),
+            )
+            .await?;
+        let seek = proof.seek.unwrap();
+        let upgrade = proof.upgrade.unwrap();
+        assert_eq!(proof.block, None);
+        assert_eq!(seek.nodes.len(), 4);
+        assert_eq!(seek.nodes[0].index, 12);
+        assert_eq!(seek.nodes[1].index, 14);
+        assert_eq!(seek.nodes[2].index, 9);
+        assert_eq!(seek.nodes[3].index, 3);
+        assert_eq!(upgrade.nodes.len(), 1);
+        assert_eq!(upgrade.nodes[0].index, 17);
+        assert_eq!(upgrade.additional_nodes.len(), 0);
+        Ok(())
+    }
+
+    async fn create_hypercore_with_data(length: u64) -> Result<Hypercore<RandomAccessMemory>> {
+        let storage = Storage::new_memory().await?;
+        let mut hypercore = Hypercore::new(storage).await?;
+        for i in 0..length {
+            hypercore.append(format!("#{}", i).as_bytes()).await?;
+        }
+        Ok(hypercore)
     }
 }

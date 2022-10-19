@@ -1,3 +1,6 @@
+//! Types needed for passing information with with peers.
+//! hypercore-protocol-rs uses these types and wraps them
+//! into wire messages.
 use crate::Node;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +26,21 @@ pub struct RequestUpgrade {
     pub start: u64,
     /// Length of elements
     pub length: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Proof generated from corresponding requests
+pub struct Proof {
+    /// Fork
+    pub fork: u64,
+    /// Data block
+    pub block: Option<DataBlock>,
+    /// Data hash
+    pub hash: Option<DataHash>,
+    /// Data seek
+    pub seek: Option<DataSeek>,
+    /// Data updrade
+    pub upgrade: Option<DataUpgrade>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

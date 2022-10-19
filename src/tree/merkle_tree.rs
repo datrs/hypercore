@@ -4,12 +4,15 @@ use ed25519_dalek::Signature;
 use futures::future::Either;
 
 use crate::common::NodeByteRange;
+use crate::common::Proof;
 use crate::compact_encoding::State;
 use crate::oplog::HeaderTree;
-use crate::Store;
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
     Node,
+};
+use crate::{
+    DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade, Store,
 };
 
 use super::MerkleTreeChangeset;
@@ -257,6 +260,191 @@ impl MerkleTree {
         }
     }
 
+    /// Creates proof from a requests.
+    /// TODO: This is now just a clone of javascript's
+    /// https://github.com/hypercore-protocol/hypercore/blob/7e30a0fe353c70ada105840ec1ead6627ff521e7/lib/merkle-tree.js#L604
+    /// The implementation should be rewritten to make it clearer.
+    pub fn create_proof(
+        &self,
+        block: Option<&RequestBlock>,
+        hash: Option<&RequestBlock>,
+        seek: Option<&RequestSeek>,
+        upgrade: Option<&RequestUpgrade>,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, Proof>> {
+        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let fork = self.fork;
+        let signature = self.signature;
+        let head = 2 * self.length;
+        let (from, to) = if let Some(upgrade) = upgrade.as_ref() {
+            let from = upgrade.start * 2;
+            (from, from + upgrade.length * 2)
+        } else {
+            (0, head)
+        };
+        let indexed = normalize_indexed(block, hash);
+
+        if from >= to || to > head {
+            return Err(anyhow!("Invalid upgrade"));
+        }
+
+        let mut sub_tree = head;
+        let mut p = LocalProof {
+            indexed: None,
+            seek: None,
+            nodes: None,
+            upgrade: None,
+            additional_upgrade: None,
+        };
+        let mut untrusted_sub_tree = false;
+        if let Some(indexed) = indexed.as_ref() {
+            if seek.is_some() && upgrade.is_some() && indexed.index >= from {
+                return Err(anyhow!(
+                    "Cannot both do a seek and block/hash request when upgrading"
+                ));
+            }
+
+            if let Some(upgrade) = upgrade.as_ref() {
+                untrusted_sub_tree = indexed.last_index < upgrade.start;
+            } else {
+                untrusted_sub_tree = true;
+            }
+
+            if untrusted_sub_tree {
+                sub_tree = nodes_to_root(indexed.index, indexed.nodes, to)?;
+                let seek_root = if let Some(seek) = seek.as_ref() {
+                    // TODO: This most likely now doesn't work correctly now, need to
+                    // think about how to incrementally get nodes and keep track of what
+                    // index has already been attempted to get from disk.
+                    let index_or_instructions =
+                        self.seek_untrusted_tree(sub_tree, seek.bytes, &nodes)?;
+                    match index_or_instructions {
+                        Either::Left(new_instructions) => {
+                            instructions.extend(new_instructions);
+                            return Ok(Either::Left(instructions.into_boxed_slice()));
+                        }
+                        Either::Right(index) => index,
+                    }
+                } else {
+                    head
+                };
+                if let Either::Left(new_instructions) = self.block_and_seek_proof(
+                    Some(indexed),
+                    seek.is_some(),
+                    seek_root,
+                    sub_tree,
+                    &mut p,
+                    &nodes,
+                )? {
+                    instructions.extend(new_instructions);
+                }
+            } else if upgrade.is_some() {
+                sub_tree = indexed.index;
+            }
+        }
+        if !untrusted_sub_tree {
+            if let Some(seek) = seek.as_ref() {
+                // TODO: This also most likely now doesn't work correctly
+                let index_or_instructions = self.seek_from_head(to, seek.bytes, &nodes)?;
+                sub_tree = match index_or_instructions {
+                    Either::Left(new_instructions) => {
+                        instructions.extend(new_instructions);
+                        return Ok(Either::Left(instructions.into_boxed_slice()));
+                    }
+                    Either::Right(index) => index,
+                };
+            }
+        }
+
+        if upgrade.is_some() {
+            if let Either::Left(new_instructions) = self.upgrade_proof(
+                indexed.as_ref(),
+                seek.is_some(),
+                from,
+                to,
+                sub_tree,
+                &mut p,
+                &nodes,
+            )? {
+                instructions.extend(new_instructions);
+            }
+
+            if head > to {
+                if let Either::Left(new_instructions) =
+                    self.additional_upgrade_proof(to, head, &mut p, &nodes)?
+                {
+                    instructions.extend(new_instructions);
+                }
+            }
+        }
+
+        if instructions.is_empty() {
+            let (data_block, data_hash): (Option<DataBlock>, Option<DataHash>) =
+                if let Some(block) = block.as_ref() {
+                    //
+                    (
+                        Some(DataBlock {
+                            index: block.index,
+                            value: vec![],           // TODO: this needs to come in
+                            nodes: p.nodes.unwrap(), // TODO: unwrap
+                        }),
+                        None,
+                    )
+                } else if let Some(hash) = hash.as_ref() {
+                    //
+                    (
+                        None,
+                        Some(DataHash {
+                            index: hash.index,
+                            nodes: p.nodes.unwrap(), // TODO: unwrap
+                        }),
+                    )
+                } else {
+                    (None, None)
+                };
+
+            let data_seek: Option<DataSeek> = if let Some(seek) = seek.as_ref() {
+                if let Some(p_seek) = p.seek {
+                    Some(DataSeek {
+                        bytes: seek.bytes,
+                        nodes: p_seek,
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            let data_upgrade: Option<DataUpgrade> = if let Some(upgrade) = upgrade.as_ref() {
+                Some(DataUpgrade {
+                    start: upgrade.start,
+                    length: upgrade.length,
+                    nodes: p.upgrade.unwrap(), // TODO: unwrap
+                    additional_nodes: if let Some(additional_upgrade) = p.additional_upgrade {
+                        additional_upgrade
+                    } else {
+                        vec![]
+                    },
+                    signature: signature.unwrap().to_bytes().to_vec(), // TODO: unwrap
+                })
+            } else {
+                None
+            };
+
+            Ok(Either::Right(Proof {
+                fork,
+                block: data_block,
+                hash: data_hash,
+                seek: data_seek,
+                upgrade: data_upgrade,
+            }))
+        } else {
+            Ok(Either::Left(instructions.into_boxed_slice()))
+        }
+    }
+
     fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
         let correct_length: bool = if changeset.upgraded {
             changeset.original_tree_length == self.length
@@ -430,6 +618,513 @@ impl MerkleTree {
             40,
         )))
     }
+
+    fn seek_from_head(
+        &self,
+        head: u64,
+        bytes: u64,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut roots = vec![];
+        flat_tree::full_roots(head, &mut roots);
+        let mut bytes = bytes;
+
+        for i in 0..roots.len() {
+            let root = roots[i];
+            let node_or_instruction = self.get_node(root, nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(node) => {
+                    if bytes == node.length {
+                        return Ok(Either::Right(root));
+                    }
+                    if bytes > node.length {
+                        bytes -= node.length;
+                        continue;
+                    }
+                    let instructions_or_result = self.seek_trusted_tree(root, bytes, nodes)?;
+                    return match instructions_or_result {
+                        Either::Left(new_instructions) => {
+                            instructions.extend(new_instructions);
+                            Ok(Either::Left(instructions))
+                        }
+                        Either::Right(index) => Ok(Either::Right(index)),
+                    };
+                }
+            }
+        }
+
+        if instructions.is_empty() {
+            Ok(Either::Right(head))
+        } else {
+            Ok(Either::Left(instructions))
+        }
+    }
+
+    /// Trust that bytes are within the root tree and find the block at bytes.
+    fn seek_trusted_tree(
+        &self,
+        root: u64,
+        bytes: u64,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+        if bytes == 0 {
+            return Ok(Either::Right(root));
+        }
+        let mut iter = flat_tree::Iterator::new(root);
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut bytes = bytes;
+        while iter.index() & 1 != 0 {
+            let node_or_instruction = self.get_node(iter.left_child(), nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    iter.parent();
+                    if nodes.is_empty() {
+                        instructions.push(instruction);
+                    } else {
+                        // TODO: This is unfortunately not guaranteed to work because
+                        // the nodes array might be filled in some cases with multiple steps
+                        // from instructions. Should think of a better way to signal that
+                        // this particular index has been attempted to be located, probably
+                        // needs an incoming vector of attempted ids.
+                        return Ok(Either::Right(iter.index()));
+                    }
+                }
+                Either::Right(node) => {
+                    if node.length == bytes {
+                        return Ok(Either::Right(iter.index()));
+                    }
+                    if node.length > bytes {
+                        continue;
+                    }
+                    bytes -= node.length;
+                    iter.sibling();
+                }
+            }
+        }
+        if instructions.is_empty() {
+            Ok(Either::Right(iter.index()))
+        } else {
+            Ok(Either::Left(instructions))
+        }
+    }
+
+    /// Try to find the block at bytes without trusting that it *is* within the root passed.
+    fn seek_untrusted_tree(
+        &self,
+        root: u64,
+        bytes: u64,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let offset_or_instructions = self.byte_offset_from_nodes(root, nodes)?;
+        let mut bytes = bytes;
+        match offset_or_instructions {
+            Either::Left(new_instructions) => {
+                instructions.extend(new_instructions);
+            }
+            Either::Right(offset) => {
+                if offset > bytes {
+                    return Err(anyhow!("Invalid seek"));
+                }
+                if offset == bytes {
+                    return Ok(Either::Right(root));
+                }
+                bytes -= offset;
+                let node_or_instruction = self.get_node(root, nodes)?;
+                match node_or_instruction {
+                    Either::Left(instruction) => {
+                        instructions.push(instruction);
+                    }
+                    Either::Right(node) => {
+                        if node.length <= bytes {
+                            return Err(anyhow!("Invalid seek"));
+                        }
+                    }
+                }
+            }
+        }
+        let instructions_or_result = self.seek_trusted_tree(root, bytes, nodes)?;
+        match instructions_or_result {
+            Either::Left(new_instructions) => {
+                instructions.extend(new_instructions);
+                Ok(Either::Left(instructions))
+            }
+            Either::Right(index) => Ok(Either::Right(index)),
+        }
+    }
+
+    fn block_and_seek_proof(
+        &self,
+        indexed: Option<&NormalizedIndexed>,
+        is_seek: bool,
+        seek_root: u64,
+        root: u64,
+        p: &mut LocalProof,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+        if let Some(indexed) = indexed {
+            let mut iter = flat_tree::Iterator::new(indexed.index);
+            let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+            let mut p_nodes: Vec<Node> = Vec::new();
+
+            if !indexed.value {
+                let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                match node_or_instruction {
+                    Either::Left(instruction) => {
+                        instructions.push(instruction);
+                    }
+                    Either::Right(node) => {
+                        p_nodes.push(node);
+                    }
+                }
+            }
+            while iter.index() != root {
+                iter.sibling();
+                if is_seek && iter.contains(seek_root) && iter.index() != seek_root {
+                    let success_or_instruction =
+                        self.seek_proof(seek_root, iter.index(), p, nodes)?;
+                    match success_or_instruction {
+                        Either::Left(new_instructions) => {
+                            instructions.extend(new_instructions);
+                        }
+                        _ => (),
+                    }
+                } else {
+                    let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                    match node_or_instruction {
+                        Either::Left(instruction) => {
+                            instructions.push(instruction);
+                        }
+                        Either::Right(node) => {
+                            p_nodes.push(node);
+                        }
+                    }
+                }
+
+                iter.parent();
+            }
+            p.nodes = Some(p_nodes);
+            if instructions.is_empty() {
+                Ok(Either::Right(()))
+            } else {
+                Ok(Either::Left(instructions))
+            }
+        } else {
+            self.seek_proof(seek_root, root, p, nodes)
+        }
+    }
+
+    fn seek_proof(
+        &self,
+        seek_root: u64,
+        root: u64,
+        p: &mut LocalProof,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+        let mut iter = flat_tree::Iterator::new(seek_root);
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut seek_nodes: Vec<Node> = Vec::new();
+        let node_or_instruction = self.get_node(iter.index(), nodes)?;
+        match node_or_instruction {
+            Either::Left(instruction) => {
+                instructions.push(instruction);
+            }
+            Either::Right(node) => {
+                seek_nodes.push(node);
+            }
+        }
+
+        while iter.index() != root {
+            iter.sibling();
+            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(node) => {
+                    seek_nodes.push(node);
+                }
+            }
+            iter.parent();
+        }
+        p.seek = Some(seek_nodes);
+        if instructions.is_empty() {
+            Ok(Either::Right(()))
+        } else {
+            Ok(Either::Left(instructions))
+        }
+    }
+
+    fn upgrade_proof(
+        &self,
+        indexed: Option<&NormalizedIndexed>,
+        is_seek: bool,
+        from: u64,
+        to: u64,
+        sub_tree: u64,
+        p: &mut LocalProof,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut upgrade: Vec<Node> = Vec::new();
+        let mut has_upgrade = false;
+
+        if from == 0 {
+            has_upgrade = true;
+        }
+
+        let mut iter = flat_tree::Iterator::new(0);
+        let mut has_full_root = iter.full_root(to);
+        while has_full_root {
+            // check if they already have the node
+            if iter.index() + iter.factor() / 2 < from {
+                iter.next_tree();
+                has_full_root = iter.full_root(to);
+                continue;
+            }
+
+            // connect existing tree
+            if !has_upgrade && iter.contains(from - 2) {
+                has_upgrade = true;
+                let root = iter.index();
+                let target = from - 2;
+
+                iter.seek(target);
+
+                while iter.index() != root {
+                    iter.sibling();
+                    if iter.index() > target {
+                        if p.nodes.is_none() && p.seek.is_none() && iter.contains(sub_tree) {
+                            let success_or_instructions = self.block_and_seek_proof(
+                                indexed,
+                                is_seek,
+                                sub_tree,
+                                iter.index(),
+                                p,
+                                nodes,
+                            )?;
+                            if let Either::Left(new_instructions) = success_or_instructions {
+                                instructions.extend(new_instructions);
+                            }
+                        } else {
+                            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                            match node_or_instruction {
+                                Either::Left(instruction) => {
+                                    instructions.push(instruction);
+                                }
+                                Either::Right(node) => upgrade.push(node),
+                            }
+                        }
+                    }
+                    iter.parent();
+                }
+
+                iter.next_tree();
+                has_full_root = iter.full_root(to);
+                continue;
+            }
+
+            if !has_upgrade {
+                has_upgrade = true;
+            }
+
+            // if the subtree included is a child of this tree, include that one
+            // instead of a dup node
+            if p.nodes.is_none() && p.seek.is_none() && iter.contains(sub_tree) {
+                let success_or_instructions =
+                    self.block_and_seek_proof(indexed, is_seek, sub_tree, iter.index(), p, nodes)?;
+                if let Either::Left(new_instructions) = success_or_instructions {
+                    instructions.extend(new_instructions);
+                }
+                iter.next_tree();
+                has_full_root = iter.full_root(to);
+                continue;
+            }
+
+            // add root (can be optimised since the root might be in tree.roots)
+            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(node) => upgrade.push(node),
+            }
+
+            iter.next_tree();
+            has_full_root = iter.full_root(to);
+        }
+
+        if has_upgrade {
+            p.upgrade = Some(upgrade);
+        }
+
+        // if (from === 0) p.upgrade = []
+
+        // for (const ite = flat.iterator(0); ite.fullRoot(to); ite.nextTree()) {
+        //   // check if they already have the node
+        //   if (ite.index + ite.factor / 2 < from) continue
+
+        //   // connect existing tree
+        //   if (p.upgrade === null && ite.contains(from - 2)) {
+        //     p.upgrade = []
+
+        //     const root = ite.index
+        //     const target = from - 2
+
+        //     ite.seek(target)
+
+        //     while (ite.index !== root) {
+        //       ite.sibling()
+        //       if (ite.index > target) {
+        //         if (p.node === null && p.seek === null && ite.contains(subTree)) {
+        //           blockAndSeekProof(tree, node, seek, subTree, ite.index, p)
+        //         } else {
+        //           p.upgrade.push(tree.get(ite.index))
+        //         }
+        //       }
+        //       ite.parent()
+        //     }
+
+        //     continue
+        //   }
+
+        //   if (p.upgrade === null) {
+        //     p.upgrade = []
+        //   }
+
+        //   // if the subtree included is a child of this tree, include that one
+        //   // instead of a dup node
+        //   if (p.node === null && p.seek === null && ite.contains(subTree)) {
+        //     blockAndSeekProof(tree, node, seek, subTree, ite.index, p)
+        //     continue
+        //   }
+
+        //   // add root (can be optimised since the root might be in tree.roots)
+        //   p.upgrade.push(tree.get(ite.index))
+        // }
+        if instructions.is_empty() {
+            Ok(Either::Right(()))
+        } else {
+            Ok(Either::Left(instructions))
+        }
+    }
+
+    fn additional_upgrade_proof(
+        &self,
+        from: u64,
+        to: u64,
+        p: &mut LocalProof,
+        nodes: &Vec<Node>,
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut additional_upgrade: Vec<Node> = Vec::new();
+        let mut has_additional_upgrade = false;
+
+        if from == 0 {
+            has_additional_upgrade = true;
+        }
+
+        let mut iter = flat_tree::Iterator::new(0);
+        let mut has_full_root = iter.full_root(to);
+        while has_full_root {
+            // check if they already have the node
+            if iter.index() + iter.factor() / 2 < from {
+                iter.next_tree();
+                has_full_root = iter.full_root(to);
+                continue;
+            }
+
+            // connect existing tree
+            if !has_additional_upgrade && iter.contains(from - 2) {
+                has_additional_upgrade = true;
+                let root = iter.index();
+                let target = from - 2;
+
+                iter.seek(target);
+
+                while iter.index() != root {
+                    iter.sibling();
+                    if iter.index() > target {
+                        let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                        match node_or_instruction {
+                            Either::Left(instruction) => {
+                                instructions.push(instruction);
+                            }
+                            Either::Right(node) => additional_upgrade.push(node),
+                        }
+                    }
+                    iter.parent();
+                }
+
+                iter.next_tree();
+                has_full_root = iter.full_root(to);
+                continue;
+            }
+
+            if !has_additional_upgrade {
+                has_additional_upgrade = true;
+            }
+
+            // add root (can be optimised since the root is in tree.roots)
+            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(node) => additional_upgrade.push(node),
+            }
+
+            iter.next_tree();
+            has_full_root = iter.full_root(to);
+        }
+
+        if has_additional_upgrade {
+            p.additional_upgrade = Some(additional_upgrade);
+        }
+
+        // if (from === 0) p.additionalUpgrade = []
+
+        // for (const ite = flat.iterator(0); ite.fullRoot(to); ite.nextTree()) {
+        //   // check if they already have the node
+        //   if (ite.index + ite.factor / 2 < from) continue
+
+        //   // connect existing tree
+        //   if (p.additionalUpgrade === null && ite.contains(from - 2)) {
+        //     p.additionalUpgrade = []
+
+        //     const root = ite.index
+        //     const target = from - 2
+
+        //     ite.seek(target)
+
+        //     while (ite.index !== root) {
+        //       ite.sibling()
+        //       if (ite.index > target) {
+        //         p.additionalUpgrade.push(tree.get(ite.index))
+        //       }
+        //       ite.parent()
+        //     }
+
+        //     continue
+        //   }
+
+        //   if (p.additionalUpgrade === null) {
+        //     p.additionalUpgrade = []
+        //   }
+
+        //   // add root (can be optimised since the root is in tree.roots)
+        //   p.additionalUpgrade.push(tree.get(ite.index))
+        // }
+        if instructions.is_empty() {
+            Ok(Either::Right(()))
+        } else {
+            Ok(Either::Left(instructions))
+        }
+    }
 }
 
 fn get_root_indices(header_tree_length: &u64) -> Vec<u64> {
@@ -458,4 +1153,56 @@ fn infos_to_nodes(infos: Option<&[StoreInfo]>) -> Vec<Node> {
             .collect(),
         None => vec![],
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct NormalizedIndexed {
+    pub value: bool,
+    pub index: u64,
+    pub nodes: u64,
+    pub last_index: u64,
+}
+
+fn normalize_indexed(
+    block: Option<&RequestBlock>,
+    hash: Option<&RequestBlock>,
+) -> Option<NormalizedIndexed> {
+    if let Some(block) = block {
+        Some(NormalizedIndexed {
+            value: true,
+            index: block.index * 2,
+            nodes: block.nodes,
+            last_index: block.index,
+        })
+    } else if let Some(hash) = hash {
+        Some(NormalizedIndexed {
+            value: false,
+            index: hash.index,
+            nodes: hash.nodes,
+            last_index: flat_tree::right_span(hash.index) / 2,
+        })
+    } else {
+        None
+    }
+}
+
+/// Struct to use for local building of proof
+#[derive(Debug, Clone)]
+struct LocalProof {
+    pub indexed: Option<NormalizedIndexed>,
+    pub seek: Option<Vec<Node>>,
+    pub nodes: Option<Vec<Node>>,
+    pub upgrade: Option<Vec<Node>>,
+    pub additional_upgrade: Option<Vec<Node>>,
+}
+
+fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64> {
+    let mut iter = flat_tree::Iterator::new(index);
+    for _ in 0..nodes {
+        iter.parent();
+        if iter.contains(head) {
+            return Err(anyhow!("Nodes is out of bounds"));
+        }
+    }
+    Ok(iter.index())
 }

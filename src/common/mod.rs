@@ -4,6 +4,6 @@ mod store;
 
 pub use self::node::{Node, NodeByteRange};
 pub use self::peer::{
-    DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade,
+    DataBlock, DataHash, DataSeek, DataUpgrade, Proof, RequestBlock, RequestSeek, RequestUpgrade,
 };
 pub use self::store::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType};
