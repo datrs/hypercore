@@ -962,50 +962,6 @@ impl MerkleTree {
             p.upgrade = Some(upgrade);
         }
 
-        // if (from === 0) p.upgrade = []
-
-        // for (const ite = flat.iterator(0); ite.fullRoot(to); ite.nextTree()) {
-        //   // check if they already have the node
-        //   if (ite.index + ite.factor / 2 < from) continue
-
-        //   // connect existing tree
-        //   if (p.upgrade === null && ite.contains(from - 2)) {
-        //     p.upgrade = []
-
-        //     const root = ite.index
-        //     const target = from - 2
-
-        //     ite.seek(target)
-
-        //     while (ite.index !== root) {
-        //       ite.sibling()
-        //       if (ite.index > target) {
-        //         if (p.node === null && p.seek === null && ite.contains(subTree)) {
-        //           blockAndSeekProof(tree, node, seek, subTree, ite.index, p)
-        //         } else {
-        //           p.upgrade.push(tree.get(ite.index))
-        //         }
-        //       }
-        //       ite.parent()
-        //     }
-
-        //     continue
-        //   }
-
-        //   if (p.upgrade === null) {
-        //     p.upgrade = []
-        //   }
-
-        //   // if the subtree included is a child of this tree, include that one
-        //   // instead of a dup node
-        //   if (p.node === null && p.seek === null && ite.contains(subTree)) {
-        //     blockAndSeekProof(tree, node, seek, subTree, ite.index, p)
-        //     continue
-        //   }
-
-        //   // add root (can be optimised since the root might be in tree.roots)
-        //   p.upgrade.push(tree.get(ite.index))
-        // }
         if instructions.is_empty() {
             Ok(Either::Right(()))
         } else {
@@ -1086,39 +1042,6 @@ impl MerkleTree {
             p.additional_upgrade = Some(additional_upgrade);
         }
 
-        // if (from === 0) p.additionalUpgrade = []
-
-        // for (const ite = flat.iterator(0); ite.fullRoot(to); ite.nextTree()) {
-        //   // check if they already have the node
-        //   if (ite.index + ite.factor / 2 < from) continue
-
-        //   // connect existing tree
-        //   if (p.additionalUpgrade === null && ite.contains(from - 2)) {
-        //     p.additionalUpgrade = []
-
-        //     const root = ite.index
-        //     const target = from - 2
-
-        //     ite.seek(target)
-
-        //     while (ite.index !== root) {
-        //       ite.sibling()
-        //       if (ite.index > target) {
-        //         p.additionalUpgrade.push(tree.get(ite.index))
-        //       }
-        //       ite.parent()
-        //     }
-
-        //     continue
-        //   }
-
-        //   if (p.additionalUpgrade === null) {
-        //     p.additionalUpgrade = []
-        //   }
-
-        //   // add root (can be optimised since the root is in tree.roots)
-        //   p.additionalUpgrade.push(tree.get(ite.index))
-        // }
         if instructions.is_empty() {
             Ok(Either::Right(()))
         } else {
