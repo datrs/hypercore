@@ -343,7 +343,6 @@ impl MerkleTree {
         }
         if !untrusted_sub_tree {
             if let Some(seek) = seek.as_ref() {
-                // TODO: This also most likely now doesn't work correctly
                 let index_or_instructions = self.seek_from_head(to, seek.bytes, &nodes)?;
                 sub_tree = match index_or_instructions {
                     Either::Left(new_instructions) => {
