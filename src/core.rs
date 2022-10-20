@@ -387,32 +387,36 @@ where
         seek: Option<RequestSeek>,
         upgrade: Option<RequestUpgrade>,
     ) -> Result<Proof> {
-        // TODO: Generalize Either response stack
-        let proof = match self.tree.create_proof(
+        match self.tree.create_proof(
             block.as_ref(),
             hash.as_ref(),
             seek.as_ref(),
             upgrade.as_ref(),
             None,
         )? {
-            Either::Right(value) => value,
+            Either::Right(value) => return Ok(value),
             Either::Left(instructions) => {
-                let infos = self.storage.read_infos(&instructions).await?;
-                match self.tree.create_proof(
-                    block.as_ref(),
-                    hash.as_ref(),
-                    seek.as_ref(),
-                    upgrade.as_ref(),
-                    Some(&infos),
-                )? {
-                    Either::Right(value) => value,
-                    Either::Left(_) => {
-                        return Err(anyhow!("Could not create proof"));
+                let mut instructions = instructions;
+                let mut infos: Vec<StoreInfo> = vec![];
+                loop {
+                    infos.extend(self.storage.read_infos_to_vec(&instructions).await?);
+                    match self.tree.create_proof(
+                        block.as_ref(),
+                        hash.as_ref(),
+                        seek.as_ref(),
+                        upgrade.as_ref(),
+                        Some(&infos),
+                    )? {
+                        Either::Right(value) => {
+                            return Ok(value);
+                        }
+                        Either::Left(new_instructions) => {
+                            instructions = new_instructions;
+                        }
                     }
                 }
             }
-        };
-        Ok(proof)
+        }
     }
 
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {

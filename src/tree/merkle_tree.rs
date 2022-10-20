@@ -315,9 +315,6 @@ impl MerkleTree {
             if untrusted_sub_tree {
                 sub_tree = nodes_to_root(indexed.index, indexed.nodes, to)?;
                 let seek_root = if let Some(seek) = seek.as_ref() {
-                    // TODO: This most likely now doesn't work correctly now, need to
-                    // think about how to incrementally get nodes and keep track of what
-                    // index has already been attempted to get from disk.
                     let index_or_instructions =
                         self.seek_untrusted_tree(sub_tree, seek.bytes, &nodes)?;
                     match index_or_instructions {
@@ -608,6 +605,14 @@ impl MerkleTree {
         }
     }
 
+    fn optional_node(
+        &self,
+        index: u64,
+        nodes: &IntMap<Option<Node>>,
+    ) -> Result<Either<StoreInfoInstruction, Option<Node>>> {
+        self.node(index, nodes, true)
+    }
+
     fn node(
         &self,
         index: u64,
@@ -709,30 +714,30 @@ impl MerkleTree {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut bytes = bytes;
         while iter.index() & 1 != 0 {
-            let node_or_instruction = self.required_node(iter.left_child(), nodes)?;
+            let node_or_instruction = self.optional_node(iter.left_child(), nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
-                    iter.parent();
-                    if nodes.is_empty() {
-                        instructions.push(instruction);
-                    } else {
-                        // TODO: This is unfortunately not guaranteed to work because
-                        // the nodes array might be filled in some cases with multiple steps
-                        // from instructions. Should think of a better way to signal that
-                        // this particular index has been attempted to be located, probably
-                        // needs an incoming vector of attempted ids.
-                        return Ok(Either::Right(iter.index()));
-                    }
+                    instructions.push(instruction);
+                    // Need to break immediately because it is unknown
+                    // if this node is the one that will match. This means
+                    // this function needs to be called in a loop where incoming
+                    // nodes increase with each call.
+                    break;
                 }
                 Either::Right(node) => {
-                    if node.length == bytes {
+                    if let Some(node) = node {
+                        if node.length == bytes {
+                            return Ok(Either::Right(iter.index()));
+                        }
+                        if node.length > bytes {
+                            continue;
+                        }
+                        bytes -= node.length;
+                        iter.sibling();
+                    } else {
+                        iter.parent();
                         return Ok(Either::Right(iter.index()));
                     }
-                    if node.length > bytes {
-                        continue;
-                    }
-                    bytes -= node.length;
-                    iter.sibling();
                 }
             }
         }
