@@ -115,15 +115,25 @@ where
                         Some(length) => length,
                         None => storage.len().await.map_err(|e| anyhow!(e))?,
                     };
-                    let buf = storage
-                        .read(instruction.index, length)
-                        .await
-                        .map_err(|e| anyhow!(e))?;
-                    infos.push(StoreInfo::new_content(
-                        instruction.store.clone(),
-                        instruction.index,
-                        &buf,
-                    ));
+                    let read_result = storage.read(instruction.index, length).await;
+                    let info: StoreInfo = match read_result {
+                        Ok(buf) => Ok(StoreInfo::new_content(
+                            instruction.store.clone(),
+                            instruction.index,
+                            &buf,
+                        )),
+                        Err(e) => {
+                            if instruction.allow_miss {
+                                Ok(StoreInfo::new_content_miss(
+                                    instruction.store.clone(),
+                                    instruction.index,
+                                ))
+                            } else {
+                                Err(anyhow!(e))
+                            }
+                        }
+                    }?;
+                    infos.push(info);
                 }
                 StoreInfoType::Size => {
                     let length = storage.len().await.map_err(|e| anyhow!(e))?;
@@ -157,7 +167,7 @@ where
             }
             match info.info_type {
                 StoreInfoType::Content => {
-                    if !info.drop {
+                    if !info.miss {
                         if let Some(data) = &info.data {
                             storage
                                 .write(info.index, &data.to_vec())
@@ -175,10 +185,10 @@ where
                     }
                 }
                 StoreInfoType::Size => {
-                    if info.drop {
+                    if info.miss {
                         storage.truncate(info.index).await.map_err(|e| anyhow!(e))?;
                     } else {
-                        panic!("Flushing a size that isn't drop, is not supported");
+                        panic!("Flushing a size that isn't miss, is not supported");
                     }
                 }
             }

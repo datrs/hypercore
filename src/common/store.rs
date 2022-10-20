@@ -29,7 +29,9 @@ pub struct StoreInfo {
     pub(crate) index: u64,
     pub(crate) length: Option<u64>,
     pub(crate) data: Option<Box<[u8]>>,
-    pub(crate) drop: bool,
+    /// When reading, indicates missing value (can be true only if allow_miss is given as instruction).
+    /// When writing indicates that the value should be dropped.
+    pub(crate) miss: bool,
 }
 
 impl StoreInfo {
@@ -40,7 +42,18 @@ impl StoreInfo {
             index,
             length: Some(data.len() as u64),
             data: Some(data.into()),
-            drop: false,
+            miss: false,
+        }
+    }
+
+    pub fn new_content_miss(store: Store, index: u64) -> Self {
+        Self {
+            store,
+            info_type: StoreInfoType::Content,
+            index,
+            length: None,
+            data: None,
+            miss: true,
         }
     }
 
@@ -51,7 +64,7 @@ impl StoreInfo {
             index,
             length: Some(length),
             data: None,
-            drop: true,
+            miss: true,
         }
     }
 
@@ -62,7 +75,7 @@ impl StoreInfo {
             index,
             length: None,
             data: None,
-            drop: true,
+            miss: true,
         }
     }
 
@@ -73,7 +86,7 @@ impl StoreInfo {
             index,
             length: Some(length),
             data: None,
-            drop: false,
+            miss: false,
         }
     }
 }
@@ -85,6 +98,7 @@ pub struct StoreInfoInstruction {
     pub(crate) info_type: StoreInfoType,
     pub(crate) index: u64,
     pub(crate) length: Option<u64>,
+    pub(crate) allow_miss: bool,
 }
 
 impl StoreInfoInstruction {
@@ -94,6 +108,17 @@ impl StoreInfoInstruction {
             info_type: StoreInfoType::Content,
             index,
             length: Some(length),
+            allow_miss: false,
+        }
+    }
+
+    pub fn new_content_allow_miss(store: Store, index: u64, length: u64) -> Self {
+        Self {
+            store,
+            info_type: StoreInfoType::Content,
+            index,
+            length: Some(length),
+            allow_miss: true,
         }
     }
 
@@ -103,6 +128,7 @@ impl StoreInfoInstruction {
             info_type: StoreInfoType::Content,
             index: 0,
             length: None,
+            allow_miss: false,
         }
     }
 
@@ -112,6 +138,7 @@ impl StoreInfoInstruction {
             info_type: StoreInfoType::Size,
             index,
             length: None,
+            allow_miss: false,
         }
     }
 }

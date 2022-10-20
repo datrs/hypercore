@@ -2,6 +2,7 @@ use anyhow::Result;
 use anyhow::{anyhow, ensure};
 use ed25519_dalek::Signature;
 use futures::future::Either;
+use intmap::IntMap;
 
 use crate::common::NodeByteRange;
 use crate::common::Proof;
@@ -26,7 +27,7 @@ pub struct MerkleTree {
     pub(crate) byte_length: u64,
     pub(crate) fork: u64,
     pub(crate) signature: Option<Signature>,
-    unflushed: intmap::IntMap<Node>,
+    unflushed: IntMap<Node>,
     truncated: bool,
     truncate_to: u64,
 }
@@ -87,7 +88,7 @@ impl MerkleTree {
                     length,
                     byte_length,
                     fork: header_tree.fork,
-                    unflushed: intmap::IntMap::new(),
+                    unflushed: IntMap::new(),
                     truncated: false,
                     truncate_to: 0,
                     signature: None,
@@ -146,11 +147,11 @@ impl MerkleTree {
     ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>> {
         let index = self.validate_hypercore_index(hypercore_index)?;
         // Get nodes out of incoming infos
-        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
 
         // Start with getting the requested node, which will get the length
         // of the byte range
-        let length_result = self.get_node(index, &nodes)?;
+        let length_result = self.required_node(index, &nodes)?;
 
         // As for the offset, that might require fetching a lot more nodes whose
         // lengths to sum
@@ -194,7 +195,7 @@ impl MerkleTree {
     ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
         let index = self.validate_hypercore_index(hypercore_index)?;
         // Get nodes out of incoming infos
-        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         // Get offset
         let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
         match offset_result {
@@ -218,7 +219,7 @@ impl MerkleTree {
         let head = length * 2;
         let mut full_roots = vec![];
         flat_tree::full_roots(head, &mut full_roots);
-        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         let mut changeset = self.changeset();
 
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
@@ -231,7 +232,7 @@ impl MerkleTree {
                 changeset.roots.pop();
             }
 
-            let node_or_instruction = self.get_node(root, &nodes)?;
+            let node_or_instruction = self.required_node(root, &nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -272,7 +273,7 @@ impl MerkleTree {
         upgrade: Option<&RequestUpgrade>,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, Proof>> {
-        let nodes: Vec<Node> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let fork = self.fork;
         let signature = self.signature;
@@ -541,7 +542,7 @@ impl MerkleTree {
     fn byte_offset_from_nodes(
         &self,
         index: u64,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
         let index = if (index & 1) == 1 {
             flat_tree::left_span(index)
@@ -566,7 +567,7 @@ impl MerkleTree {
                     iter.left_child();
                 } else {
                     let left_child = iter.left_child();
-                    let node_or_instruction = self.get_node(left_child, nodes)?;
+                    let node_or_instruction = self.required_node(left_child, nodes)?;
                     match node_or_instruction {
                         Either::Left(instruction) => {
                             instructions.push(instruction);
@@ -590,40 +591,70 @@ impl MerkleTree {
         ))
     }
 
-    fn get_node(
+    fn required_node(
         &self,
         index: u64,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<StoreInfoInstruction, Node>> {
+        match self.node(index, nodes, false)? {
+            Either::Left(value) => Ok(Either::Left(value)),
+            Either::Right(node) => {
+                if let Some(node) = node {
+                    Ok(Either::Right(node))
+                } else {
+                    Err(anyhow!("Node at {} was required", index))
+                }
+            }
+        }
+    }
+
+    fn node(
+        &self,
+        index: u64,
+        nodes: &IntMap<Option<Node>>,
+        allow_miss: bool,
+    ) -> Result<Either<StoreInfoInstruction, Option<Node>>> {
         // First check if unflushed already has the node
         if let Some(node) = self.unflushed.get(index) {
             if node.blank || (self.truncated && node.index >= 2 * self.truncate_to) {
                 // The node is either blank or being deleted
-                return Err(anyhow!("Could not load node: {}", index));
+                return if allow_miss {
+                    Ok(Either::Right(None))
+                } else {
+                    Err(anyhow!("Could not load node: {}", index))
+                };
             }
-            return Ok(Either::Right(node.clone()));
+            return Ok(Either::Right(Some(node.clone())));
         }
 
         // Then check if it's already in the incoming nodes
-        for node in nodes {
-            if node.index == index {
-                return Ok(Either::Right(node.clone()));
+        let result = nodes.get(index);
+        if let Some(node_maybe) = result {
+            if let Some(node) = node_maybe {
+                return Ok(Either::Right(Some(node.clone())));
+            } else if allow_miss {
+                return Ok(Either::Right(None));
+            } else {
+                return Err(anyhow!("Could not load node: {}", index));
             }
         }
 
         // If not, retunr an instruction
-        Ok(Either::Left(StoreInfoInstruction::new_content(
-            Store::Tree,
-            40 * index,
-            40,
-        )))
+        let offset = 40 * index;
+        let length = 40;
+        let info = if allow_miss {
+            StoreInfoInstruction::new_content_allow_miss(Store::Tree, offset, length)
+        } else {
+            StoreInfoInstruction::new_content(Store::Tree, offset, length)
+        };
+        Ok(Either::Left(info))
     }
 
     fn seek_from_head(
         &self,
         head: u64,
         bytes: u64,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut roots = vec![];
@@ -632,7 +663,7 @@ impl MerkleTree {
 
         for i in 0..roots.len() {
             let root = roots[i];
-            let node_or_instruction = self.get_node(root, nodes)?;
+            let node_or_instruction = self.required_node(root, nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -669,7 +700,7 @@ impl MerkleTree {
         &self,
         root: u64,
         bytes: u64,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
         if bytes == 0 {
             return Ok(Either::Right(root));
@@ -678,7 +709,7 @@ impl MerkleTree {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut bytes = bytes;
         while iter.index() & 1 != 0 {
-            let node_or_instruction = self.get_node(iter.left_child(), nodes)?;
+            let node_or_instruction = self.required_node(iter.left_child(), nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     iter.parent();
@@ -717,7 +748,7 @@ impl MerkleTree {
         &self,
         root: u64,
         bytes: u64,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let offset_or_instructions = self.byte_offset_from_nodes(root, nodes)?;
@@ -734,7 +765,7 @@ impl MerkleTree {
                     return Ok(Either::Right(root));
                 }
                 bytes -= offset;
-                let node_or_instruction = self.get_node(root, nodes)?;
+                let node_or_instruction = self.required_node(root, nodes)?;
                 match node_or_instruction {
                     Either::Left(instruction) => {
                         instructions.push(instruction);
@@ -764,7 +795,7 @@ impl MerkleTree {
         seek_root: u64,
         root: u64,
         p: &mut LocalProof,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
         if let Some(indexed) = indexed {
             let mut iter = flat_tree::Iterator::new(indexed.index);
@@ -772,7 +803,7 @@ impl MerkleTree {
             let mut p_nodes: Vec<Node> = Vec::new();
 
             if !indexed.value {
-                let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                let node_or_instruction = self.required_node(iter.index(), nodes)?;
                 match node_or_instruction {
                     Either::Left(instruction) => {
                         instructions.push(instruction);
@@ -794,7 +825,7 @@ impl MerkleTree {
                         _ => (),
                     }
                 } else {
-                    let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                    let node_or_instruction = self.required_node(iter.index(), nodes)?;
                     match node_or_instruction {
                         Either::Left(instruction) => {
                             instructions.push(instruction);
@@ -823,12 +854,12 @@ impl MerkleTree {
         seek_root: u64,
         root: u64,
         p: &mut LocalProof,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
         let mut iter = flat_tree::Iterator::new(seek_root);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut seek_nodes: Vec<Node> = Vec::new();
-        let node_or_instruction = self.get_node(iter.index(), nodes)?;
+        let node_or_instruction = self.required_node(iter.index(), nodes)?;
         match node_or_instruction {
             Either::Left(instruction) => {
                 instructions.push(instruction);
@@ -840,7 +871,7 @@ impl MerkleTree {
 
         while iter.index() != root {
             iter.sibling();
-            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            let node_or_instruction = self.required_node(iter.index(), nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -867,7 +898,7 @@ impl MerkleTree {
         to: u64,
         sub_tree: u64,
         p: &mut LocalProof,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut upgrade: Vec<Node> = Vec::new();
@@ -911,7 +942,7 @@ impl MerkleTree {
                                 instructions.extend(new_instructions);
                             }
                         } else {
-                            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                            let node_or_instruction = self.required_node(iter.index(), nodes)?;
                             match node_or_instruction {
                                 Either::Left(instruction) => {
                                     instructions.push(instruction);
@@ -946,7 +977,7 @@ impl MerkleTree {
             }
 
             // add root (can be optimised since the root might be in tree.roots)
-            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            let node_or_instruction = self.required_node(iter.index(), nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -974,7 +1005,7 @@ impl MerkleTree {
         from: u64,
         to: u64,
         p: &mut LocalProof,
-        nodes: &Vec<Node>,
+        nodes: &IntMap<Option<Node>>,
     ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut additional_upgrade: Vec<Node> = Vec::new();
@@ -1005,7 +1036,7 @@ impl MerkleTree {
                 while iter.index() != root {
                     iter.sibling();
                     if iter.index() > target {
-                        let node_or_instruction = self.get_node(iter.index(), nodes)?;
+                        let node_or_instruction = self.required_node(iter.index(), nodes)?;
                         match node_or_instruction {
                             Either::Left(instruction) => {
                                 instructions.push(instruction);
@@ -1026,7 +1057,7 @@ impl MerkleTree {
             }
 
             // add root (can be optimised since the root is in tree.roots)
-            let node_or_instruction = self.get_node(iter.index(), nodes)?;
+            let node_or_instruction = self.required_node(iter.index(), nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -1068,13 +1099,22 @@ fn node_from_bytes(index: &u64, data: &[u8]) -> Node {
     Node::new(*index, hash.to_vec(), len)
 }
 
-fn infos_to_nodes(infos: Option<&[StoreInfo]>) -> Vec<Node> {
+fn infos_to_nodes(infos: Option<&[StoreInfo]>) -> IntMap<Option<Node>> {
     match infos {
-        Some(infos) => infos
-            .iter()
-            .map(|info| node_from_bytes(&index_from_info(&info), info.data.as_ref().unwrap()))
-            .collect(),
-        None => vec![],
+        Some(infos) => {
+            let mut nodes: IntMap<Option<Node>> = IntMap::with_capacity(infos.len());
+            for info in infos {
+                let index = index_from_info(&info);
+                if !info.miss {
+                    let node = node_from_bytes(&index, info.data.as_ref().unwrap());
+                    nodes.insert(index, Some(node));
+                } else {
+                    nodes.insert(index, None);
+                }
+            }
+            nodes
+        }
+        None => IntMap::new(),
     }
 }
 
