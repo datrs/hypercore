@@ -7,6 +7,7 @@ use intmap::IntMap;
 use crate::common::NodeByteRange;
 use crate::common::Proof;
 use crate::compact_encoding::State;
+use crate::crypto::Hash;
 use crate::oplog::HeaderTree;
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
@@ -437,6 +438,58 @@ impl MerkleTree {
                 seek: data_seek,
                 upgrade: data_upgrade,
             }))
+        } else {
+            Ok(Either::Left(instructions.into_boxed_slice()))
+        }
+    }
+
+    /// Verifies a proof received from a peer.
+    pub fn verify_proof(
+        &self,
+        proof: &Proof,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>> {
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
+        let mut changeset = self.changeset();
+
+        let mut unverified_block_root_node = verify_tree(
+            proof.block.as_ref(),
+            proof.hash.as_ref(),
+            proof.seek.as_ref(),
+            &mut changeset,
+        )?;
+        if let Some(upgrade) = proof.upgrade.as_ref() {
+            if verify_upgrade(
+                proof.fork,
+                upgrade,
+                unverified_block_root_node.as_ref(),
+                &mut changeset,
+            )? {
+                unverified_block_root_node = None;
+            }
+        }
+
+        if let Some(unverified_block_root_node) = unverified_block_root_node {
+            let node_or_instruction =
+                self.required_node(unverified_block_root_node.index, &nodes)?;
+            match node_or_instruction {
+                Either::Left(instruction) => {
+                    instructions.push(instruction);
+                }
+                Either::Right(verified_block_root_node) => {
+                    if verified_block_root_node.hash != unverified_block_root_node.hash {
+                        return Err(anyhow!(
+                            "Invalid checksum at node {}",
+                            unverified_block_root_node.index
+                        ));
+                    }
+                }
+            }
+        }
+
+        if instructions.is_empty() {
+            Ok(Either::Right(changeset))
         } else {
             Ok(Either::Left(instructions.into_boxed_slice()))
         }
@@ -1085,6 +1138,132 @@ impl MerkleTree {
     }
 }
 
+fn verify_tree(
+    block: Option<&DataBlock>,
+    hash: Option<&DataHash>,
+    seek: Option<&DataSeek>,
+    changeset: &mut MerkleTreeChangeset,
+) -> Result<Option<Node>> {
+    let untrusted_node: Option<NormalizedData> = normalize_data(block, hash);
+
+    if untrusted_node.is_none() {
+        let no_seek = if let Some(seek) = seek.as_ref() {
+            seek.nodes.is_empty()
+        } else {
+            true
+        };
+        if no_seek {
+            return Ok(None);
+        }
+    }
+
+    let mut root: Option<Node> = None;
+
+    if let Some(seek) = seek {
+        if !seek.nodes.is_empty() {
+            let mut iter = flat_tree::Iterator::new(seek.nodes[0].index);
+            let mut q = NodeQueue::new(seek.nodes.clone(), None);
+            let node = q.shift(iter.index())?;
+            let mut current_root: Node = node.clone();
+            changeset.nodes.push(node);
+            while q.length > 0 {
+                let node = q.shift(iter.sibling())?;
+                let parent_node = parent_node(iter.parent(), &current_root, &node);
+                current_root = parent_node.clone();
+                changeset.nodes.push(node);
+                changeset.nodes.push(parent_node);
+            }
+            root = Some(current_root);
+        }
+    }
+
+    if let Some(untrusted_node) = untrusted_node {
+        let mut iter = flat_tree::Iterator::new(untrusted_node.index);
+
+        let mut q = NodeQueue::new(untrusted_node.nodes, root);
+        let node: Node = if let Some(value) = untrusted_node.value {
+            block_node(iter.index(), &value)
+        } else {
+            q.shift(iter.index())?
+        };
+        let mut current_root = node.clone();
+        changeset.nodes.push(node);
+        while q.length > 0 {
+            let node = q.shift(iter.sibling())?;
+            let parent_node = parent_node(iter.parent(), &current_root, &node);
+            current_root = parent_node.clone();
+            changeset.nodes.push(node);
+            changeset.nodes.push(parent_node);
+        }
+        root = Some(current_root);
+    }
+    Ok(root)
+}
+
+fn verify_upgrade(
+    fork: u64,
+    upgrade: &DataUpgrade,
+    block_root: Option<&Node>,
+    changeset: &mut MerkleTreeChangeset,
+) -> Result<bool> {
+    let mut q = if let Some(block_root) = block_root {
+        NodeQueue::new(upgrade.nodes.clone(), Some(block_root.clone()))
+    } else {
+        NodeQueue::new(upgrade.nodes.clone(), None)
+    };
+    let mut grow: bool = changeset.roots.len() > 0;
+    let mut i: usize = 0;
+    let to: u64 = 2 * (upgrade.start + upgrade.length);
+    let mut iter = flat_tree::Iterator::new(0);
+    while iter.full_root(to) {
+        if i < changeset.roots.len() && changeset.roots[i].index == iter.index() {
+            i += 1;
+            iter.next_tree();
+            continue;
+        }
+        if grow {
+            grow = false;
+            let root_index = iter.index();
+            if i < changeset.roots.len() {
+                iter.seek(changeset.roots[changeset.roots.len() - 1].index);
+                while iter.index() != root_index {
+                    changeset.append_root(q.shift(iter.sibling())?, &mut iter);
+                }
+                iter.next_tree();
+                continue;
+            }
+        }
+        changeset.append_root(q.shift(iter.index())?, &mut iter);
+        iter.next_tree();
+    }
+    let extra = &upgrade.additional_nodes;
+
+    iter.seek(changeset.roots[changeset.roots.len() - 1].index);
+    i = 0;
+
+    while i < extra.len() && extra[i].index == iter.sibling() {
+        changeset.append_root(extra[i].clone(), &mut iter);
+        i += 1;
+    }
+
+    while i < extra.len() {
+        let node = extra[i].clone();
+        i += 1;
+        while node.index != iter.index() {
+            if iter.factor() == 2 {
+                return Err(anyhow!("Unexpected node: {}", node.index));
+            }
+            iter.left_child();
+        }
+        changeset.append_root(node, &mut iter);
+        iter.sibling();
+    }
+    changeset.signature = Some(Signature::from_bytes(&upgrade.signature)?);
+    changeset.fork = fork;
+
+    Ok(q.extra.is_none())
+}
+
 fn get_root_indices(header_tree_length: &u64) -> Vec<u64> {
     let mut roots = vec![];
     flat_tree::full_roots(header_tree_length * 2, &mut roots);
@@ -1153,6 +1332,31 @@ fn normalize_indexed(
     }
 }
 
+#[derive(Debug, Clone)]
+struct NormalizedData {
+    pub value: Option<Vec<u8>>,
+    pub index: u64,
+    pub nodes: Vec<Node>,
+}
+
+fn normalize_data(block: Option<&DataBlock>, hash: Option<&DataHash>) -> Option<NormalizedData> {
+    if let Some(block) = block {
+        Some(NormalizedData {
+            value: Some(block.value.clone()),
+            index: block.index * 2,
+            nodes: block.nodes.clone(),
+        })
+    } else if let Some(hash) = hash {
+        Some(NormalizedData {
+            value: None,
+            index: hash.index,
+            nodes: hash.nodes.clone(),
+        })
+    } else {
+        None
+    }
+}
+
 /// Struct to use for local building of proof
 #[derive(Debug, Clone)]
 struct LocalProof {
@@ -1172,4 +1376,59 @@ fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64> {
         }
     }
     Ok(iter.index())
+}
+
+fn parent_node(index: u64, left: &Node, right: &Node) -> Node {
+    Node::new(
+        index,
+        Hash::parent(left, right).as_bytes().to_vec(),
+        left.length + right.length,
+    )
+}
+
+fn block_node(index: u64, value: &Vec<u8>) -> Node {
+    Node::new(
+        index,
+        Hash::data(value).as_bytes().to_vec(),
+        value.len() as u64,
+    )
+}
+
+/// Node queue
+struct NodeQueue {
+    i: usize,
+    nodes: Vec<Node>,
+    extra: Option<Node>,
+    length: usize,
+}
+impl NodeQueue {
+    pub fn new(nodes: Vec<Node>, extra: Option<Node>) -> Self {
+        let length = nodes.len() + if extra.is_some() { 1 } else { 0 };
+        Self {
+            i: 0,
+            nodes,
+            extra,
+            length,
+        }
+    }
+    pub fn shift(&mut self, index: u64) -> Result<Node> {
+        if let Some(extra) = self.extra.take() {
+            if extra.index == index {
+                self.length -= 1;
+                return Ok(extra);
+            } else {
+                self.extra = Some(extra);
+            }
+        }
+        if self.i >= self.nodes.len() {
+            return Err(anyhow!("Expected node {}, got (nil)", index));
+        }
+        let node = self.nodes[self.i].clone();
+        self.i += 1;
+        if node.index != index {
+            return Err(anyhow!("Expected node {}, got node {}", index, node.index));
+        }
+        self.length -= 1;
+        Ok(node)
+    }
 }

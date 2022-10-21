@@ -10,6 +10,8 @@ use std::convert::TryInto;
 /// see:
 /// https://github.com/holepunchto/bits-to-bytes/blob/main/index.js
 /// for implementations.
+/// TODO: This has been split into segments on the Javascript side "for improved disk performance":
+/// https://github.com/hypercore-protocol/hypercore/commit/6392021b11d53041a446e9021c7d79350a052d3d
 #[derive(Debug)]
 pub struct FixedBitfield {
     pub(crate) parent_index: u64,

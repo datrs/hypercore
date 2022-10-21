@@ -7,7 +7,7 @@ use crate::{
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     storage_v10::{PartialKeypair, Storage},
-    tree::MerkleTree,
+    tree::{MerkleTree, MerkleTreeChangeset},
     RequestBlock, RequestSeek, RequestUpgrade,
 };
 use anyhow::{anyhow, Result};
@@ -419,6 +419,23 @@ where
         }
     }
 
+    /// Verify a proof received from a peer. Returns a changeset that should be
+    /// applied.
+    async fn verify_proof(&mut self, proof: &Proof) -> Result<MerkleTreeChangeset> {
+        match self.tree.verify_proof(proof, None)? {
+            Either::Right(value) => Ok(value),
+            Either::Left(instructions) => {
+                let infos = self.storage.read_infos_to_vec(&instructions).await?;
+                match self.tree.verify_proof(proof, Some(&infos))? {
+                    Either::Right(value) => Ok(value),
+                    Either::Left(_) => {
+                        return Err(anyhow!("Could not read byte range"));
+                    }
+                }
+            }
+        }
+    }
+
     fn should_flush_bitfield_and_tree_and_oplog(&mut self) -> bool {
         if self.skip_flush_count == 0
             || self.oplog.entries_byte_length >= MAX_OPLOG_ENTRIES_BYTE_SIZE
@@ -754,6 +771,29 @@ mod tests {
         assert_eq!(upgrade.nodes.len(), 1);
         assert_eq!(upgrade.nodes[0].index, 17);
         assert_eq!(upgrade.additional_nodes.len(), 0);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn core_verify_proof_1() -> Result<()> {
+        let mut hypercore = create_hypercore_with_data(10).await?;
+        let mut hypercore_clone = create_hypercore_with_data(0).await?;
+        let proof = hypercore
+            .create_proof(
+                None,
+                Some(RequestBlock { index: 6, nodes: 0 }),
+                None,
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 10,
+                }),
+            )
+            .await?;
+        let _changeset = hypercore_clone.verify_proof(&proof).await?;
+
+        // TODO: Implement applying changeset and then test here that the end result matches
+        // in the clone.
+
         Ok(())
     }
 
