@@ -495,7 +495,8 @@ impl MerkleTree {
         }
     }
 
-    fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
+    /// Is the changeset commitable to given tree
+    pub fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
         let correct_length: bool = if changeset.upgraded {
             changeset.original_tree_length == self.length
         } else {

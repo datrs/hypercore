@@ -87,7 +87,7 @@ impl MerkleTreeChangeset {
     /// Hashes and signs the changeset
     pub fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
         let hash = self.hash();
-        let signable = signable_tree(&hash, self.length, self.fork);
+        let signable = self.signable(&hash);
         let signature = sign(&public_key, &secret_key, &signable);
         self.hash = Some(hash);
         self.signature = Some(signature);
@@ -96,5 +96,10 @@ impl MerkleTreeChangeset {
     /// Calculates a hash of the current set of roots
     pub fn hash(&self) -> Box<[u8]> {
         Hash::tree(&self.roots).as_bytes().into()
+    }
+
+    /// Creates a signable slice from given hash
+    pub fn signable(&self, hash: &[u8]) -> Box<[u8]> {
+        signable_tree(hash, self.length, self.fork)
     }
 }

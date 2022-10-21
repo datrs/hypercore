@@ -3,7 +3,7 @@
 use crate::{
     bitfield_v10::Bitfield,
     common::{Proof, StoreInfo},
-    crypto::generate_keypair,
+    crypto::{generate_keypair, verify},
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     storage_v10::{PartialKeypair, Storage},
@@ -419,6 +419,28 @@ where
         }
     }
 
+    /// Verify and apply proof received from peer, returns true if
+    pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool> {
+        if proof.fork != self.tree.fork {
+            return Ok(false);
+        }
+        let changeset = self.verify_proof(proof).await?;
+        if !self.tree.commitable(&changeset) {
+            return Ok(false);
+        }
+        if changeset.upgraded {
+            // If this is committed, something will change, need to verify given
+            // new signature
+            verify(
+                &self.key_pair.public,
+                &changeset.signable(&changeset.hash()),
+                changeset.signature.as_ref(),
+            )?;
+            // TODO:
+        }
+        Ok(true)
+    }
+
     /// Verify a proof received from a peer. Returns a changeset that should be
     /// applied.
     async fn verify_proof(&mut self, proof: &Proof) -> Result<MerkleTreeChangeset> {
@@ -777,7 +799,14 @@ mod tests {
     #[async_std::test]
     async fn core_verify_proof_1() -> Result<()> {
         let mut hypercore = create_hypercore_with_data(10).await?;
-        let mut hypercore_clone = create_hypercore_with_data(0).await?;
+        let mut hypercore_clone = create_hypercore_with_data_and_key_pair(
+            0,
+            PartialKeypair {
+                public: hypercore.key_pair.public,
+                secret: None,
+            },
+        )
+        .await?;
         let proof = hypercore
             .create_proof(
                 None,
@@ -789,7 +818,7 @@ mod tests {
                 }),
             )
             .await?;
-        let _changeset = hypercore_clone.verify_proof(&proof).await?;
+        let _changeset = hypercore_clone.verify_and_apply_proof(&proof).await?;
 
         // TODO: Implement applying changeset and then test here that the end result matches
         // in the clone.
@@ -798,8 +827,23 @@ mod tests {
     }
 
     async fn create_hypercore_with_data(length: u64) -> Result<Hypercore<RandomAccessMemory>> {
+        let key_pair = generate_keypair();
+        Ok(create_hypercore_with_data_and_key_pair(
+            length,
+            PartialKeypair {
+                public: key_pair.public,
+                secret: Some(key_pair.secret),
+            },
+        )
+        .await?)
+    }
+
+    async fn create_hypercore_with_data_and_key_pair(
+        length: u64,
+        key_pair: PartialKeypair,
+    ) -> Result<Hypercore<RandomAccessMemory>> {
         let storage = Storage::new_memory().await?;
-        let mut hypercore = Hypercore::new(storage).await?;
+        let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
         for i in 0..length {
             hypercore.append(format!("#{}", i).as_bytes()).await?;
         }
