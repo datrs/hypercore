@@ -223,14 +223,16 @@ impl MerkleTree {
         let mut is_right = false;
         let mut parent: Option<Node> = None;
         for node in &changeset.nodes {
-            if is_right {
-                if let Some(parent) = parent {
-                    tree_offset += node.length - parent.length;
+            if node.index == iter.index() {
+                if is_right {
+                    if let Some(parent) = parent {
+                        tree_offset += node.length - parent.length;
+                    }
                 }
+                parent = Some(node.clone());
+                is_right = iter.is_right();
+                iter.parent();
             }
-            parent = Some(node.clone());
-            is_right = iter.is_right();
-            iter.parent();
         }
 
         let search_hypercore_index = if let Some(parent) = parent {
@@ -242,7 +244,7 @@ impl MerkleTree {
                 for i in 0..r {
                     tree_offset += self.roots[i].length
                 }
-                return Ok(Either::Right(tree_offset));
+                return Ok(Either::Right(tree_offset as u64));
             }
             parent.index / 2
         } else {

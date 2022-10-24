@@ -73,7 +73,8 @@ mod tree;
 pub use crate::common::Node;
 #[cfg(feature = "v10")]
 pub use crate::common::{
-    DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade, Store,
+    DataBlock, DataHash, DataSeek, DataUpgrade, Proof, RequestBlock, RequestSeek, RequestUpgrade,
+    Store,
 };
 #[cfg(feature = "v10")]
 pub use crate::core::Hypercore;
@@ -83,6 +84,7 @@ pub use crate::event::Event;
 pub use crate::feed::Feed;
 #[cfg(feature = "v9")]
 pub use crate::feed_builder::FeedBuilder;
+#[cfg(feature = "v9")]
 pub use crate::proof::Proof;
 pub use crate::replicate::Peer;
 #[cfg(feature = "v9")]
