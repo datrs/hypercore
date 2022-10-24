@@ -33,7 +33,7 @@ pub struct RequestUpgrade {
 pub struct Proof {
     /// Fork
     pub fork: u64,
-    /// Data block
+    /// Data block.
     pub block: Option<DataBlock>,
     /// Data hash
     pub hash: Option<DataHash>,
@@ -41,6 +41,39 @@ pub struct Proof {
     pub seek: Option<DataSeek>,
     /// Data updrade
     pub upgrade: Option<DataUpgrade>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+/// Valueless proof generated from corresponding requests
+pub struct ValuelessProof {
+    /// Fork
+    pub fork: u64,
+    /// Data block. NB: The ValuelessProof struct uses the Hash type because
+    /// the stored binary value is processed externally to the proof.
+    pub block: Option<DataHash>,
+    /// Data hash
+    pub hash: Option<DataHash>,
+    /// Data seek
+    pub seek: Option<DataSeek>,
+    /// Data updrade
+    pub upgrade: Option<DataUpgrade>,
+}
+
+impl ValuelessProof {
+    pub fn into_proof(&mut self, block_value: Option<Vec<u8>>) -> Proof {
+        let block = self.block.take().map(|block| DataBlock {
+            index: block.index,
+            nodes: block.nodes,
+            value: block_value.expect("Data block needs to be given"),
+        });
+        Proof {
+            fork: self.fork,
+            block,
+            hash: self.hash.take(),
+            seek: self.seek.take(),
+            upgrade: self.upgrade.take(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

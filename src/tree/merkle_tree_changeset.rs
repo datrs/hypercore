@@ -1,7 +1,7 @@
 use ed25519_dalek::{PublicKey, SecretKey, Signature};
 
 use crate::{
-    crypto::{signable_tree, Hash},
+    crypto::{signable_tree, verify, Hash},
     sign, Node,
 };
 
@@ -91,6 +91,23 @@ impl MerkleTreeChangeset {
         let signature = sign(&public_key, &secret_key, &signable);
         self.hash = Some(hash);
         self.signature = Some(signature);
+    }
+
+    /// Verify and set signature with given public key
+    pub fn verify_and_set_signature(
+        &mut self,
+        signature: &[u8],
+        public_key: &PublicKey,
+    ) -> anyhow::Result<()> {
+        // Verify that the received signature matches the public key
+        let signature = Signature::from_bytes(&signature)?;
+        let hash = self.hash();
+        verify(&public_key, &self.signable(&hash), Some(&signature))?;
+
+        // Set values to changeset
+        self.hash = Some(hash);
+        self.signature = Some(signature);
+        Ok(())
     }
 
     /// Calculates a hash of the current set of roots

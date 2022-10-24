@@ -1,6 +1,6 @@
 use super::fixed::{FixedBitfield, FIXED_BITFIELD_BITS_LENGTH, FIXED_BITFIELD_LENGTH};
 use crate::{
-    common::{StoreInfo, StoreInfoInstruction, StoreInfoType},
+    common::{BitfieldUpdate, StoreInfo, StoreInfoInstruction, StoreInfoType},
     Store,
 };
 use futures::future::Either;
@@ -120,6 +120,14 @@ impl DynamicBitfield {
             self.unflushed.push(i);
         }
         changed
+    }
+
+    pub fn update(&mut self, bitfield_update: &BitfieldUpdate) {
+        self.set_range(
+            bitfield_update.start,
+            bitfield_update.length,
+            !bitfield_update.drop,
+        )
     }
 
     pub fn set_range(&mut self, start: u64, length: u64, value: bool) {

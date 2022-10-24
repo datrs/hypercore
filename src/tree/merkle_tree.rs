@@ -5,9 +5,9 @@ use futures::future::Either;
 use intmap::IntMap;
 
 use crate::common::NodeByteRange;
-use crate::common::Proof;
+use crate::common::{Proof, ValuelessProof};
 use crate::compact_encoding::State;
-use crate::crypto::Hash;
+use crate::crypto::{Hash, PublicKey};
 use crate::oplog::HeaderTree;
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
@@ -207,6 +207,54 @@ impl MerkleTree {
         }
     }
 
+    /// Get the byte offset of hypercore index in a changeset
+    pub fn byte_offset_in_changeset(
+        &self,
+        hypercore_index: u64,
+        changeset: &MerkleTreeChangeset,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+        if self.length == hypercore_index {
+            return Ok(Either::Right(self.byte_length));
+        }
+        let mut iter =
+            flat_tree::Iterator::new(hypercore_index_into_merkle_tree_index(hypercore_index));
+        let mut tree_offset = 0;
+        let mut is_right = false;
+        let mut parent: Option<Node> = None;
+        for node in &changeset.nodes {
+            if is_right {
+                if let Some(parent) = parent {
+                    tree_offset += node.length - parent.length;
+                }
+            }
+            parent = Some(node.clone());
+            is_right = iter.is_right();
+            iter.parent();
+        }
+
+        let search_hypercore_index = if let Some(parent) = parent {
+            let r = changeset
+                .roots
+                .iter()
+                .position(|root| root.index == parent.index);
+            if let Some(r) = r {
+                for i in 0..r {
+                    tree_offset += self.roots[i].length
+                }
+                return Ok(Either::Right(tree_offset));
+            }
+            parent.index / 2
+        } else {
+            hypercore_index
+        };
+
+        match self.byte_offset(search_hypercore_index, infos)? {
+            Either::Left(instructions) => Ok(Either::Left(instructions)),
+            Either::Right(offset) => Ok(Either::Right(offset + tree_offset)),
+        }
+    }
+
     pub fn add_node(&mut self, node: Node) {
         self.unflushed.insert(node.index, node);
     }
@@ -262,18 +310,18 @@ impl MerkleTree {
         }
     }
 
-    /// Creates proof from a requests.
+    /// Creates valueless proof from requests.
     /// TODO: This is now just a clone of javascript's
     /// https://github.com/hypercore-protocol/hypercore/blob/7e30a0fe353c70ada105840ec1ead6627ff521e7/lib/merkle-tree.js#L604
     /// The implementation should be rewritten to make it clearer.
-    pub fn create_proof(
+    pub fn create_valueless_proof(
         &self,
         block: Option<&RequestBlock>,
         hash: Option<&RequestBlock>,
         seek: Option<&RequestSeek>,
         upgrade: Option<&RequestUpgrade>,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, Proof>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, ValuelessProof>> {
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let fork = self.fork;
@@ -378,24 +426,21 @@ impl MerkleTree {
         }
 
         if instructions.is_empty() {
-            let (data_block, data_hash): (Option<DataBlock>, Option<DataHash>) =
+            let (data_block, data_hash): (Option<DataHash>, Option<DataHash>) =
                 if let Some(block) = block.as_ref() {
-                    //
                     (
-                        Some(DataBlock {
+                        Some(DataHash {
                             index: block.index,
-                            value: vec![],           // TODO: this needs to come in
-                            nodes: p.nodes.unwrap(), // TODO: unwrap
+                            nodes: p.nodes.expect("nodes need to be present"),
                         }),
                         None,
                     )
                 } else if let Some(hash) = hash.as_ref() {
-                    //
                     (
                         None,
                         Some(DataHash {
                             index: hash.index,
-                            nodes: p.nodes.unwrap(), // TODO: unwrap
+                            nodes: p.nodes.expect("nodes need to be set"),
                         }),
                     )
                 } else {
@@ -419,19 +464,22 @@ impl MerkleTree {
                 Some(DataUpgrade {
                     start: upgrade.start,
                     length: upgrade.length,
-                    nodes: p.upgrade.unwrap(), // TODO: unwrap
+                    nodes: p.upgrade.expect("nodes need to be set"),
                     additional_nodes: if let Some(additional_upgrade) = p.additional_upgrade {
                         additional_upgrade
                     } else {
                         vec![]
                     },
-                    signature: signature.unwrap().to_bytes().to_vec(), // TODO: unwrap
+                    signature: signature
+                        .expect("signature needs to be set")
+                        .to_bytes()
+                        .to_vec(),
                 })
             } else {
                 None
             };
 
-            Ok(Either::Right(Proof {
+            Ok(Either::Right(ValuelessProof {
                 fork,
                 block: data_block,
                 hash: data_hash,
@@ -447,6 +495,7 @@ impl MerkleTree {
     pub fn verify_proof(
         &self,
         proof: &Proof,
+        public_key: &PublicKey,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>> {
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
@@ -464,6 +513,7 @@ impl MerkleTree {
                 proof.fork,
                 upgrade,
                 unverified_block_root_node.as_ref(),
+                public_key,
                 &mut changeset,
             )? {
                 unverified_block_root_node = None;
@@ -571,7 +621,7 @@ impl MerkleTree {
     /// Validates given hypercore index and returns tree index
     fn validate_hypercore_index(&self, hypercore_index: u64) -> Result<u64> {
         // Converts a hypercore index into a merkle tree index
-        let index = 2 * hypercore_index;
+        let index = hypercore_index_into_merkle_tree_index(hypercore_index);
 
         // Check bounds
         let head = 2 * self.length;
@@ -1139,6 +1189,14 @@ impl MerkleTree {
     }
 }
 
+/// Converts a hypercore index into a merkle tree index. In the flat tree
+/// representation, the leaves are in the even numbers, and the parents
+/// odd. That's why we need to double the hypercore index value to get
+/// the right merkle tree index.
+fn hypercore_index_into_merkle_tree_index(hypercore_index: u64) -> u64 {
+    2 * hypercore_index
+}
+
 fn verify_tree(
     block: Option<&DataBlock>,
     hash: Option<&DataHash>,
@@ -1205,6 +1263,7 @@ fn verify_upgrade(
     fork: u64,
     upgrade: &DataUpgrade,
     block_root: Option<&Node>,
+    public_key: &PublicKey,
     changeset: &mut MerkleTreeChangeset,
 ) -> Result<bool> {
     let mut q = if let Some(block_root) = block_root {
@@ -1259,9 +1318,8 @@ fn verify_upgrade(
         changeset.append_root(node, &mut iter);
         iter.sibling();
     }
-    changeset.signature = Some(Signature::from_bytes(&upgrade.signature)?);
     changeset.fork = fork;
-
+    changeset.verify_and_set_signature(&upgrade.signature, &public_key)?;
     Ok(q.extra.is_none())
 }
 

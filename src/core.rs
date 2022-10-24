@@ -2,8 +2,8 @@
 
 use crate::{
     bitfield_v10::Bitfield,
-    common::{Proof, StoreInfo},
-    crypto::{generate_keypair, verify},
+    common::{BitfieldUpdate, Proof, StoreInfo, ValuelessProof},
+    crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     storage_v10::{PartialKeypair, Storage},
@@ -132,18 +132,12 @@ where
                     tree.add_node(node.clone());
                 }
 
-                if let Some(entry_bitfield) = &entry.bitfield {
-                    bitfield.set_range(
-                        entry_bitfield.start,
-                        entry_bitfield.length,
-                        !entry_bitfield.drop,
-                    );
+                if let Some(bitfield_update) = &entry.bitfield {
+                    bitfield.update(&bitfield_update);
                     update_contiguous_length(
                         &mut oplog_open_outcome.header,
                         &bitfield,
-                        entry_bitfield.drop,
-                        entry_bitfield.start,
-                        entry_bitfield.length,
+                        &bitfield_update,
                     );
                 }
                 if let Some(tree_upgrade) = &entry.tree_upgrade {
@@ -227,25 +221,25 @@ where
             self.storage.flush_info(info).await?;
 
             // Append the changeset to the Oplog
-            let outcome = self.oplog.append_changeset(&changeset, false, &self.header);
+            let bitfield_update = BitfieldUpdate {
+                drop: false,
+                start: changeset.ancestors,
+                length: changeset.batch_length,
+            };
+            let outcome = self.oplog.append_changeset(
+                &changeset,
+                Some(bitfield_update.clone()),
+                false,
+                &self.header,
+            );
             self.storage.flush_infos(&outcome.infos_to_flush).await?;
             self.header = outcome.header;
 
             // Write to bitfield
-            self.bitfield.set_range(
-                changeset.ancestors,
-                changeset.length - changeset.ancestors,
-                true,
-            );
+            self.bitfield.update(&bitfield_update);
 
             // Contiguous length is known only now
-            update_contiguous_length(
-                &mut self.header,
-                &self.bitfield,
-                false,
-                changeset.ancestors,
-                changeset.batch_length,
-            );
+            update_contiguous_length(&mut self.header, &self.bitfield, &bitfield_update);
 
             // Commit changeset to in-memory tree
             self.tree.commit(changeset)?;
@@ -386,8 +380,103 @@ where
         hash: Option<RequestBlock>,
         seek: Option<RequestSeek>,
         upgrade: Option<RequestUpgrade>,
-    ) -> Result<Proof> {
-        match self.tree.create_proof(
+    ) -> Result<Option<Proof>> {
+        let mut valueless_proof = self
+            .create_valueless_proof(block, hash, seek, upgrade)
+            .await?;
+        let value: Option<Vec<u8>> = if let Some(block) = valueless_proof.block.as_ref() {
+            let value = self.get(block.index).await?;
+            if value.is_none() {
+                // The data value requested in the proof can not be read, we return None here
+                // and let the party requesting figure out what to do.
+                return Ok(None);
+            }
+            value
+        } else {
+            None
+        };
+        Ok(Some(valueless_proof.into_proof(value)))
+    }
+
+    /// Verify and apply proof received from peer, returns true if changed, false if not
+    /// possible to apply.
+    pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool> {
+        if proof.fork != self.tree.fork {
+            return Ok(false);
+        }
+        let changeset = self.verify_proof(proof).await?;
+        if !self.tree.commitable(&changeset) {
+            return Ok(false);
+        }
+
+        // In javascript there's _verifyExclusive and _verifyShared based on changeset.upgraded, but
+        // here we do only one. _verifyShared groups together many subsequent changesets into a single
+        // oplog push, and then flushes in the end only for the whole group.
+        let bitfield_update: Option<BitfieldUpdate> = if let Some(block) = &proof.block.as_ref() {
+            let byte_offset =
+                match self
+                    .tree
+                    .byte_offset_in_changeset(block.index, &changeset, None)?
+                {
+                    Either::Right(value) => value,
+                    Either::Left(instructions) => {
+                        let infos = self.storage.read_infos_to_vec(&instructions).await?;
+                        match self.tree.byte_offset_in_changeset(
+                            block.index,
+                            &changeset,
+                            Some(&infos),
+                        )? {
+                            Either::Right(value) => value,
+                            Either::Left(_) => {
+                                return Err(anyhow!("Could not read offset for index"));
+                            }
+                        }
+                    }
+                };
+            let info_to_flush = self.block_store.put(&block.value, byte_offset);
+            self.storage.flush_info(info_to_flush).await?;
+            Some(BitfieldUpdate {
+                drop: false,
+                start: block.index,
+                length: 1,
+            })
+        } else {
+            None
+        };
+
+        // Append the changeset to the Oplog
+        let outcome =
+            self.oplog
+                .append_changeset(&changeset, bitfield_update.clone(), false, &self.header);
+        self.storage.flush_infos(&outcome.infos_to_flush).await?;
+        self.header = outcome.header;
+
+        if let Some(bitfield_update) = bitfield_update {
+            // Write to bitfield
+            self.bitfield.update(&bitfield_update);
+
+            // Contiguous length is known only now
+            update_contiguous_length(&mut self.header, &self.bitfield, &bitfield_update);
+        }
+
+        // Commit changeset to in-memory tree
+        self.tree.commit(changeset)?;
+
+        // Now ready to flush
+        if self.should_flush_bitfield_and_tree_and_oplog() {
+            self.flush_bitfield_and_tree_and_oplog().await?;
+        }
+        Ok(true)
+    }
+
+    async fn create_valueless_proof(
+        &mut self,
+        block: Option<RequestBlock>,
+        hash: Option<RequestBlock>,
+        seek: Option<RequestSeek>,
+        upgrade: Option<RequestUpgrade>,
+    ) -> Result<ValuelessProof> {
+        match self.tree.create_valueless_proof(
             block.as_ref(),
             hash.as_ref(),
             seek.as_ref(),
@@ -400,7 +489,7 @@ where
                 let mut infos: Vec<StoreInfo> = vec![];
                 loop {
                     infos.extend(self.storage.read_infos_to_vec(&instructions).await?);
-                    match self.tree.create_proof(
+                    match self.tree.create_valueless_proof(
                         block.as_ref(),
                         hash.as_ref(),
                         seek.as_ref(),
@@ -419,39 +508,20 @@ where
         }
     }
 
-    /// Verify and apply proof received from peer, returns true if
-    pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool> {
-        if proof.fork != self.tree.fork {
-            return Ok(false);
-        }
-        let changeset = self.verify_proof(proof).await?;
-        if !self.tree.commitable(&changeset) {
-            return Ok(false);
-        }
-        if changeset.upgraded {
-            // If this is committed, something will change, need to verify given
-            // new signature
-            verify(
-                &self.key_pair.public,
-                &changeset.signable(&changeset.hash()),
-                changeset.signature.as_ref(),
-            )?;
-            // TODO:
-        }
-        Ok(true)
-    }
-
     /// Verify a proof received from a peer. Returns a changeset that should be
     /// applied.
     async fn verify_proof(&mut self, proof: &Proof) -> Result<MerkleTreeChangeset> {
-        match self.tree.verify_proof(proof, None)? {
+        match self.tree.verify_proof(proof, &self.key_pair.public, None)? {
             Either::Right(value) => Ok(value),
             Either::Left(instructions) => {
                 let infos = self.storage.read_infos_to_vec(&instructions).await?;
-                match self.tree.verify_proof(proof, Some(&infos))? {
+                match self
+                    .tree
+                    .verify_proof(proof, &self.key_pair.public, Some(&infos))?
+                {
                     Either::Right(value) => Ok(value),
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not read byte range"));
+                        return Err(anyhow!("Could not verify key pair"));
                     }
                 }
             }
@@ -484,18 +554,16 @@ where
 fn update_contiguous_length(
     header: &mut Header,
     bitfield: &Bitfield,
-    bitfield_drop: bool,
-    bitfield_start: u64,
-    bitfield_length: u64,
+    bitfield_update: &BitfieldUpdate,
 ) {
-    let end = bitfield_start + bitfield_length;
+    let end = bitfield_update.start + bitfield_update.length;
     let mut c = header.contiguous_length;
-    if bitfield_drop {
-        if c <= end && c > bitfield_start {
-            c = bitfield_start;
+    if bitfield_update.drop {
+        if c <= end && c > bitfield_update.start {
+            c = bitfield_update.start;
         }
     } else {
-        if c <= end && c >= bitfield_start {
+        if c <= end && c >= bitfield_update.start {
             c = end;
             while bitfield.get(c) {
                 c += 1;
@@ -519,7 +587,8 @@ mod tests {
 
         let proof = hypercore
             .create_proof(Some(RequestBlock { index: 4, nodes: 2 }), None, None, None)
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         assert_eq!(proof.upgrade, None);
         assert_eq!(proof.seek, None);
@@ -543,7 +612,8 @@ mod tests {
                     length: 10,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let upgrade = proof.upgrade.unwrap();
         assert_eq!(proof.seek, None);
@@ -573,7 +643,8 @@ mod tests {
                     length: 8,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let upgrade = proof.upgrade.unwrap();
         assert_eq!(proof.seek, None);
@@ -603,7 +674,8 @@ mod tests {
                     length: 9,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let upgrade = proof.upgrade.unwrap();
         assert_eq!(proof.seek, None);
@@ -633,7 +705,8 @@ mod tests {
                     length: 5,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let upgrade = proof.upgrade.unwrap();
         assert_eq!(proof.seek, None);
@@ -660,7 +733,8 @@ mod tests {
                 Some(RequestSeek { bytes: 8 }),
                 None,
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         assert_eq!(proof.seek, None); // seek included in block
         assert_eq!(proof.upgrade, None);
@@ -681,7 +755,8 @@ mod tests {
                 Some(RequestSeek { bytes: 10 }),
                 None,
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         assert_eq!(proof.seek, None); // seek included in block
         assert_eq!(proof.upgrade, None);
@@ -702,7 +777,8 @@ mod tests {
                 Some(RequestSeek { bytes: 13 }),
                 None,
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let seek = proof.seek.unwrap();
         assert_eq!(proof.upgrade, None);
@@ -725,7 +801,8 @@ mod tests {
                 Some(RequestSeek { bytes: 26 }),
                 None,
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let seek = proof.seek.unwrap();
         assert_eq!(proof.upgrade, None);
@@ -752,7 +829,8 @@ mod tests {
                     length: 2,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let block = proof.block.unwrap();
         let seek = proof.seek.unwrap();
         let upgrade = proof.upgrade.unwrap();
@@ -781,7 +859,8 @@ mod tests {
                     length: 10,
                 }),
             )
-            .await?;
+            .await?
+            .unwrap();
         let seek = proof.seek.unwrap();
         let upgrade = proof.upgrade.unwrap();
         assert_eq!(proof.block, None);
@@ -797,16 +876,10 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_verify_proof_1() -> Result<()> {
+    async fn core_verify_proof_invalid_signature() -> Result<()> {
         let mut hypercore = create_hypercore_with_data(10).await?;
-        let mut hypercore_clone = create_hypercore_with_data_and_key_pair(
-            0,
-            PartialKeypair {
-                public: hypercore.key_pair.public,
-                secret: None,
-            },
-        )
-        .await?;
+        // Invalid clone hypercore with a different public key
+        let mut hypercore_clone = create_hypercore_with_data(0).await?;
         let proof = hypercore
             .create_proof(
                 None,
@@ -817,12 +890,52 @@ mod tests {
                     length: 10,
                 }),
             )
-            .await?;
-        let _changeset = hypercore_clone.verify_and_apply_proof(&proof).await?;
+            .await?
+            .unwrap();
+        assert!(hypercore_clone
+            .verify_and_apply_proof(&proof)
+            .await
+            .is_err());
+        Ok(())
+    }
 
-        // TODO: Implement applying changeset and then test here that the end result matches
-        // in the clone.
+    #[async_std::test]
+    async fn core_verify_and_apply_proof() -> Result<()> {
+        let mut main = create_hypercore_with_data(10).await?;
+        let mut clone = create_hypercore_with_data_and_key_pair(
+            0,
+            PartialKeypair {
+                public: main.key_pair.public,
+                secret: None,
+            },
+        )
+        .await?;
+        let proof = main
+            .create_proof(
+                None,
+                Some(RequestBlock { index: 6, nodes: 0 }),
+                None,
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 10,
+                }),
+            )
+            .await?
+            .unwrap();
+        assert!(clone.verify_and_apply_proof(&proof).await?);
+        let main_info = main.info();
+        let clone_info = clone.info();
+        assert_eq!(main_info.byte_length, clone_info.byte_length);
+        assert_eq!(main_info.length, clone_info.length);
+        assert!(main.get(6).await?.is_some());
+        assert!(clone.get(6).await?.is_none());
 
+        // Fetch data for index 6 and verify it is found
+        let proof = main
+            .create_proof(Some(RequestBlock { index: 6, nodes: 2 }), None, None, None)
+            .await?
+            .unwrap();
+        assert!(clone.verify_and_apply_proof(&proof).await?);
         Ok(())
     }
 

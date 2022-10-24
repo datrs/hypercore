@@ -1,4 +1,5 @@
 use crate::{
+    common::BitfieldUpdate,
     compact_encoding::{CompactEncoding, State},
     Node,
 };
@@ -41,22 +42,14 @@ impl CompactEncoding<EntryTreeUpgrade> for State {
     }
 }
 
-/// Entry bitfield update
-#[derive(Debug)]
-pub struct EntryBitfieldUpdate {
-    pub(crate) drop: bool,
-    pub(crate) start: u64,
-    pub(crate) length: u64,
-}
-
-impl CompactEncoding<EntryBitfieldUpdate> for State {
-    fn preencode(&mut self, value: &EntryBitfieldUpdate) {
+impl CompactEncoding<BitfieldUpdate> for State {
+    fn preencode(&mut self, value: &BitfieldUpdate) {
         self.end += 1;
         self.preencode(&value.start);
         self.preencode(&value.length);
     }
 
-    fn encode(&mut self, value: &EntryBitfieldUpdate, buffer: &mut [u8]) {
+    fn encode(&mut self, value: &BitfieldUpdate, buffer: &mut [u8]) {
         let flags: u8 = if value.drop { 1 } else { 0 };
         buffer[self.start] = flags;
         self.start += 1;
@@ -64,11 +57,11 @@ impl CompactEncoding<EntryBitfieldUpdate> for State {
         self.encode(&value.length, buffer);
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> EntryBitfieldUpdate {
+    fn decode(&mut self, buffer: &[u8]) -> BitfieldUpdate {
         let flags = self.decode_u8(buffer);
         let start: u64 = self.decode(buffer);
         let length: u64 = self.decode(buffer);
-        EntryBitfieldUpdate {
+        BitfieldUpdate {
             drop: flags == 1,
             start,
             length,
@@ -79,19 +72,11 @@ impl CompactEncoding<EntryBitfieldUpdate> for State {
 /// Oplog Entry
 #[derive(Debug)]
 pub struct Entry {
-    // userData: null,
-    // treeNodes: batch.nodes,
-    // treeUpgrade: batch,
-    // bitfield: {
-    //   drop: false,
-    //   start: batch.ancestors,
-    //   length: values.length
-    // }
     // TODO: This is a keyValueArray in JS
     pub(crate) user_data: Vec<String>,
     pub(crate) tree_nodes: Vec<Node>,
     pub(crate) tree_upgrade: Option<EntryTreeUpgrade>,
-    pub(crate) bitfield: Option<EntryBitfieldUpdate>,
+    pub(crate) bitfield: Option<BitfieldUpdate>,
 }
 
 impl CompactEncoding<Entry> for State {
@@ -156,8 +141,8 @@ impl CompactEncoding<Entry> for State {
             None
         };
 
-        let bitfield: Option<EntryBitfieldUpdate> = if flags & 4 != 0 {
-            let value: EntryBitfieldUpdate = self.decode(buffer);
+        let bitfield: Option<BitfieldUpdate> = if flags & 4 != 0 {
+            let value: BitfieldUpdate = self.decode(buffer);
             Some(value)
         } else {
             None

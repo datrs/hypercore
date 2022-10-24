@@ -1,4 +1,4 @@
-use crate::common::{Store, StoreInfo, StoreInfoInstruction};
+use crate::common::{BitfieldUpdate, Store, StoreInfo, StoreInfoInstruction};
 use crate::compact_encoding::{CompactEncoding, State};
 use crate::tree::MerkleTreeChangeset;
 use crate::{Node, PartialKeypair};
@@ -9,7 +9,7 @@ use std::convert::{TryFrom, TryInto};
 mod entry;
 mod header;
 
-pub use entry::{Entry, EntryBitfieldUpdate, EntryTreeUpgrade};
+pub use entry::{Entry, EntryTreeUpgrade};
 pub use header::{Header, HeaderTree};
 
 pub const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
@@ -166,43 +166,48 @@ impl Oplog {
         }
     }
 
-    /// Appends a changeset to the Oplog.
+    /// Appends an upgraded changeset to the Oplog.
     pub fn append_changeset(
         &mut self,
         changeset: &MerkleTreeChangeset,
+        bitfield_update: Option<BitfieldUpdate>,
         atomic: bool,
         header: &Header,
     ) -> OplogCreateHeaderOutcome {
         let tree_nodes: Vec<Node> = changeset.nodes.clone();
-        let hash = changeset
-            .hash
-            .as_ref()
-            .expect("Changeset must have a hash before appended");
-        let signature = changeset
-            .signature
-            .expect("Changeset must be signed before appended");
-        let signature: Box<[u8]> = signature.to_bytes().into();
-
-        let entry: Entry = Entry {
-            user_data: vec![],
-            tree_nodes,
-            tree_upgrade: Some(EntryTreeUpgrade {
-                fork: changeset.fork,
-                ancestors: changeset.ancestors,
-                length: changeset.length,
-                signature: signature.clone(),
-            }),
-            bitfield: Some(EntryBitfieldUpdate {
-                drop: false,
-                start: changeset.ancestors,
-                length: changeset.batch_length,
-            }),
-        };
-
         let mut header: Header = header.clone();
-        header.tree.length = changeset.length;
-        header.tree.root_hash = hash.clone();
-        header.tree.signature = signature;
+        let entry: Entry = if changeset.upgraded {
+            let hash = changeset
+                .hash
+                .as_ref()
+                .expect("Upgraded changeset must have a hash before appended");
+            let signature = changeset
+                .signature
+                .expect("Upgraded changeset must be signed before appended");
+            let signature: Box<[u8]> = signature.to_bytes().into();
+            header.tree.root_hash = hash.clone();
+            header.tree.signature = signature.clone();
+            header.tree.length = changeset.length;
+
+            Entry {
+                user_data: vec![],
+                tree_nodes,
+                tree_upgrade: Some(EntryTreeUpgrade {
+                    fork: changeset.fork,
+                    ancestors: changeset.ancestors,
+                    length: changeset.length,
+                    signature,
+                }),
+                bitfield: bitfield_update,
+            }
+        } else {
+            Entry {
+                user_data: vec![],
+                tree_nodes,
+                tree_upgrade: None,
+                bitfield: bitfield_update,
+            }
+        };
 
         OplogCreateHeaderOutcome {
             header,
@@ -216,7 +221,7 @@ impl Oplog {
             user_data: vec![],
             tree_nodes: vec![],
             tree_upgrade: None,
-            bitfield: Some(EntryBitfieldUpdate {
+            bitfield: Some(BitfieldUpdate {
                 drop: true,
                 start,
                 length: end - start,
