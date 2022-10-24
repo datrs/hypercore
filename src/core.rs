@@ -433,14 +433,19 @@ where
                         }
                     }
                 };
+
+            // Write the value to the block store
             let info_to_flush = self.block_store.put(&block.value, byte_offset);
             self.storage.flush_info(info_to_flush).await?;
+
+            // Return a bitfield update for the given value
             Some(BitfieldUpdate {
                 drop: false,
                 start: block.index,
                 length: 1,
             })
         } else {
+            // Only from DataBlock can there be changes to the bitfield
             None
         };
 

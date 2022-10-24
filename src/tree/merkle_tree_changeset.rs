@@ -1,4 +1,5 @@
 use ed25519_dalek::{PublicKey, SecretKey, Signature};
+use std::convert::TryFrom;
 
 use crate::{
     crypto::{signable_tree, verify, Hash},
@@ -100,7 +101,7 @@ impl MerkleTreeChangeset {
         public_key: &PublicKey,
     ) -> anyhow::Result<()> {
         // Verify that the received signature matches the public key
-        let signature = Signature::from_bytes(&signature)?;
+        let signature = Signature::try_from(signature)?;
         let hash = self.hash();
         verify(&public_key, &self.signable(&hash), Some(&signature))?;
 
