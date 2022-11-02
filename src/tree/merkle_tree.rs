@@ -1433,7 +1433,12 @@ fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64> {
     for _ in 0..nodes {
         iter.parent();
         if iter.contains(head) {
-            return Err(anyhow!("Nodes is out of bounds"));
+            return Err(anyhow!(
+                "Nodes is out of bounds, index: {}, nodes: {}, head {}",
+                index,
+                nodes,
+                head
+            ));
         }
     }
     Ok(iter.index())

@@ -102,6 +102,32 @@ impl CompactEncoding<Vec<u8>> for State {
     }
 }
 
+impl CompactEncoding<Vec<u32>> for State {
+    fn preencode(&mut self, value: &Vec<u32>) {
+        let len = value.len();
+        self.preencode_usize_var(&len);
+        self.end += len * 4;
+    }
+
+    fn encode(&mut self, value: &Vec<u32>, buffer: &mut [u8]) {
+        let len = value.len();
+        self.encode_usize_var(&len, buffer);
+        for entry in value {
+            self.encode_u32(*entry, buffer);
+        }
+        self.start += len * 4;
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> Vec<u32> {
+        let len = self.decode_usize_var(buffer);
+        let mut value: Vec<u32> = Vec::with_capacity(len);
+        for _ in 0..len {
+            value.push(self.decode_u32(&buffer));
+        }
+        value
+    }
+}
+
 impl CompactEncoding<Vec<String>> for State {
     fn preencode(&mut self, value: &Vec<String>) {
         self.preencode_string_array(value);

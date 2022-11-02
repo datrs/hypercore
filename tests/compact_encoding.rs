@@ -129,6 +129,26 @@ fn cenc_buffer() {
 }
 
 #[test]
+fn cenc_vec() {
+    let buf_value_1: Vec<u8> = vec![0xFF, 0x00];
+    let buf_value_2: Vec<u32> = vec![0xFFFFFFFF, 0x11223344, 0x99887766];
+    let mut enc_state = State::new();
+    enc_state.preencode(&buf_value_1);
+    enc_state.preencode(&buf_value_2);
+    let mut buffer = enc_state.create_buffer();
+    // 1 byte for length, 2 bytes for data
+    // 1 byte for length, 4*3 bytes for data
+    assert_eq!(buffer.len(), 1 + 2 + 1 + 12);
+    enc_state.encode(&buf_value_1, &mut buffer);
+    enc_state.encode(&buf_value_2, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let buf_value_1_ret: Vec<u8> = dec_state.decode(&buffer);
+    let buf_value_2_ret: Vec<u32> = dec_state.decode(&buffer);
+    assert_eq!(buf_value_1, buf_value_1_ret);
+    assert_eq!(buf_value_2, buf_value_2_ret);
+}
+
+#[test]
 fn cenc_string_array() {
     let string_array_value = vec!["first".to_string(), "second".to_string()];
     let mut enc_state = State::new();
