@@ -232,6 +232,27 @@ impl State {
         value
     }
 
+    /// Preencode a raw byte buffer. Only possible to use if this is the last value
+    /// of the State.
+    pub fn preencode_raw_buffer(&mut self, value: &Vec<u8>) {
+        self.end += value.len();
+    }
+
+    /// Encode a raw byte buffer. Only possible to use if this is the last value
+    /// of the State.
+    pub fn encode_raw_buffer(&mut self, value: &[u8], buffer: &mut [u8]) {
+        buffer[self.start..self.start + value.len()].copy_from_slice(value);
+        self.start += value.len();
+    }
+
+    /// Decode a raw byte buffer. Only possible to use if this is the last value
+    /// of the State.
+    pub fn decode_raw_buffer(&mut self, buffer: &[u8]) -> Vec<u8> {
+        let value = buffer[self.start..self.end].to_vec();
+        self.start = self.end;
+        value
+    }
+
     /// Preencode a fixed 32 byte buffer
     pub fn preencode_fixed_32(&mut self) {
         self.end += 32;
@@ -243,7 +264,7 @@ impl State {
         self.start += 32;
     }
 
-    /// Encode a fixed 32 byte buffer
+    /// Decode a fixed 32 byte buffer
     pub fn decode_fixed_32(&mut self, buffer: &[u8]) -> Box<[u8]> {
         let value = buffer[self.start..self.start + 32]
             .to_vec()

@@ -163,3 +163,23 @@ fn cenc_string_array() {
     let string_array_value_ret: Vec<String> = dec_state.decode(&buffer);
     assert_eq!(string_array_value, string_array_value_ret);
 }
+
+#[test]
+fn cenc_fixed_and_raw() {
+    let buf_value_1: Vec<u8> = vec![0xFF; 32];
+    let buf_value_2: Vec<u8> = vec![0xFF, 0x11, 0x99];
+    let mut enc_state = State::new();
+    enc_state.preencode_fixed_32();
+    enc_state.preencode_raw_buffer(&buf_value_2);
+    let mut buffer = enc_state.create_buffer();
+    // 32 bytes for data
+    // 3 bytes for data
+    assert_eq!(buffer.len(), 32 + 3);
+    enc_state.encode_fixed_32(&buf_value_1, &mut buffer);
+    enc_state.encode_raw_buffer(&buf_value_2, &mut buffer);
+    let mut dec_state = State::from_buffer(&buffer);
+    let buf_value_1_ret: Vec<u8> = dec_state.decode_fixed_32(&buffer).to_vec();
+    let buf_value_2_ret: Vec<u8> = dec_state.decode_raw_buffer(&buffer);
+    assert_eq!(buf_value_1, buf_value_1_ret);
+    assert_eq!(buf_value_2, buf_value_2_ret);
+}
