@@ -115,7 +115,6 @@ impl CompactEncoding<Vec<u32>> for State {
         for entry in value {
             self.encode_u32(*entry, buffer);
         }
-        self.start += len * 4;
     }
 
     fn decode(&mut self, buffer: &[u8]) -> Vec<u32> {
