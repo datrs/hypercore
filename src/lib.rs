@@ -41,6 +41,7 @@
 
 #[cfg(feature = "v9")]
 pub mod bitfield;
+#[cfg(feature = "v10")]
 pub mod compact_encoding;
 pub mod prelude;
 

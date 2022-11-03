@@ -1,3 +1,5 @@
+#![cfg(feature = "v10")]
+
 use hypercore::compact_encoding::{CompactEncoding, State};
 
 // The max value for 1 byte length is 252

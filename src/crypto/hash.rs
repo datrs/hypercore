@@ -1,6 +1,7 @@
 pub use blake2_rfc::blake2b::Blake2bResult;
 
 use crate::common::Node;
+#[cfg(feature = "v10")]
 use crate::compact_encoding::State;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -103,6 +104,7 @@ impl Hash {
     // for v10 that use LE bytes.
 
     /// Hash data
+    #[cfg(feature = "v10")]
     pub fn data(data: &[u8]) -> Self {
         let (mut state, mut size) = State::new_with_size(8);
         state.encode_u64(data.len() as u64, &mut size);
@@ -118,6 +120,7 @@ impl Hash {
     }
 
     /// Hash a parent
+    #[cfg(feature = "v10")]
     pub fn parent(left: &Node, right: &Node) -> Self {
         let (node1, node2) = if left.index <= right.index {
             (left, right)
@@ -140,6 +143,7 @@ impl Hash {
     }
 
     /// Hash a tree
+    #[cfg(feature = "v10")]
     pub fn tree(roots: &[impl AsRef<Node>]) -> Self {
         let mut hasher = Blake2b::new(32);
         hasher.update(&ROOT_TYPE);
@@ -183,6 +187,7 @@ impl DerefMut for Hash {
 
 /// Create a signable buffer for tree. This is treeSignable in Javascript.
 /// See https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js#L17
+#[cfg(feature = "v10")]
 pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
     let (mut state, mut buffer) = State::new_with_size(80);
     state.encode_fixed_32(&TREE, &mut buffer);
@@ -280,6 +285,7 @@ mod tests {
     // https://github.com/mafintosh/hypercore-crypto/blob/master/test.js
 
     #[test]
+    #[cfg(feature = "v10")]
     fn hash_leaf() {
         let data = b"hello world";
         check_hash(
@@ -289,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "v10")]
     fn hash_parent() {
         let data = b"hello world";
         let len = data.len() as u64;
@@ -301,6 +308,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "v10")]
     fn hash_tree() {
         let hash: [u8; 32] = [0; 32];
         let node1 = Node::new(3, hash.to_vec(), 11);
