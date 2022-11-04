@@ -5,6 +5,6 @@
         "step": "node interop.js"
     },
     "dependencies": {
-        "hypercore": "file:../../../hypercore-js"
+        "hypercore": "^10"
     }
 }
