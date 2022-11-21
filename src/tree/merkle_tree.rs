@@ -195,16 +195,7 @@ impl MerkleTree {
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
         let index = self.validate_hypercore_index(hypercore_index)?;
-        // Get nodes out of incoming infos
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
-        // Get offset
-        let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
-        match offset_result {
-            Either::Left(offset_instructions) => {
-                Ok(Either::Left(offset_instructions.into_boxed_slice()))
-            }
-            Either::Right(offset) => Ok(Either::Right(offset)),
-        }
+        self.byte_offset_from_index(index, infos)
     }
 
     /// Get the byte offset of hypercore index in a changeset
@@ -217,8 +208,8 @@ impl MerkleTree {
         if self.length == hypercore_index {
             return Ok(Either::Right(self.byte_length));
         }
-        let mut iter =
-            flat_tree::Iterator::new(hypercore_index_into_merkle_tree_index(hypercore_index));
+        let index = hypercore_index_into_merkle_tree_index(hypercore_index);
+        let mut iter = flat_tree::Iterator::new(index);
         let mut tree_offset = 0;
         let mut is_right = false;
         let mut parent: Option<Node> = None;
@@ -235,23 +226,23 @@ impl MerkleTree {
             }
         }
 
-        let search_hypercore_index = if let Some(parent) = parent {
+        let search_index = if let Some(parent) = parent {
             let r = changeset
                 .roots
                 .iter()
                 .position(|root| root.index == parent.index);
             if let Some(r) = r {
                 for i in 0..r {
-                    tree_offset += self.roots[i].length
+                    tree_offset += self.roots[i].length;
                 }
                 return Ok(Either::Right(tree_offset as u64));
             }
-            parent.index / 2
+            parent.index
         } else {
-            hypercore_index
+            index
         };
 
-        match self.byte_offset(search_hypercore_index, infos)? {
+        match self.byte_offset_from_index(search_index, infos)? {
             Either::Left(instructions) => Ok(Either::Left(instructions)),
             Either::Right(offset) => Ok(Either::Right(offset + tree_offset)),
         }
@@ -547,6 +538,41 @@ impl MerkleTree {
         }
     }
 
+    /// Attempts to get missing nodes from given index. NB: must be called in a loop.
+    pub fn missing_nodes(
+        &self,
+        index: u64,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+        let head = 2 * self.length;
+        let mut iter = flat_tree::Iterator::new(index);
+        let iter_right_span = iter.index() + iter.factor() / 2 - 1;
+
+        // If the index is not in the current tree, we do not know how many missing nodes there are...
+        if iter_right_span >= head {
+            return Ok(Either::Right(0));
+        }
+
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let mut count: u64 = 0;
+        while !iter.contains(head) {
+            match self.optional_node(iter.index(), &nodes)? {
+                Either::Left(instruction) => {
+                    return Ok(Either::Left(vec![instruction].into_boxed_slice()));
+                }
+                Either::Right(value) => {
+                    if value.is_none() {
+                        count += 1;
+                        iter.parent();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(Either::Right(count))
+    }
+
     /// Is the changeset commitable to given tree
     pub fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
         let correct_length: bool = if changeset.upgraded {
@@ -641,6 +667,24 @@ impl MerkleTree {
         Ok(index)
     }
 
+    fn byte_offset_from_index(
+        &self,
+        index: u64,
+        infos: Option<&[StoreInfo]>,
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+        // Get nodes out of incoming infos
+        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        // Get offset
+        let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
+        // Get offset
+        match offset_result {
+            Either::Left(offset_instructions) => {
+                Ok(Either::Left(offset_instructions.into_boxed_slice()))
+            }
+            Either::Right(offset) => Ok(Either::Right(offset)),
+        }
+    }
+
     fn byte_offset_from_nodes(
         &self,
         index: u64,
@@ -687,6 +731,7 @@ impl MerkleTree {
                 Ok(Either::Left(instructions))
             };
         }
+
         Err(anyhow!(
             "Could not calculate byte offset for index {}",
             index
@@ -741,6 +786,13 @@ impl MerkleTree {
         let result = nodes.get(index);
         if let Some(node_maybe) = result {
             if let Some(node) = node_maybe {
+                if node.blank {
+                    return if allow_miss {
+                        Ok(Either::Right(None))
+                    } else {
+                        Err(anyhow!("Could not load node: {}", index))
+                    };
+                }
                 return Ok(Either::Right(Some(node.clone())));
             } else if allow_miss {
                 return Ok(Either::Right(None));
@@ -749,7 +801,7 @@ impl MerkleTree {
             }
         }
 
-        // If not, retunr an instruction
+        // If not, return an instruction
         let offset = 40 * index;
         let length = 40;
         let info = if allow_miss {

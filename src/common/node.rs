@@ -40,13 +40,20 @@ impl Node {
     /// Create a new instance.
     // TODO: ensure sizes are correct.
     pub fn new(index: u64, hash: Vec<u8>, length: u64) -> Self {
+        let mut blank = true;
+        for byte in &hash {
+            if *byte != 0 {
+                blank = false;
+                break;
+            }
+        }
         Self {
             index,
             hash,
             length: length as u64,
             parent: flat_tree::parent(index),
             data: Some(Vec::with_capacity(0)),
-            blank: false,
+            blank,
         }
     }
 

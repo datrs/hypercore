@@ -474,6 +474,29 @@ where
         Ok(true)
     }
 
+    /// Used to fill the nodes field of a `RequestBlock` during
+    /// synchronization.
+    pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64> {
+        match self.tree.missing_nodes(merkle_tree_index, None)? {
+            Either::Right(value) => return Ok(value),
+            Either::Left(instructions) => {
+                let mut instructions = instructions;
+                let mut infos: Vec<StoreInfo> = vec![];
+                loop {
+                    infos.extend(self.storage.read_infos_to_vec(&instructions).await?);
+                    match self.tree.missing_nodes(merkle_tree_index, Some(&infos))? {
+                        Either::Right(value) => {
+                            return Ok(value);
+                        }
+                        Either::Left(new_instructions) => {
+                            instructions = new_instructions;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     async fn create_valueless_proof(
         &mut self,
         block: Option<RequestBlock>,
@@ -915,10 +938,12 @@ mod tests {
             },
         )
         .await?;
+        let index = 6;
+        let nodes = clone.missing_nodes(index * 2).await?;
         let proof = main
             .create_proof(
                 None,
-                Some(RequestBlock { index: 6, nodes: 0 }),
+                Some(RequestBlock { index, nodes }),
                 None,
                 Some(RequestUpgrade {
                     start: 0,
@@ -936,8 +961,10 @@ mod tests {
         assert!(clone.get(6).await?.is_none());
 
         // Fetch data for index 6 and verify it is found
+        let index = 6;
+        let nodes = clone.missing_nodes(index * 2).await?;
         let proof = main
-            .create_proof(Some(RequestBlock { index: 6, nodes: 2 }), None, None, None)
+            .create_proof(Some(RequestBlock { index, nodes }), None, None, None)
             .await?
             .unwrap();
         assert!(clone.verify_and_apply_proof(&proof).await?);
