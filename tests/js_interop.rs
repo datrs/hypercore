@@ -9,6 +9,11 @@ use hypercore::{Hypercore, Storage};
 use js::{cleanup, install, js_run_step, prepare_test_set};
 use random_access_disk::RandomAccessDisk;
 
+#[cfg(feature = "async-std")]
+use async_std::test as async_test;
+#[cfg(feature = "tokio")]
+use tokio::test as async_test;
+
 const TEST_SET_JS_FIRST: &str = "jsfirst";
 const TEST_SET_RS_FIRST: &str = "rsfirst";
 
@@ -21,7 +26,7 @@ fn init() {
     });
 }
 
-#[async_std::test]
+#[async_test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 #[cfg(feature = "v10")]
 async fn js_interop_js_first() -> Result<()> {
@@ -41,7 +46,7 @@ async fn js_interop_js_first() -> Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[async_test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 #[cfg(feature = "v10")]
 async fn js_interop_rs_first() -> Result<()> {
