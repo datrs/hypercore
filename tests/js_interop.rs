@@ -68,13 +68,13 @@ async fn js_interop_rs_first() -> Result<()> {
 
 #[cfg(feature = "v10")]
 async fn step_1_create(work_dir: &str) -> Result<()> {
-    get_hypercore(work_dir).await?;
+    create_hypercore(work_dir).await?;
     Ok(())
 }
 
 #[cfg(feature = "v10")]
 async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
-    let mut hypercore = get_hypercore(work_dir).await?;
+    let mut hypercore = open_hypercore(work_dir).await?;
     let append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
     assert_eq!(append_outcome.length, 2);
     assert_eq!(append_outcome.byte_length, 10);
@@ -83,7 +83,7 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
 
 #[cfg(feature = "v10")]
 async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
-    let mut hypercore = get_hypercore(work_dir).await?;
+    let mut hypercore = open_hypercore(work_dir).await?;
     let hello = hypercore.get(0).await?;
     assert_eq!(hello.unwrap(), b"Hello");
     let world = hypercore.get(1).await?;
@@ -114,7 +114,7 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
 
 #[cfg(feature = "v10")]
 async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
-    let mut hypercore = get_hypercore(work_dir).await?;
+    let mut hypercore = open_hypercore(work_dir).await?;
     for i in 0..5 {
         let append_outcome = hypercore.append(&[i]).await?;
         assert_eq!(append_outcome.length, (6 + i + 1) as u64);
@@ -125,7 +125,7 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
 
 #[cfg(feature = "v10")]
 async fn step_5_clear_some(work_dir: &str) -> Result<()> {
-    let mut hypercore = get_hypercore(work_dir).await?;
+    let mut hypercore = open_hypercore(work_dir).await?;
     hypercore.clear(5, 6).await?;
     hypercore.clear(7, 9).await?;
     let info = hypercore.info();
@@ -144,11 +144,18 @@ async fn step_5_clear_some(work_dir: &str) -> Result<()> {
 }
 
 #[cfg(feature = "v10")]
-async fn get_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
-    let storage = Storage::new_disk(&path, false).await?;
+    let storage = Storage::new_disk(&path, true).await?;
     Ok(Hypercore::new_with_key_pair(storage, key_pair).await?)
+}
+
+#[cfg(feature = "v10")]
+async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+    let path = Path::new(work_dir).to_owned();
+    let storage = Storage::new_disk(&path, false).await?;
+    Ok(Hypercore::open(storage).await?)
 }
 
 fn step_0_hash() -> common::HypercoreHash {

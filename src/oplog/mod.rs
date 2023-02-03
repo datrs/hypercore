@@ -84,7 +84,7 @@ const INITIAL_HEADER_BITS: [bool; 2] = [true, false];
 impl Oplog {
     /// Opens an existing Oplog from existing byte buffer or creates a new one.
     pub fn open(
-        key_pair: &PartialKeypair,
+        key_pair: &Option<PartialKeypair>,
         info: Option<StoreInfo>,
     ) -> Result<Either<StoreInfoInstruction, OplogOpenOutcome>> {
         match info {
@@ -132,9 +132,12 @@ impl Oplog {
                         entries_byte_length: 0,
                     };
                     OplogOpenOutcome::new(oplog, h2_outcome.state.decode(&existing), Box::new([]))
-                } else {
-                    // There is nothing in the oplog, start from new.
+                } else if let Some(key_pair) = key_pair {
+                    // There is nothing in the oplog, start from new given key pair.
                     Self::new(key_pair.clone())
+                } else {
+                    // The storage is empty and no key pair given, erroring
+                    return Err(anyhow!("Nothing stored in oplog and key pair not given"));
                 };
 
                 // Read headers that might be stored in the existing content

@@ -47,6 +47,7 @@ pub struct Info {
     pub byte_length: u64,
     pub contiguous_length: u64,
     pub fork: u64,
+    pub writeable: bool,
 }
 
 impl<T> Hypercore<T>
@@ -68,8 +69,21 @@ where
 
     /// Creates new hypercore with given storage and (partial) key pair
     pub async fn new_with_key_pair(
-        mut storage: Storage<T>,
+        storage: Storage<T>,
         key_pair: PartialKeypair,
+    ) -> Result<Hypercore<T>> {
+        Hypercore::resume(storage, Some(key_pair)).await
+    }
+
+    /// Opens an existing hypercore in given storage.
+    pub async fn open(storage: Storage<T>) -> Result<Hypercore<T>> {
+        Hypercore::resume(storage, None).await
+    }
+
+    /// Creates/opens a hypercore with given storage and potentially a key pair
+    async fn resume(
+        mut storage: Storage<T>,
+        key_pair: Option<PartialKeypair>,
     ) -> Result<Hypercore<T>> {
         // Open/create oplog
         let mut oplog_open_outcome = match Oplog::open(&key_pair, None)? {
@@ -171,15 +185,19 @@ where
             }
         }
 
+        let oplog = oplog_open_outcome.oplog;
+        let header = oplog_open_outcome.header;
+        let key_pair = header.signer.clone();
+
         Ok(Hypercore {
             key_pair,
             storage,
-            oplog: oplog_open_outcome.oplog,
+            oplog,
             tree,
             block_store,
             bitfield,
+            header,
             skip_flush_count: 0,
-            header: oplog_open_outcome.header,
         })
     }
 
@@ -190,6 +208,7 @@ where
             byte_length: self.tree.byte_length,
             contiguous_length: self.header.contiguous_length,
             fork: self.tree.fork,
+            writeable: self.key_pair.secret.is_some(),
         }
     }
 

@@ -58,13 +58,25 @@ where
     where
         Cb: Fn(Store) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>,
     {
+        let mut tree = create(Store::Tree).await?;
+        let mut data = create(Store::Data).await?;
+        let mut bitfield = create(Store::Bitfield).await?;
+        let mut oplog = create(Store::Oplog).await?;
+
         if overwrite {
-            unimplemented!("Clearing storage not implemented");
+            if tree.len().await.map_err(|e| anyhow!(e))? > 0 {
+                tree.truncate(0).await.map_err(|e| anyhow!(e))?;
+            }
+            if data.len().await.map_err(|e| anyhow!(e))? > 0 {
+                data.truncate(0).await.map_err(|e| anyhow!(e))?;
+            }
+            if bitfield.len().await.map_err(|e| anyhow!(e))? > 0 {
+                bitfield.truncate(0).await.map_err(|e| anyhow!(e))?;
+            }
+            if oplog.len().await.map_err(|e| anyhow!(e))? > 0 {
+                oplog.truncate(0).await.map_err(|e| anyhow!(e))?;
+            }
         }
-        let tree = create(Store::Tree).await?;
-        let data = create(Store::Data).await?;
-        let bitfield = create(Store::Bitfield).await?;
-        let oplog = create(Store::Oplog).await?;
 
         let instance = Self {
             tree,
