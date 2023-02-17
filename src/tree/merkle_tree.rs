@@ -3,6 +3,7 @@ use anyhow::{anyhow, ensure};
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use intmap::IntMap;
+use std::convert::TryFrom;
 
 use crate::common::NodeByteRange;
 use crate::common::{Proof, ValuelessProof};
@@ -83,6 +84,11 @@ impl MerkleTree {
                 if length > 0 {
                     length = length / 2;
                 }
+                let signature: Option<Signature> = if header_tree.signature.len() > 0 {
+                    Some(Signature::try_from(&*header_tree.signature)?)
+                } else {
+                    None
+                };
 
                 Ok(Either::Right(Self {
                     roots,
@@ -92,7 +98,7 @@ impl MerkleTree {
                     unflushed: IntMap::new(),
                     truncated: false,
                     truncate_to: 0,
-                    signature: None,
+                    signature,
                 }))
             }
         }
