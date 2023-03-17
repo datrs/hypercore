@@ -1,12 +1,12 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 
 use crate::{
-    bitfield_v10::Bitfield,
+    bitfield::Bitfield,
     common::{BitfieldUpdate, Proof, StoreInfo, ValuelessProof},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
-    storage_v10::{PartialKeypair, Storage},
+    storage::{PartialKeypair, Storage},
     tree::{MerkleTree, MerkleTreeChangeset},
     RequestBlock, RequestSeek, RequestUpgrade,
 };

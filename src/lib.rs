@@ -28,14 +28,14 @@
 pub mod compact_encoding;
 pub mod prelude;
 
-mod bitfield_v10;
+mod bitfield;
 mod common;
 mod core;
 mod crypto;
 mod data;
 mod event;
 mod oplog;
-mod storage_v10;
+mod storage;
 mod tree;
 
 pub use crate::common::Node;
@@ -46,7 +46,7 @@ pub use crate::common::{
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};
 pub use crate::event::Event;
-pub use crate::storage_v10::{PartialKeypair, Storage};
+pub use crate::storage::{PartialKeypair, Storage};
 pub use ed25519_dalek::{
     ExpandedSecretKey, Keypair, PublicKey, SecretKey, EXPANDED_SECRET_KEY_LENGTH, KEYPAIR_LENGTH,
     PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
