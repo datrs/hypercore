@@ -21,7 +21,7 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub struct Hypercore<T>
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug,
+    T: RandomAccess + Debug,
 {
     pub(crate) key_pair: PartialKeypair,
     pub(crate) storage: Storage<T>,
@@ -52,7 +52,7 @@ pub struct Info {
 
 impl<T> Hypercore<T>
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
+    T: RandomAccess + Debug + Send,
 {
     /// Creates new hypercore using given storage with random key pair
     pub async fn new(storage: Storage<T>) -> Result<Hypercore<T>> {

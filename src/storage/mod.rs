@@ -6,7 +6,7 @@ use futures::future::FutureExt;
 #[cfg(not(target_arch = "wasm32"))]
 use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
-use random_access_storage::RandomAccess;
+use random_access_storage::{RandomAccess, RandomAccessError};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -51,12 +51,16 @@ where
 
 impl<T> Storage<T>
 where
-    T: RandomAccess<Error = Box<dyn std::error::Error + Send + Sync>> + Debug + Send,
+    T: RandomAccess + Debug + Send,
 {
     /// Create a new instance. Takes a callback to create new storage instances and overwrite flag.
     pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self>
     where
-        Cb: Fn(Store) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>,
+        Cb: Fn(
+            Store,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<T, RandomAccessError>> + Send>,
+        >,
     {
         let mut tree = create(Store::Tree).await?;
         let mut data = create(Store::Data).await?;
