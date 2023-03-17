@@ -1,12 +1,7 @@
-use hypercore::PartialKeypair;
-
-use anyhow::Error;
 use ed25519_dalek::{PublicKey, SecretKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use futures::future::FutureExt;
-#[cfg(feature = "v9")]
-use hypercore::{Feed, Storage, Store};
-use random_access_memory as ram;
 use sha2::{Digest, Sha256};
+
+use hypercore::PartialKeypair;
 
 const TEST_PUBLIC_KEY_BYTES: [u8; PUBLIC_KEY_LENGTH] = [
     0x97, 0x60, 0x6c, 0xaa, 0xd2, 0xb0, 0x8c, 0x1d, 0x5f, 0xe1, 0x64, 0x2e, 0xee, 0xa5, 0x62, 0xcb,
@@ -19,13 +14,6 @@ const TEST_SECRET_KEY_BYTES: [u8; SECRET_KEY_LENGTH] = [
     0x27, 0xe6, 0x74, 0x25, 0xc1, 0xff, 0xd1, 0xd9, 0xee, 0x62, 0x5c, 0x96, 0x2b, 0x57, 0x13, 0xc3,
     0x51, 0x0b, 0x71, 0x14, 0x15, 0xf3, 0x31, 0xf6, 0xfa, 0x9e, 0xf2, 0xbf, 0x23, 0x5f, 0x2f, 0xfe,
 ];
-
-#[cfg(feature = "v9")]
-pub async fn create_feed(page_size: usize) -> Result<Feed<ram::RandomAccessMemory>, Error> {
-    let create = |_store: Store| async move { Ok(ram::RandomAccessMemory::new(page_size)) }.boxed();
-    let storage = Storage::new(create, false).await?;
-    Feed::with_storage(storage).await
-}
 
 #[derive(PartialEq, Debug)]
 pub struct HypercoreHash {

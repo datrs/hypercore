@@ -3,23 +3,9 @@ use std::time::Instant;
 use anyhow::Error;
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-#[cfg(feature = "v9")]
-use hypercore::{Feed, Storage};
-#[cfg(feature = "v10")]
 use hypercore::{Hypercore, Storage};
 use random_access_memory::RandomAccessMemory;
 
-#[cfg(feature = "v9")]
-async fn create_hypercore(page_size: usize) -> Result<Feed<RandomAccessMemory>, Error> {
-    let storage = Storage::new(
-        |_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) }),
-        false,
-    )
-    .await?;
-    Feed::with_storage(storage).await
-}
-
-#[cfg(feature = "v10")]
 async fn create_hypercore(page_size: usize) -> Result<Hypercore<RandomAccessMemory>, Error> {
     let storage = Storage::open(
         |_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) }),

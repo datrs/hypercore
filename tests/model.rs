@@ -1,7 +1,5 @@
-mod common;
+pub mod common;
 
-#[cfg(feature = "v9")]
-use common::create_feed;
 use quickcheck::{quickcheck, Arbitrary, Gen};
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -17,9 +15,6 @@ enum Op {
     Append {
         data: Vec<u8>,
     },
-    #[cfg(feature = "v9")]
-    Verify,
-    #[cfg(feature = "v10")]
     Clear {
         len_divisor_for_start: u8,
         len_divisor_for_length: u8,
@@ -42,9 +37,6 @@ impl Arbitrary for Op {
                 }
                 Op::Append { data }
             }
-            #[cfg(feature = "v9")]
-            2 => Op::Verify,
-            #[cfg(feature = "v10")]
             2 => {
                 let len_divisor_for_start: u8 = g.gen_range(1, 17);
                 let len_divisor_for_length: u8 = g.gen_range(1, 17);
@@ -59,53 +51,12 @@ impl Arbitrary for Op {
 }
 
 quickcheck! {
-
-  #[cfg(feature = "v9")]
-  fn implementation_matches_model(ops: Vec<Op>) -> bool {
-    async_std::task::block_on(async {
-      let page_size = 50;
-
-      let mut insta = create_feed(page_size)
-        .await
-        .expect("Instance creation should be successful");
-      let mut model = vec![];
-
-      for op in ops {
-        match op {
-          Op::Append { data } => {
-            insta.append(&data).await.expect("Append should be successful");
-            model.push(data);
-          },
-          Op::Get { index } => {
-            let data = insta.get(index).await.expect("Get should be successful");
-            if index >= insta.len() {
-              assert_eq!(data, None);
-            } else {
-              assert_eq!(data, Some(model[index as usize].clone()));
-            }
-          },
-          Op::Verify => {
-            let len = insta.len();
-            if len == 0 {
-              insta.signature(len).await.unwrap_err();
-            } else {
-              // Always test index of last entry, which is `len - 1`.
-              let len = len - 1;
-              let sig = insta.signature(len).await.expect("Signature should exist");
-              insta.verify(len, &sig).await.expect("Signature should match");
-            }
-          },
-        }
-      }
-      true
-    })
-  }
-  #[cfg(all(feature = "v10", feature = "async-std"))]
+  #[cfg(feature = "async-std")]
   fn implementation_matches_model(ops: Vec<Op>) -> bool {
     async_std::task::block_on(assert_implementation_matches_model(ops))
   }
 
-  #[cfg(all(feature = "v10", feature = "tokio"))]
+  #[cfg(feature = "tokio")]
   fn implementation_matches_model(ops: Vec<Op>) -> bool {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -114,7 +65,6 @@ quickcheck! {
   }
 }
 
-#[cfg(feature = "v10")]
 async fn assert_implementation_matches_model(ops: Vec<Op>) -> bool {
     use hypercore::{Hypercore, Storage};
 

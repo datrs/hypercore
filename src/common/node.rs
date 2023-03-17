@@ -1,17 +1,9 @@
-#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-use anyhow::ensure;
-#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-use anyhow::Result;
-#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use merkle_tree_stream::Node as NodeTrait;
 use merkle_tree_stream::{NodeKind, NodeParts};
 use pretty_hash::fmt as pretty_fmt;
 use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
-#[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-use std::io::Cursor;
 
 use crate::crypto::Hash;
 
@@ -67,48 +59,6 @@ impl Node {
             data: None,
             blank: true,
         }
-    }
-
-    /// Convert a vector to a new instance.
-    ///
-    /// Requires the index at which the buffer was read to be passed.
-    #[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-    pub fn from_bytes(index: u64, buffer: &[u8]) -> Result<Self> {
-        ensure!(buffer.len() == 40, "buffer should be 40 bytes");
-
-        let parent = flat_tree::parent(index);
-        let mut reader = Cursor::new(buffer);
-
-        // TODO: subslice directly, move cursor forward.
-        let capacity = 32;
-        let mut hash = Vec::with_capacity(capacity);
-        let mut blank = true;
-        for _ in 0..capacity {
-            let byte = reader.read_u8()?;
-            if blank && byte != 0 {
-                blank = false;
-            };
-            hash.push(byte);
-        }
-
-        let length = reader.read_u64::<BigEndian>()?;
-        Ok(Self {
-            hash,
-            length,
-            index,
-            parent,
-            data: Some(Vec::with_capacity(0)),
-            blank,
-        })
-    }
-
-    /// Convert to a buffer that can be written to disk.
-    #[cfg(feature = "v9")] // tree module has the byte manipulation for v10
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut writer = Vec::with_capacity(40);
-        writer.extend_from_slice(&self.hash);
-        writer.write_u64::<BigEndian>(self.length as u64)?;
-        Ok(writer)
     }
 }
 

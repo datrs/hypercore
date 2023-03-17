@@ -1,11 +1,8 @@
-#![cfg(feature = "v10")]
-
-mod common;
+pub mod common;
 
 use anyhow::Result;
 use common::get_test_key_pair;
-use hypercore::{Hypercore, RequestBlock, Storage};
-use random_access_memory::RandomAccessMemory;
+use hypercore::{Hypercore, Storage};
 
 #[async_std::test]
 async fn hypercore_new() -> Result<()> {
