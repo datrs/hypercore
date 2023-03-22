@@ -1,5 +1,6 @@
 use anyhow::Result;
 use anyhow::{anyhow, ensure};
+use compact_encoding::State;
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use intmap::IntMap;
@@ -7,7 +8,6 @@ use std::convert::TryFrom;
 
 use crate::common::NodeByteRange;
 use crate::common::{Proof, ValuelessProof};
-use crate::compact_encoding::State;
 use crate::crypto::{Hash, PublicKey};
 use crate::oplog::HeaderTree;
 use crate::{

@@ -1,10 +1,11 @@
-use crate::common::{BitfieldUpdate, Store, StoreInfo, StoreInfoInstruction};
-use crate::compact_encoding::{CompactEncoding, State};
-use crate::tree::MerkleTreeChangeset;
-use crate::{Node, PartialKeypair};
 use anyhow::{anyhow, Result};
 use futures::future::Either;
 use std::convert::{TryFrom, TryInto};
+
+use crate::common::{BitfieldUpdate, Store, StoreInfo, StoreInfoInstruction};
+use crate::encoding::{CompactEncoding, HypercoreState};
+use crate::tree::MerkleTreeChangeset;
+use crate::{Node, PartialKeypair};
 
 mod entry;
 mod header;
@@ -72,7 +73,7 @@ enum OplogSlot {
 
 #[derive(Debug)]
 struct ValidateLeaderOutcome {
-    state: State,
+    state: HypercoreState,
     header_bit: bool,
     partial_bit: bool,
 }
@@ -105,14 +106,14 @@ impl Oplog {
                         if let Some(mut h2_outcome) = h2_outcome {
                             let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
                             let header: Header = if header_bits[0] == header_bits[1] {
-                                h1_outcome.state.decode(&existing)
+                                (*h1_outcome.state).decode(&existing)
                             } else {
-                                h2_outcome.state.decode(&existing)
+                                (*h2_outcome.state).decode(&existing)
                             };
                             (header, header_bits)
                         } else {
                             (
-                                h1_outcome.state.decode(&existing),
+                                (*h1_outcome.state).decode(&existing),
                                 [h1_outcome.header_bit, h1_outcome.header_bit],
                             )
                         };
@@ -131,7 +132,11 @@ impl Oplog {
                         entries_length: 0,
                         entries_byte_length: 0,
                     };
-                    OplogOpenOutcome::new(oplog, h2_outcome.state.decode(&existing), Box::new([]))
+                    OplogOpenOutcome::new(
+                        oplog,
+                        (*h2_outcome.state).decode(&existing),
+                        Box::new([]),
+                    )
                 } else if let Some(key_pair) = key_pair {
                     // There is nothing in the oplog, start from new given key pair.
                     Self::new(key_pair.clone())
@@ -152,7 +157,7 @@ impl Oplog {
                             let entry: Entry = entry_outcome.state.decode(&existing);
                             entries.push(entry);
                             partials.push(entry_outcome.partial_bit);
-                            entry_offset = entry_outcome.state.end;
+                            entry_offset = (*entry_outcome.state).end;
                         } else {
                             break;
                         }
@@ -247,7 +252,7 @@ impl Oplog {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
         // Leave room for leaders
-        let mut state = State::new_with_start_and_end(0, len * 8);
+        let mut state = HypercoreState::new_with_start_and_end(0, len * 8);
 
         for entry in batch.iter() {
             state.preencode(entry);
@@ -256,7 +261,7 @@ impl Oplog {
         let mut buffer = state.create_buffer();
         for i in 0..len {
             let entry = &batch[i];
-            state.start += 8;
+            (*state).start += 8;
             let start = state.start;
             let partial_bit: bool = atomic && i < len - 1;
             state.encode(entry, &mut buffer);
@@ -303,7 +308,7 @@ impl Oplog {
     ) -> ([bool; 2], Box<[StoreInfo]>) {
         // The first 8 bytes will be filled with `prepend_leader`.
         let data_start_index: usize = 8;
-        let mut state = State::new_with_start_and_end(data_start_index, data_start_index);
+        let mut state = HypercoreState::new_with_start_and_end(data_start_index, data_start_index);
 
         // Get the right slot and header bit
         let (oplog_slot, header_bit) =
@@ -318,13 +323,13 @@ impl Oplog {
         }
 
         // Preencode the new header
-        state.preencode(header);
+        (*state).preencode(header);
 
         // Create a buffer for the needed data
         let mut buffer = state.create_buffer();
 
         // Encode the header
-        state.encode(header, &mut buffer);
+        (*state).encode(header, &mut buffer);
 
         // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
         Self::prepend_leader(
@@ -357,12 +362,12 @@ impl Oplog {
         len: usize,
         header_bit: bool,
         partial_bit: bool,
-        state: &mut State,
+        state: &mut HypercoreState,
         buffer: &mut Box<[u8]>,
     ) {
         // The 4 bytes right before start of data is the length in 8+8+8+6=30 bits. The 31st bit is
         // the partial bit and 32nd bit the header bit.
-        state.start = state.start - len - 4;
+        (*state).start = (*state).start - len - 4;
         let len_u32: u32 = len.try_into().unwrap();
         let partial_bit: u32 = if partial_bit { 2 } else { 0 };
         let header_bit: u32 = if header_bit { 1 } else { 0 };
@@ -382,7 +387,7 @@ impl Oplog {
         if buffer.len() < index + 8 {
             return Ok(None);
         }
-        let mut state = State::new_with_start_and_end(index, buffer.len());
+        let mut state = HypercoreState::new_with_start_and_end(index, buffer.len());
         let stored_checksum: u32 = state.decode_u32(buffer);
         let combined: u32 = state.decode_u32(buffer);
         let len = usize::try_from(combined >> 2)

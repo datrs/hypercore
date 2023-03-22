@@ -1,14 +1,15 @@
 pub use blake2_rfc::blake2b::Blake2bResult;
 
-use crate::common::Node;
-use crate::compact_encoding::State;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
+use compact_encoding::State;
 use ed25519_dalek::PublicKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::mem;
 use std::ops::{Deref, DerefMut};
+
+use crate::common::Node;
 
 // https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack
 const LEAF_TYPE: [u8; 1] = [0x00];

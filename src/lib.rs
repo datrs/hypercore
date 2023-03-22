@@ -25,7 +25,7 @@
 //! [Dat]: https://github.com/datrs
 //! [Feed]: crate::feed::Feed
 
-pub mod compact_encoding;
+pub mod encoding;
 pub mod prelude;
 
 mod bitfield;

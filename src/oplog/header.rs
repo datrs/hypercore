@@ -1,4 +1,5 @@
-use crate::compact_encoding::{CompactEncoding, State};
+use compact_encoding::{CompactEncoding, State};
+
 use crate::crypto::{PublicKey, SecretKey};
 use crate::PartialKeypair;
 
