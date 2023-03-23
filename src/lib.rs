@@ -38,10 +38,9 @@ mod oplog;
 mod storage;
 mod tree;
 
-pub use crate::common::Node;
 pub use crate::common::{
-    DataBlock, DataHash, DataSeek, DataUpgrade, Proof, RequestBlock, RequestSeek, RequestUpgrade,
-    Store,
+    DataBlock, DataHash, DataSeek, DataUpgrade, HypercoreError, Node, Proof, RequestBlock,
+    RequestSeek, RequestUpgrade, Store,
 };
 pub use crate::core::Hypercore;
 pub use crate::crypto::{generate_keypair, sign, verify, Signature};

@@ -1,7 +1,9 @@
+mod error;
 mod node;
 mod peer;
 mod store;
 
+pub use self::error::HypercoreError;
 pub use self::node::{Node, NodeByteRange};
 pub use self::peer::{
     DataBlock, DataHash, DataSeek, DataUpgrade, Proof, RequestBlock, RequestSeek, RequestUpgrade,

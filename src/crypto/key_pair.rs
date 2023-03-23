@@ -2,9 +2,10 @@
 
 pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, Verifier};
 
-use anyhow::{bail, ensure, Result};
 use rand::rngs::{OsRng, StdRng};
 use rand::SeedableRng;
+
+use crate::HypercoreError;
 
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {
@@ -18,15 +19,19 @@ pub fn sign(public_key: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature
 }
 
 /// Verify a signature on a message with a keypair's public key.
-pub fn verify(public: &PublicKey, msg: &[u8], sig: Option<&Signature>) -> Result<()> {
+pub fn verify(
+    public: &PublicKey,
+    msg: &[u8],
+    sig: Option<&Signature>,
+) -> Result<(), HypercoreError> {
     match sig {
-        None => bail!("Signature verification failed"),
+        None => Err(HypercoreError::InvalidSignature),
         Some(sig) => {
-            ensure!(
-                public.verify(msg, sig).is_ok(),
-                "Signature verification failed"
-            );
-            Ok(())
+            if public.verify(msg, sig).is_ok() {
+                Ok(())
+            } else {
+                Err(HypercoreError::InvalidSignature)
+            }
         }
     }
 }
