@@ -1,11 +1,10 @@
-use anyhow::{anyhow, Result};
 use futures::future::Either;
 use std::convert::{TryFrom, TryInto};
 
 use crate::common::{BitfieldUpdate, Store, StoreInfo, StoreInfoInstruction};
 use crate::encoding::{CompactEncoding, HypercoreState};
 use crate::tree::MerkleTreeChangeset;
-use crate::{Node, PartialKeypair};
+use crate::{HypercoreError, Node, PartialKeypair};
 
 mod entry;
 mod header;
@@ -87,7 +86,7 @@ impl Oplog {
     pub fn open(
         key_pair: &Option<PartialKeypair>,
         info: Option<StoreInfo>,
-    ) -> Result<Either<StoreInfoInstruction, OplogOpenOutcome>> {
+    ) -> Result<Either<StoreInfoInstruction, OplogOpenOutcome>, HypercoreError> {
         match info {
             None => Ok(Either::Left(StoreInfoInstruction::new_all_content(
                 Store::Oplog,
@@ -142,7 +141,7 @@ impl Oplog {
                     Self::new(key_pair.clone())
                 } else {
                     // The storage is empty and no key pair given, erroring
-                    return Err(anyhow!("Nothing stored in oplog and key pair not given"));
+                    return Err(HypercoreError::EmptyStorage);
                 };
 
                 // Read headers that might be stored in the existing content
@@ -383,7 +382,10 @@ impl Oplog {
 
     /// Validates that leader at given index is valid, and returns header and partial bits and
     /// `State` for the header/entry that the leader was for.
-    fn validate_leader(index: usize, buffer: &Box<[u8]>) -> Result<Option<ValidateLeaderOutcome>> {
+    fn validate_leader(
+        index: usize,
+        buffer: &Box<[u8]>,
+    ) -> Result<Option<ValidateLeaderOutcome>, HypercoreError> {
         if buffer.len() < index + 8 {
             return Ok(None);
         }
@@ -406,7 +408,7 @@ impl Oplog {
         state.end = state.start + len;
         let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end]);
         if calculated_checksum != stored_checksum {
-            return Err(anyhow!("Checksums do not match"));
+            return Err(HypercoreError::InvalidChecksum);
         };
 
         Ok(Some(ValidateLeaderOutcome {

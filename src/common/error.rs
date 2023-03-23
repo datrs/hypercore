@@ -6,6 +6,12 @@ pub enum HypercoreError {
     /// Invalid signature
     #[error("Given signature was invalid.")]
     InvalidSignature,
+    /// Invalid checksum
+    #[error("Invalid checksum.")]
+    InvalidChecksum,
+    /// Empty storage
+    #[error("Empty storage.")]
+    EmptyStorage,
     /// Unexpected IO error occured
     #[error("Unrecoverable input/output error occured.{}",
           .context.as_ref().map_or_else(String::new, |ctx| format!(" Context: {}.", ctx)))]
