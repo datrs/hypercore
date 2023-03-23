@@ -11,6 +11,9 @@ pub enum HypercoreError {
         /// Context for the error
         context: String,
     },
+    /// Not writable
+    #[error("Hypercore not writable")]
+    NotWritable,
     /// Invalid signature
     #[error("Given signature was invalid. {context}")]
     InvalidSignature {

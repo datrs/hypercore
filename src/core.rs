@@ -2,7 +2,7 @@
 
 use crate::{
     bitfield::Bitfield,
-    common::{BitfieldUpdate, Proof, StoreInfo, ValuelessProof},
+    common::{BitfieldUpdate, HypercoreError, Proof, StoreInfo, ValuelessProof},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
@@ -10,7 +10,6 @@ use crate::{
     tree::{MerkleTree, MerkleTreeChangeset},
     RequestBlock, RequestSeek, RequestUpgrade,
 };
-use anyhow::{anyhow, Result};
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use random_access_storage::RandomAccess;
@@ -55,7 +54,7 @@ where
     T: RandomAccess + Debug + Send,
 {
     /// Creates new hypercore using given storage with random key pair
-    pub async fn new(storage: Storage<T>) -> Result<Hypercore<T>> {
+    pub async fn new(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
         let key_pair = generate_keypair();
         Hypercore::new_with_key_pair(
             storage,
@@ -71,12 +70,12 @@ where
     pub async fn new_with_key_pair(
         storage: Storage<T>,
         key_pair: PartialKeypair,
-    ) -> Result<Hypercore<T>> {
+    ) -> Result<Hypercore<T>, HypercoreError> {
         Hypercore::resume(storage, Some(key_pair)).await
     }
 
     /// Opens an existing hypercore in given storage.
-    pub async fn open(storage: Storage<T>) -> Result<Hypercore<T>> {
+    pub async fn open(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
         Hypercore::resume(storage, None).await
     }
 
@@ -84,7 +83,7 @@ where
     async fn resume(
         mut storage: Storage<T>,
         key_pair: Option<PartialKeypair>,
-    ) -> Result<Hypercore<T>> {
+    ) -> Result<Hypercore<T>, HypercoreError> {
         // Open/create oplog
         let mut oplog_open_outcome = match Oplog::open(&key_pair, None)? {
             Either::Right(value) => value,
@@ -93,7 +92,9 @@ where
                 match Oplog::open(&key_pair, Some(info))? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not open tree"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: "Could not open oplog".to_string(),
+                        });
                     }
                 }
             }
@@ -110,7 +111,9 @@ where
                 match MerkleTree::open(&oplog_open_outcome.header.tree, Some(&infos))? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not open tree"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: "Could not open tree".to_string(),
+                        });
                     }
                 }
             }
@@ -131,7 +134,9 @@ where
                         match Bitfield::open(Some(info)) {
                             Either::Right(value) => value,
                             Either::Left(_) => {
-                                return Err(anyhow!("Could not open bitfield"));
+                                return Err(HypercoreError::InvalidOperation {
+                                    context: "Could not open bitfield".to_string(),
+                                });
                             }
                         }
                     }
@@ -168,13 +173,23 @@ where
                                 )? {
                                     Either::Right(value) => value,
                                     Either::Left(_) => {
-                                        return Err(anyhow!("Could not truncate"));
+                                        return Err(HypercoreError::InvalidOperation {
+                                            context: format!(
+                                                "Could not truncate tree to length {}",
+                                                tree_upgrade.length
+                                            ),
+                                        });
                                     }
                                 }
                             }
                         };
                     changeset.ancestors = tree_upgrade.ancestors;
-                    changeset.signature = Some(Signature::try_from(&*tree_upgrade.signature)?);
+                    changeset.signature =
+                        Some(Signature::try_from(&*tree_upgrade.signature).map_err(|_| {
+                            HypercoreError::InvalidSignature {
+                                context: "Could not parse changeset signature".to_string(),
+                            }
+                        })?);
 
                     // TODO: Skip reorg hints for now, seems to only have to do with replication
                     // addReorgHint(header.hints.reorgs, tree, batch)
@@ -213,15 +228,15 @@ where
     }
 
     /// Appends a data slice to the hypercore.
-    pub async fn append(&mut self, data: &[u8]) -> Result<AppendOutcome> {
+    pub async fn append(&mut self, data: &[u8]) -> Result<AppendOutcome, HypercoreError> {
         self.append_batch(&[data]).await
     }
 
     /// Appends a given batch of data slices to the hypercore.
-    pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome> {
+    pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome, HypercoreError> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
-            None => anyhow::bail!("No secret key, cannot append."),
+            None => return Err(HypercoreError::NotWritable),
         };
 
         if !batch.is_empty() {
@@ -277,7 +292,7 @@ where
     }
 
     /// Read value at given index, if any.
-    pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>> {
+    pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>, HypercoreError> {
         if !self.bitfield.get(index) {
             return Ok(None);
         }
@@ -290,7 +305,12 @@ where
                 match self.tree.byte_range(index, Some(&infos))? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not read byte range"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: format!(
+                                "Could not read byte range at index {} from tree",
+                                index
+                            ),
+                        });
                     }
                 }
             }
@@ -304,7 +324,9 @@ where
                 match self.block_store.read(&byte_range, Some(info)) {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not read block storage range"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: "Could not read block storage range".to_string(),
+                        });
                     }
                 }
             }
@@ -314,7 +336,7 @@ where
     }
 
     /// Clear data for entries between start and end (exclusive) indexes.
-    pub async fn clear(&mut self, start: u64, end: u64) -> Result<()> {
+    pub async fn clear(&mut self, start: u64, end: u64) -> Result<(), HypercoreError> {
         if start >= end {
             // NB: This is what javascript does, so we mimic that here
             return Ok(());
@@ -353,7 +375,9 @@ where
                 match self.tree.byte_offset(start, Some(&infos))? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not read offset for index"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: format!("Could not read offset for index {} from tree", start),
+                        });
                     }
                 }
             }
@@ -368,7 +392,12 @@ where
                 match self.tree.byte_range(end - 1, Some(&infos))? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not read byte range"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: format!(
+                                "Could not read byte range for index {} from tree",
+                                end - 1
+                            ),
+                        });
                     }
                 }
             }
@@ -399,7 +428,7 @@ where
         hash: Option<RequestBlock>,
         seek: Option<RequestSeek>,
         upgrade: Option<RequestUpgrade>,
-    ) -> Result<Option<Proof>> {
+    ) -> Result<Option<Proof>, HypercoreError> {
         let mut valueless_proof = self
             .create_valueless_proof(block, hash, seek, upgrade)
             .await?;
@@ -419,7 +448,7 @@ where
 
     /// Verify and apply proof received from peer, returns true if changed, false if not
     /// possible to apply.
-    pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool> {
+    pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool, HypercoreError> {
         if proof.fork != self.tree.fork {
             return Ok(false);
         }
@@ -447,7 +476,12 @@ where
                         )? {
                             Either::Right(value) => value,
                             Either::Left(_) => {
-                                return Err(anyhow!("Could not read offset for index"));
+                                return Err(HypercoreError::InvalidOperation {
+                                    context: format!(
+                                        "Could not read offset for index {} from tree",
+                                        block.index
+                                    ),
+                                });
                             }
                         }
                     }
@@ -495,7 +529,7 @@ where
 
     /// Used to fill the nodes field of a `RequestBlock` during
     /// synchronization.
-    pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64> {
+    pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64, HypercoreError> {
         match self.tree.missing_nodes(merkle_tree_index, None)? {
             Either::Right(value) => return Ok(value),
             Either::Left(instructions) => {
@@ -522,7 +556,7 @@ where
         hash: Option<RequestBlock>,
         seek: Option<RequestSeek>,
         upgrade: Option<RequestUpgrade>,
-    ) -> Result<ValuelessProof> {
+    ) -> Result<ValuelessProof, HypercoreError> {
         match self.tree.create_valueless_proof(
             block.as_ref(),
             hash.as_ref(),
@@ -557,7 +591,7 @@ where
 
     /// Verify a proof received from a peer. Returns a changeset that should be
     /// applied.
-    async fn verify_proof(&mut self, proof: &Proof) -> Result<MerkleTreeChangeset> {
+    async fn verify_proof(&mut self, proof: &Proof) -> Result<MerkleTreeChangeset, HypercoreError> {
         match self.tree.verify_proof(proof, &self.key_pair.public, None)? {
             Either::Right(value) => Ok(value),
             Either::Left(instructions) => {
@@ -568,7 +602,9 @@ where
                 {
                     Either::Right(value) => Ok(value),
                     Either::Left(_) => {
-                        return Err(anyhow!("Could not verify key pair"));
+                        return Err(HypercoreError::InvalidOperation {
+                            context: format!("Could not verify proof from tree"),
+                        });
                     }
                 }
             }
@@ -587,7 +623,7 @@ where
         }
     }
 
-    async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<()> {
+    async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<(), HypercoreError> {
         let infos = self.bitfield.flush();
         self.storage.flush_infos(&infos).await?;
         let infos = self.tree.flush();
@@ -629,7 +665,7 @@ mod tests {
     use random_access_memory::RandomAccessMemory;
 
     #[async_std::test]
-    async fn core_create_proof_block_only() -> Result<()> {
+    async fn core_create_proof_block_only() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
 
         let proof = hypercore
@@ -647,7 +683,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -678,7 +714,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_upgrade_and_additional() -> Result<()> {
+    async fn core_create_proof_block_and_upgrade_and_additional() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -709,7 +745,8 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_upgrade_from_existing_state() -> Result<()> {
+    async fn core_create_proof_block_and_upgrade_from_existing_state() -> Result<(), HypercoreError>
+    {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -739,8 +776,8 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_upgrade_from_existing_state_with_additional() -> Result<()>
-    {
+    async fn core_create_proof_block_and_upgrade_from_existing_state_with_additional(
+    ) -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -771,7 +808,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_seek_1_no_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_seek_1_no_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -793,7 +830,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_seek_2_no_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_seek_2_no_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -815,7 +852,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_seek_3_no_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_seek_3_no_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -839,7 +876,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_seek_to_tree_no_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_seek_to_tree_no_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(16).await?;
         let proof = hypercore
             .create_proof(
@@ -864,7 +901,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_block_and_seek_with_upgrade() -> Result<()> {
+    async fn core_create_proof_block_and_seek_with_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -894,7 +931,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_create_proof_seek_with_upgrade() -> Result<()> {
+    async fn core_create_proof_seek_with_upgrade() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         let proof = hypercore
             .create_proof(
@@ -923,7 +960,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_verify_proof_invalid_signature() -> Result<()> {
+    async fn core_verify_proof_invalid_signature() -> Result<(), HypercoreError> {
         let mut hypercore = create_hypercore_with_data(10).await?;
         // Invalid clone hypercore with a different public key
         let mut hypercore_clone = create_hypercore_with_data(0).await?;
@@ -947,7 +984,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn core_verify_and_apply_proof() -> Result<()> {
+    async fn core_verify_and_apply_proof() -> Result<(), HypercoreError> {
         let mut main = create_hypercore_with_data(10).await?;
         let mut clone = create_hypercore_with_data_and_key_pair(
             0,
@@ -990,7 +1027,9 @@ mod tests {
         Ok(())
     }
 
-    async fn create_hypercore_with_data(length: u64) -> Result<Hypercore<RandomAccessMemory>> {
+    async fn create_hypercore_with_data(
+        length: u64,
+    ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
         let key_pair = generate_keypair();
         Ok(create_hypercore_with_data_and_key_pair(
             length,
@@ -1005,7 +1044,7 @@ mod tests {
     async fn create_hypercore_with_data_and_key_pair(
         length: u64,
         key_pair: PartialKeypair,
-    ) -> Result<Hypercore<RandomAccessMemory>> {
+    ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
         let storage = Storage::new_memory().await?;
         let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
         for i in 0..length {
