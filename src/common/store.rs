@@ -11,6 +11,17 @@ pub enum Store {
     Oplog,
 }
 
+impl std::fmt::Display for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Store::Tree => write!(f, "tree"),
+            Store::Data => write!(f, "data"),
+            Store::Bitfield => write!(f, "bitfield"),
+            Store::Oplog => write!(f, "oplog"),
+        }
+    }
+}
+
 /// Information type about a store.
 #[derive(Debug, PartialEq)]
 pub enum StoreInfoType {

@@ -141,7 +141,9 @@ impl Oplog {
                     Self::new(key_pair.clone())
                 } else {
                     // The storage is empty and no key pair given, erroring
-                    return Err(HypercoreError::EmptyStorage);
+                    return Err(HypercoreError::EmptyStorage {
+                        store: Store::Oplog,
+                    });
                 };
 
                 // Read headers that might be stored in the existing content
@@ -408,7 +410,9 @@ impl Oplog {
         state.end = state.start + len;
         let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end]);
         if calculated_checksum != stored_checksum {
-            return Err(HypercoreError::InvalidChecksum);
+            return Err(HypercoreError::InvalidChecksum {
+                context: "Calculated signature does not match oplog signature".to_string(),
+            });
         };
 
         Ok(Some(ValidateLeaderOutcome {

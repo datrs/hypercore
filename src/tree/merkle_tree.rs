@@ -1,13 +1,10 @@
-use anyhow::Result;
-use anyhow::{anyhow, ensure};
 use compact_encoding::State;
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use intmap::IntMap;
 use std::convert::TryFrom;
 
-use crate::common::NodeByteRange;
-use crate::common::{Proof, ValuelessProof};
+use crate::common::{HypercoreError, NodeByteRange, Proof, ValuelessProof};
 use crate::crypto::{Hash, PublicKey};
 use crate::oplog::HeaderTree;
 use crate::{
@@ -41,7 +38,7 @@ impl MerkleTree {
     pub fn open(
         header_tree: &HeaderTree,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, Self>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, Self>, HypercoreError> {
         match infos {
             None => {
                 let root_indices = get_root_indices(&header_tree.length);
@@ -69,10 +66,14 @@ impl MerkleTree {
 
                 for i in 0..root_indices.len() {
                     let index = root_indices[i];
-                    ensure!(
-                        index == index_from_info(&infos[i]),
-                        "Given slices vector not in the correct order"
-                    );
+                    if index != index_from_info(&infos[i]) {
+                        return Err(HypercoreError::CorruptStorage {
+                            store: Store::Tree,
+                            context: Some(
+                                "Given slices vector not in the correct order".to_string(),
+                            ),
+                        });
+                    }
                     let data = infos[i].data.as_ref().unwrap();
                     let node = node_from_bytes(&index, data);
                     byte_length += node.length;
@@ -85,7 +86,11 @@ impl MerkleTree {
                     length = length / 2;
                 }
                 let signature: Option<Signature> = if header_tree.signature.len() > 0 {
-                    Some(Signature::try_from(&*header_tree.signature)?)
+                    Some(Signature::try_from(&*header_tree.signature).map_err(|err| {
+                        HypercoreError::InvalidSignature {
+                            context: "Could not parse signature".to_string(),
+                        }
+                    })?)
                 } else {
                     None
                 };
@@ -112,11 +117,11 @@ impl MerkleTree {
     }
 
     /// Commit a created changeset to the tree.
-    pub fn commit(&mut self, changeset: MerkleTreeChangeset) -> Result<()> {
+    pub fn commit(&mut self, changeset: MerkleTreeChangeset) -> Result<(), HypercoreError> {
         if !self.commitable(&changeset) {
-            return Err(anyhow!(
-                "Tree was modified during changeset, refusing to commit"
-            ));
+            return Err(HypercoreError::InvalidOperation {
+                context: "Tree was modified during changeset, refusing to commit".to_string(),
+            });
         }
 
         if changeset.upgraded {
@@ -151,7 +156,7 @@ impl MerkleTree {
         &self,
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>, HypercoreError> {
         let index = self.validate_hypercore_index(hypercore_index)?;
         // Get nodes out of incoming infos
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
@@ -199,7 +204,7 @@ impl MerkleTree {
         &self,
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
         let index = self.validate_hypercore_index(hypercore_index)?;
         self.byte_offset_from_index(index, infos)
     }
@@ -210,7 +215,7 @@ impl MerkleTree {
         hypercore_index: u64,
         changeset: &MerkleTreeChangeset,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
         if self.length == hypercore_index {
             return Ok(Either::Right(self.byte_length));
         }
@@ -263,7 +268,7 @@ impl MerkleTree {
         length: u64,
         fork: u64,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>, HypercoreError> {
         let head = length * 2;
         let mut full_roots = vec![];
         flat_tree::full_roots(head, &mut full_roots);
@@ -320,7 +325,7 @@ impl MerkleTree {
         seek: Option<&RequestSeek>,
         upgrade: Option<&RequestUpgrade>,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, ValuelessProof>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, ValuelessProof>, HypercoreError> {
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let fork = self.fork;
@@ -335,7 +340,9 @@ impl MerkleTree {
         let indexed = normalize_indexed(block, hash);
 
         if from >= to || to > head {
-            return Err(anyhow!("Invalid upgrade"));
+            return Err(HypercoreError::InvalidOperation {
+                context: "Invalid upgrade".to_string(),
+            });
         }
 
         let mut sub_tree = head;
@@ -349,9 +356,10 @@ impl MerkleTree {
         let mut untrusted_sub_tree = false;
         if let Some(indexed) = indexed.as_ref() {
             if seek.is_some() && upgrade.is_some() && indexed.index >= from {
-                return Err(anyhow!(
-                    "Cannot both do a seek and block/hash request when upgrading"
-                ));
+                return Err(HypercoreError::InvalidOperation {
+                    context: "Cannot both do a seek and block/hash request when upgrading"
+                        .to_string(),
+                });
             }
 
             if let Some(upgrade) = upgrade.as_ref() {
@@ -496,7 +504,7 @@ impl MerkleTree {
         proof: &Proof,
         public_key: &PublicKey,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>, HypercoreError> {
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut changeset = self.changeset();
@@ -528,10 +536,13 @@ impl MerkleTree {
                 }
                 Either::Right(verified_block_root_node) => {
                     if verified_block_root_node.hash != unverified_block_root_node.hash {
-                        return Err(anyhow!(
-                            "Invalid checksum at node {}",
-                            unverified_block_root_node.index
-                        ));
+                        return Err(HypercoreError::InvalidChecksum {
+                            context: format!(
+                                "Invalid checksum at node {}, store {}",
+                                unverified_block_root_node.index,
+                                Store::Tree
+                            ),
+                        });
                     }
                 }
             }
@@ -549,7 +560,7 @@ impl MerkleTree {
         &self,
         index: u64,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
         let head = 2 * self.length;
         let mut iter = flat_tree::Iterator::new(index);
         let iter_right_span = iter.index() + iter.factor() / 2 - 1;
@@ -653,7 +664,7 @@ impl MerkleTree {
     }
 
     /// Validates given hypercore index and returns tree index
-    fn validate_hypercore_index(&self, hypercore_index: u64) -> Result<u64> {
+    fn validate_hypercore_index(&self, hypercore_index: u64) -> Result<u64, HypercoreError> {
         // Converts a hypercore index into a merkle tree index
         let index = hypercore_index_into_merkle_tree_index(hypercore_index);
 
@@ -665,10 +676,9 @@ impl MerkleTree {
             flat_tree::right_span(index)
         };
         if compare_index >= head {
-            return Err(anyhow!(
-                "Hypercore index {} is out of bounds",
-                hypercore_index
-            ));
+            return Err(HypercoreError::BadArgument {
+                context: format!("Hypercore index {} is out of bounds", hypercore_index),
+            });
         }
         Ok(index)
     }
@@ -677,7 +687,7 @@ impl MerkleTree {
         &self,
         index: u64,
         infos: Option<&[StoreInfo]>,
-    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>> {
+    ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
         // Get nodes out of incoming infos
         let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
         // Get offset
@@ -695,7 +705,7 @@ impl MerkleTree {
         &self,
         index: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>, HypercoreError> {
         let index = if (index & 1) == 1 {
             flat_tree::left_span(index)
         } else {
@@ -738,24 +748,25 @@ impl MerkleTree {
             };
         }
 
-        Err(anyhow!(
-            "Could not calculate byte offset for index {}",
-            index
-        ))
+        Err(HypercoreError::BadArgument {
+            context: format!("Could not calculate byte offset for index {}", index),
+        })
     }
 
     fn required_node(
         &self,
         index: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<StoreInfoInstruction, Node>> {
+    ) -> Result<Either<StoreInfoInstruction, Node>, HypercoreError> {
         match self.node(index, nodes, false)? {
             Either::Left(value) => Ok(Either::Left(value)),
             Either::Right(node) => {
                 if let Some(node) = node {
                     Ok(Either::Right(node))
                 } else {
-                    Err(anyhow!("Node at {} was required", index))
+                    Err(HypercoreError::InvalidOperation {
+                        context: format!("Node at {} is required, store {}", index, Store::Tree),
+                    })
                 }
             }
         }
@@ -765,7 +776,7 @@ impl MerkleTree {
         &self,
         index: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<StoreInfoInstruction, Option<Node>>> {
+    ) -> Result<Either<StoreInfoInstruction, Option<Node>>, HypercoreError> {
         self.node(index, nodes, true)
     }
 
@@ -774,7 +785,7 @@ impl MerkleTree {
         index: u64,
         nodes: &IntMap<Option<Node>>,
         allow_miss: bool,
-    ) -> Result<Either<StoreInfoInstruction, Option<Node>>> {
+    ) -> Result<Either<StoreInfoInstruction, Option<Node>>, HypercoreError> {
         // First check if unflushed already has the node
         if let Some(node) = self.unflushed.get(index) {
             if node.blank || (self.truncated && node.index >= 2 * self.truncate_to) {
@@ -782,7 +793,13 @@ impl MerkleTree {
                 return if allow_miss {
                     Ok(Either::Right(None))
                 } else {
-                    Err(anyhow!("Could not load node: {}", index))
+                    Err(HypercoreError::InvalidOperation {
+                        context: format!(
+                            "Could not load node: {}, store {}, unflushed",
+                            index,
+                            Store::Tree
+                        ),
+                    })
                 };
             }
             return Ok(Either::Right(Some(node.clone())));
@@ -796,14 +813,26 @@ impl MerkleTree {
                     return if allow_miss {
                         Ok(Either::Right(None))
                     } else {
-                        Err(anyhow!("Could not load node: {}", index))
+                        Err(HypercoreError::InvalidOperation {
+                            context: format!(
+                                "Could not load node: {}, store {}, blank",
+                                index,
+                                Store::Tree
+                            ),
+                        })
                     };
                 }
                 return Ok(Either::Right(Some(node.clone())));
             } else if allow_miss {
                 return Ok(Either::Right(None));
             } else {
-                return Err(anyhow!("Could not load node: {}", index));
+                return Err(HypercoreError::InvalidOperation {
+                    context: format!(
+                        "Could not load node: {}, store {}, empty",
+                        index,
+                        Store::Tree
+                    ),
+                });
             }
         }
 
@@ -823,7 +852,7 @@ impl MerkleTree {
         head: u64,
         bytes: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>, HypercoreError> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut roots = vec![];
         flat_tree::full_roots(head, &mut roots);
@@ -869,7 +898,7 @@ impl MerkleTree {
         root: u64,
         bytes: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>, HypercoreError> {
         if bytes == 0 {
             return Ok(Either::Right(root));
         }
@@ -917,7 +946,7 @@ impl MerkleTree {
         root: u64,
         bytes: u64,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, u64>, HypercoreError> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let offset_or_instructions = self.byte_offset_from_nodes(root, nodes)?;
         let mut bytes = bytes;
@@ -927,7 +956,9 @@ impl MerkleTree {
             }
             Either::Right(offset) => {
                 if offset > bytes {
-                    return Err(anyhow!("Invalid seek"));
+                    return Err(HypercoreError::InvalidOperation {
+                        context: "Invalid seek, wrong offset".to_string(),
+                    });
                 }
                 if offset == bytes {
                     return Ok(Either::Right(root));
@@ -940,7 +971,9 @@ impl MerkleTree {
                     }
                     Either::Right(node) => {
                         if node.length <= bytes {
-                            return Err(anyhow!("Invalid seek"));
+                            return Err(HypercoreError::InvalidOperation {
+                                context: "Invalid seek, wrong length".to_string(),
+                            });
                         }
                     }
                 }
@@ -964,7 +997,7 @@ impl MerkleTree {
         root: u64,
         p: &mut LocalProof,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>, HypercoreError> {
         if let Some(indexed) = indexed {
             let mut iter = flat_tree::Iterator::new(indexed.index);
             let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
@@ -1023,7 +1056,7 @@ impl MerkleTree {
         root: u64,
         p: &mut LocalProof,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>, HypercoreError> {
         let mut iter = flat_tree::Iterator::new(seek_root);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut seek_nodes: Vec<Node> = Vec::new();
@@ -1067,7 +1100,7 @@ impl MerkleTree {
         sub_tree: u64,
         p: &mut LocalProof,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>, HypercoreError> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut upgrade: Vec<Node> = Vec::new();
         let mut has_upgrade = false;
@@ -1174,7 +1207,7 @@ impl MerkleTree {
         to: u64,
         p: &mut LocalProof,
         nodes: &IntMap<Option<Node>>,
-    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>> {
+    ) -> Result<Either<Vec<StoreInfoInstruction>, ()>, HypercoreError> {
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut additional_upgrade: Vec<Node> = Vec::new();
         let mut has_additional_upgrade = false;
@@ -1262,7 +1295,7 @@ fn verify_tree(
     hash: Option<&DataHash>,
     seek: Option<&DataSeek>,
     changeset: &mut MerkleTreeChangeset,
-) -> Result<Option<Node>> {
+) -> Result<Option<Node>, HypercoreError> {
     let untrusted_node: Option<NormalizedData> = normalize_data(block, hash);
 
     if untrusted_node.is_none() {
@@ -1325,7 +1358,7 @@ fn verify_upgrade(
     block_root: Option<&Node>,
     public_key: &PublicKey,
     changeset: &mut MerkleTreeChangeset,
-) -> Result<bool> {
+) -> Result<bool, HypercoreError> {
     let mut q = if let Some(block_root) = block_root {
         NodeQueue::new(upgrade.nodes.clone(), Some(block_root.clone()))
     } else {
@@ -1371,7 +1404,9 @@ fn verify_upgrade(
         i += 1;
         while node.index != iter.index() {
             if iter.factor() == 2 {
-                return Err(anyhow!("Unexpected node: {}", node.index));
+                return Err(HypercoreError::InvalidOperation {
+                    context: format!("Unexpected node: {}, store: {}", node.index, Store::Tree),
+                });
             }
             iter.left_child();
         }
@@ -1486,17 +1521,17 @@ struct LocalProof {
     pub additional_upgrade: Option<Vec<Node>>,
 }
 
-fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64> {
+fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64, HypercoreError> {
     let mut iter = flat_tree::Iterator::new(index);
     for _ in 0..nodes {
         iter.parent();
         if iter.contains(head) {
-            return Err(anyhow!(
-                "Nodes is out of bounds, index: {}, nodes: {}, head {}",
-                index,
-                nodes,
-                head
-            ));
+            return Err(HypercoreError::InvalidOperation {
+                context: format!(
+                    "Nodes is out of bounds, index: {}, nodes: {}, head {}",
+                    index, nodes, head
+                ),
+            });
         }
     }
     Ok(iter.index())
@@ -1535,7 +1570,7 @@ impl NodeQueue {
             length,
         }
     }
-    pub fn shift(&mut self, index: u64) -> Result<Node> {
+    pub fn shift(&mut self, index: u64) -> Result<Node, HypercoreError> {
         if let Some(extra) = self.extra.take() {
             if extra.index == index {
                 self.length -= 1;
@@ -1545,12 +1580,16 @@ impl NodeQueue {
             }
         }
         if self.i >= self.nodes.len() {
-            return Err(anyhow!("Expected node {}, got (nil)", index));
+            return Err(HypercoreError::InvalidOperation {
+                context: format!("Expected node {}, got (nil)", index),
+            });
         }
         let node = self.nodes[self.i].clone();
         self.i += 1;
         if node.index != index {
-            return Err(anyhow!("Expected node {}, got node {}", index, node.index));
+            return Err(HypercoreError::InvalidOperation {
+                context: format!("Expected node {}, got node {}", index, node.index),
+            });
         }
         self.length -= 1;
         Ok(node)

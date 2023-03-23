@@ -25,12 +25,16 @@ pub fn verify(
     sig: Option<&Signature>,
 ) -> Result<(), HypercoreError> {
     match sig {
-        None => Err(HypercoreError::InvalidSignature),
+        None => Err(HypercoreError::InvalidSignature {
+            context: "No signature provided.".to_string(),
+        }),
         Some(sig) => {
             if public.verify(msg, sig).is_ok() {
                 Ok(())
             } else {
-                Err(HypercoreError::InvalidSignature)
+                Err(HypercoreError::InvalidSignature {
+                    context: "Signature could not be verified.".to_string(),
+                })
             }
         }
     }

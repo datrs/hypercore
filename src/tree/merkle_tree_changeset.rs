@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 
 use crate::{
     crypto::{signable_tree, verify, Hash},
-    sign, Node,
+    sign, HypercoreError, Node,
 };
 
 /// Changeset for a `MerkleTree`. This allows to incrementally change a `MerkleTree` in two steps:
@@ -99,9 +99,12 @@ impl MerkleTreeChangeset {
         &mut self,
         signature: &[u8],
         public_key: &PublicKey,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), HypercoreError> {
         // Verify that the received signature matches the public key
-        let signature = Signature::try_from(signature)?;
+        let signature =
+            Signature::try_from(signature).map_err(|_| HypercoreError::InvalidSignature {
+                context: "Could not parse signature".to_string(),
+            })?;
         let hash = self.hash();
         verify(&public_key, &self.signable(&hash), Some(&signature))?;
 
