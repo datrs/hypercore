@@ -1,6 +1,5 @@
 //! Save data to a desired storage backend.
 
-use anyhow::{anyhow, Result};
 use ed25519_dalek::{PublicKey, SecretKey};
 use futures::future::FutureExt;
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,7 +9,10 @@ use random_access_storage::{RandomAccess, RandomAccessError};
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use crate::common::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType};
+use crate::{
+    common::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType},
+    HypercoreError,
+};
 
 /// Key pair where for read-only hypercores the secret key can also be missing.
 #[derive(Debug)]
@@ -49,12 +51,38 @@ where
     oplog: T,
 }
 
+pub fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
+    match err {
+        RandomAccessError::IO {
+            return_code,
+            context,
+            source,
+        } => HypercoreError::IO {
+            context: Some(format!(
+                "RandomAccess IO error. Context: {:?}, return_code: {:?}",
+                context, return_code
+            )),
+            source,
+        },
+        RandomAccessError::OutOfBounds {
+            offset,
+            end,
+            length,
+        } => HypercoreError::InvalidOperation {
+            context: format!(
+                "RandomAccess out of bounds. Offset: {}, end: {:?}, length: {}",
+                offset, end, length
+            ),
+        },
+    }
+}
+
 impl<T> Storage<T>
 where
     T: RandomAccess + Debug + Send,
 {
     /// Create a new instance. Takes a callback to create new storage instances and overwrite flag.
-    pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self>
+    pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
     where
         Cb: Fn(
             Store,
@@ -62,23 +90,25 @@ where
             Box<dyn std::future::Future<Output = Result<T, RandomAccessError>> + Send>,
         >,
     {
-        let mut tree = create(Store::Tree).await?;
-        let mut data = create(Store::Data).await?;
-        let mut bitfield = create(Store::Bitfield).await?;
-        let mut oplog = create(Store::Oplog).await?;
+        let mut tree = create(Store::Tree).await.map_err(map_random_access_err)?;
+        let mut data = create(Store::Data).await.map_err(map_random_access_err)?;
+        let mut bitfield = create(Store::Bitfield)
+            .await
+            .map_err(map_random_access_err)?;
+        let mut oplog = create(Store::Oplog).await.map_err(map_random_access_err)?;
 
         if overwrite {
-            if tree.len().await.map_err(|e| anyhow!(e))? > 0 {
-                tree.truncate(0).await.map_err(|e| anyhow!(e))?;
+            if tree.len().await.map_err(map_random_access_err)? > 0 {
+                tree.truncate(0).await.map_err(map_random_access_err)?;
             }
-            if data.len().await.map_err(|e| anyhow!(e))? > 0 {
-                data.truncate(0).await.map_err(|e| anyhow!(e))?;
+            if data.len().await.map_err(map_random_access_err)? > 0 {
+                data.truncate(0).await.map_err(map_random_access_err)?;
             }
-            if bitfield.len().await.map_err(|e| anyhow!(e))? > 0 {
-                bitfield.truncate(0).await.map_err(|e| anyhow!(e))?;
+            if bitfield.len().await.map_err(map_random_access_err)? > 0 {
+                bitfield.truncate(0).await.map_err(map_random_access_err)?;
             }
-            if oplog.len().await.map_err(|e| anyhow!(e))? > 0 {
-                oplog.truncate(0).await.map_err(|e| anyhow!(e))?;
+            if oplog.len().await.map_err(map_random_access_err)? > 0 {
+                oplog.truncate(0).await.map_err(map_random_access_err)?;
             }
         }
 
@@ -93,7 +123,10 @@ where
     }
 
     /// Read info from store based on given instruction. Convenience method to `read_infos`.
-    pub async fn read_info(&mut self, info_instruction: StoreInfoInstruction) -> Result<StoreInfo> {
+    pub async fn read_info(
+        &mut self,
+        info_instruction: StoreInfoInstruction,
+    ) -> Result<StoreInfo, HypercoreError> {
         let mut infos = self.read_infos_to_vec(&[info_instruction]).await?;
         Ok(infos
             .pop()
@@ -104,7 +137,7 @@ where
     pub async fn read_infos(
         &mut self,
         info_instructions: &[StoreInfoInstruction],
-    ) -> Result<Box<[StoreInfo]>> {
+    ) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let infos = self.read_infos_to_vec(info_instructions).await?;
         Ok(infos.into_boxed_slice())
     }
@@ -113,7 +146,7 @@ where
     pub async fn read_infos_to_vec(
         &mut self,
         info_instructions: &[StoreInfoInstruction],
-    ) -> Result<Vec<StoreInfo>> {
+    ) -> Result<Vec<StoreInfo>, HypercoreError> {
         if info_instructions.is_empty() {
             return Ok(vec![]);
         }
@@ -127,32 +160,45 @@ where
             }
             match instruction.info_type {
                 StoreInfoType::Content => {
-                    let length = match instruction.length {
+                    let read_length = match instruction.length {
                         Some(length) => length,
-                        None => storage.len().await.map_err(|e| anyhow!(e))?,
+                        None => storage.len().await.map_err(map_random_access_err)?,
                     };
-                    let read_result = storage.read(instruction.index, length).await;
+                    let read_result = storage.read(instruction.index, read_length).await;
                     let info: StoreInfo = match read_result {
                         Ok(buf) => Ok(StoreInfo::new_content(
                             instruction.store.clone(),
                             instruction.index,
                             &buf,
                         )),
-                        Err(e) => {
+                        Err(RandomAccessError::OutOfBounds {
+                            offset: _,
+                            end: _,
+                            length,
+                        }) => {
                             if instruction.allow_miss {
                                 Ok(StoreInfo::new_content_miss(
                                     instruction.store.clone(),
                                     instruction.index,
                                 ))
                             } else {
-                                Err(anyhow!(e))
+                                Err(HypercoreError::InvalidOperation {
+                                    context: format!(
+                                        "Could not read from store {}, index {} / length {} is out of bounds for store length {}",
+                                        instruction.index,
+                                        read_length,
+                                        current_store,
+                                        length
+                                    ),
+                                })
                             }
                         }
+                        Err(e) => Err(map_random_access_err(e)),
                     }?;
                     infos.push(info);
                 }
                 StoreInfoType::Size => {
-                    let length = storage.len().await.map_err(|e| anyhow!(e))?;
+                    let length = storage.len().await.map_err(map_random_access_err)?;
                     infos.push(StoreInfo::new_size(
                         instruction.store.clone(),
                         instruction.index,
@@ -165,12 +211,12 @@ where
     }
 
     /// Flush info to storage. Convenience method to `flush_infos`.
-    pub async fn flush_info(&mut self, slice: StoreInfo) -> Result<()> {
+    pub async fn flush_info(&mut self, slice: StoreInfo) -> Result<(), HypercoreError> {
         self.flush_infos(&[slice]).await
     }
 
     /// Flush infos to storage
-    pub async fn flush_infos(&mut self, infos: &[StoreInfo]) -> Result<()> {
+    pub async fn flush_infos(&mut self, infos: &[StoreInfo]) -> Result<(), HypercoreError> {
         if infos.is_empty() {
             return Ok(());
         }
@@ -188,7 +234,7 @@ where
                             storage
                                 .write(info.index, &data.to_vec())
                                 .await
-                                .map_err(|e| anyhow!(e))?;
+                                .map_err(map_random_access_err)?;
                         }
                     } else {
                         storage
@@ -197,12 +243,15 @@ where
                                 info.length.expect("When deleting, length must be given"),
                             )
                             .await
-                            .map_err(|e| anyhow!(e))?;
+                            .map_err(map_random_access_err)?;
                     }
                 }
                 StoreInfoType::Size => {
                     if info.miss {
-                        storage.truncate(info.index).await.map_err(|e| anyhow!(e))?;
+                        storage
+                            .truncate(info.index)
+                            .await
+                            .map_err(map_random_access_err)?;
                     } else {
                         panic!("Flushing a size that isn't miss, is not supported");
                     }
@@ -224,7 +273,7 @@ where
 
 impl Storage<RandomAccessMemory> {
     /// New storage backed by a `RandomAccessMemory` instance.
-    pub async fn new_memory() -> Result<Self> {
+    pub async fn new_memory() -> Result<Self, HypercoreError> {
         let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
         // No reason to overwrite, as this is a new memory segment
         Ok(Self::open(create, false).await?)
@@ -234,7 +283,7 @@ impl Storage<RandomAccessMemory> {
 #[cfg(not(target_arch = "wasm32"))]
 impl Storage<RandomAccessDisk> {
     /// New storage backed by a `RandomAccessDisk` instance.
-    pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self> {
+    pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self, HypercoreError> {
         let storage = |store: Store| {
             let name = match store {
                 Store::Tree => "tree",
