@@ -1,6 +1,6 @@
-use std::fmt::Debug;
-
 use random_access_storage::RandomAccess;
+use std::fmt::Debug;
+use tracing::{debug, instrument};
 
 use crate::{Hypercore, HypercoreError, PartialKeypair, Storage};
 
@@ -60,6 +60,7 @@ where
     }
 
     /// Build a new Hypercore.
+    #[instrument(err, skip_all)]
     pub async fn build(mut self) -> Result<Hypercore<T>, HypercoreError> {
         let storage = self
             .0

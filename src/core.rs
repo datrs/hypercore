@@ -15,6 +15,7 @@ use futures::future::Either;
 use random_access_storage::RandomAccess;
 use std::convert::TryFrom;
 use std::fmt::Debug;
+use tracing::instrument;
 
 /// Hypercore is an append-only log structure.
 #[derive(Debug)]
@@ -228,11 +229,13 @@ where
     }
 
     /// Appends a data slice to the hypercore.
+    #[instrument(err, skip_all, fields(data_len = data.len()))]
     pub async fn append(&mut self, data: &[u8]) -> Result<AppendOutcome, HypercoreError> {
         self.append_batch(&[data]).await
     }
 
     /// Appends a given batch of data slices to the hypercore.
+    #[instrument(err, skip_all, fields(batch_len = batch.len()))]
     pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome, HypercoreError> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
@@ -292,6 +295,7 @@ where
     }
 
     /// Read value at given index, if any.
+    #[instrument(err, skip(self))]
     pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>, HypercoreError> {
         if !self.bitfield.get(index) {
             return Ok(None);
@@ -336,6 +340,7 @@ where
     }
 
     /// Clear data for entries between start and end (exclusive) indexes.
+    #[instrument(err, skip(self))]
     pub async fn clear(&mut self, start: u64, end: u64) -> Result<(), HypercoreError> {
         if start >= end {
             // NB: This is what javascript does, so we mimic that here
@@ -422,6 +427,7 @@ where
     }
 
     /// Create a proof for given request
+    #[instrument(err, skip_all)]
     pub async fn create_proof(
         &mut self,
         block: Option<RequestBlock>,
@@ -448,6 +454,7 @@ where
 
     /// Verify and apply proof received from peer, returns true if changed, false if not
     /// possible to apply.
+    #[instrument(skip_all)]
     pub async fn verify_and_apply_proof(&mut self, proof: &Proof) -> Result<bool, HypercoreError> {
         if proof.fork != self.tree.fork {
             return Ok(false);
@@ -529,6 +536,7 @@ where
 
     /// Used to fill the nodes field of a `RequestBlock` during
     /// synchronization.
+    #[instrument(err, skip(self))]
     pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64, HypercoreError> {
         match self.tree.missing_nodes(merkle_tree_index, None)? {
             Either::Right(value) => return Ok(value),

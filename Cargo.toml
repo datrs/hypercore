@@ -26,6 +26,7 @@ blake2-rfc = "0.2.18"
 byteorder = "1.3.4"
 ed25519-dalek = "1.0.1"
 thiserror = "1"
+tracing = "0.1"
 compact-encoding = { git = "https://github.com/datrs/compact-encoding", branch = "main" }
 flat-tree = { git = "https://github.com/ttiurani/flat-tree", branch = "v10" }
 lazy_static = "1.4.0"
@@ -57,6 +58,8 @@ async-std = { version = "1.12.0", features = ["attributes"] }
 tokio = { version = "1.25.0", default-features = false, features = ["macros", "rt", "rt-multi-thread"] }
 sha2 = "0.10.2"
 criterion = { version = "0.4", features = ["async_std"] }
+test-log = { version = "0.2.11", default-features = false, features = ["trace"] }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 
 [features]
 default = ["async-std"]

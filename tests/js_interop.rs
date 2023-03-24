@@ -7,6 +7,7 @@ use common::{create_hypercore_hash, get_test_key_pair};
 use hypercore::{Builder, Hypercore, Storage};
 use js::{cleanup, install, js_run_step, prepare_test_set};
 use random_access_disk::RandomAccessDisk;
+use test_log::test;
 
 #[cfg(feature = "async-std")]
 use async_std::test as async_test;
@@ -25,7 +26,7 @@ fn init() {
     });
 }
 
-#[async_test]
+#[test(async_test)]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 async fn js_interop_js_first() -> Result<()> {
     init();
@@ -44,7 +45,7 @@ async fn js_interop_js_first() -> Result<()> {
     Ok(())
 }
 
-#[async_test]
+#[test(async_test)]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 async fn js_interop_rs_first() -> Result<()> {
     init();

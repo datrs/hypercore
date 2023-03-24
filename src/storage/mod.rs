@@ -8,6 +8,7 @@ use random_access_memory::RandomAccessMemory;
 use random_access_storage::{RandomAccess, RandomAccessError};
 use std::fmt::Debug;
 use std::path::PathBuf;
+use tracing::instrument;
 
 use crate::{
     common::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType},
@@ -82,7 +83,7 @@ where
     T: RandomAccess + Debug + Send,
 {
     /// Create a new instance. Takes a callback to create new storage instances and overwrite flag.
-    pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
+    pub(crate) async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
     where
         Cb: Fn(
             Store,
@@ -123,7 +124,7 @@ where
     }
 
     /// Read info from store based on given instruction. Convenience method to `read_infos`.
-    pub async fn read_info(
+    pub(crate) async fn read_info(
         &mut self,
         info_instruction: StoreInfoInstruction,
     ) -> Result<StoreInfo, HypercoreError> {
@@ -134,7 +135,7 @@ where
     }
 
     /// Read infos from stores based on given instructions
-    pub async fn read_infos(
+    pub(crate) async fn read_infos(
         &mut self,
         info_instructions: &[StoreInfoInstruction],
     ) -> Result<Box<[StoreInfo]>, HypercoreError> {
@@ -143,7 +144,7 @@ where
     }
 
     /// Reads infos but retains them as a Vec
-    pub async fn read_infos_to_vec(
+    pub(crate) async fn read_infos_to_vec(
         &mut self,
         info_instructions: &[StoreInfoInstruction],
     ) -> Result<Vec<StoreInfo>, HypercoreError> {
@@ -211,12 +212,12 @@ where
     }
 
     /// Flush info to storage. Convenience method to `flush_infos`.
-    pub async fn flush_info(&mut self, slice: StoreInfo) -> Result<(), HypercoreError> {
+    pub(crate) async fn flush_info(&mut self, slice: StoreInfo) -> Result<(), HypercoreError> {
         self.flush_infos(&[slice]).await
     }
 
     /// Flush infos to storage
-    pub async fn flush_infos(&mut self, infos: &[StoreInfo]) -> Result<(), HypercoreError> {
+    pub(crate) async fn flush_infos(&mut self, infos: &[StoreInfo]) -> Result<(), HypercoreError> {
         if infos.is_empty() {
             return Ok(());
         }
@@ -273,6 +274,7 @@ where
 
 impl Storage<RandomAccessMemory> {
     /// New storage backed by a `RandomAccessMemory` instance.
+    #[instrument(err)]
     pub async fn new_memory() -> Result<Self, HypercoreError> {
         let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
         // No reason to overwrite, as this is a new memory segment
@@ -283,6 +285,7 @@ impl Storage<RandomAccessMemory> {
 #[cfg(not(target_arch = "wasm32"))]
 impl Storage<RandomAccessDisk> {
     /// New storage backed by a `RandomAccessDisk` instance.
+    #[instrument(err)]
     pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self, HypercoreError> {
         let storage = |store: Store| {
             let name = match store {
