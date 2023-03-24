@@ -41,7 +41,6 @@ sparse-bitfield = "0.11.0"
 tree-index = "0.6.0"
 bitfield-rle = "0.2.0"
 futures = "0.3.4"
-async-std = "1.5.0"
 crc32fast = "1.3.2"
 intmap = "2.0.0"
 
