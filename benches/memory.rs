@@ -13,7 +13,7 @@ async fn create_hypercore(
         false,
     )
     .await?;
-    Builder::new(storage).build_new().await
+    Builder::new(storage).build().await
 }
 
 fn create(c: &mut Criterion) {

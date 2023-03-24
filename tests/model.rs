@@ -72,7 +72,7 @@ async fn assert_implementation_matches_model(ops: Vec<Op>) -> bool {
         .await
         .expect("Memory storage creation should be successful");
     let mut hypercore = Builder::new(storage)
-        .build_new()
+        .build()
         .await
         .expect("Hypercore creation should be successful");
 

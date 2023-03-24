@@ -14,6 +14,8 @@ where
     pub key_pair: Option<PartialKeypair>,
     /// Storage
     pub storage: Option<Storage<T>>,
+    /// Whether or not to open existing or create new
+    pub open: bool,
 }
 
 impl<T> Options<T>
@@ -25,6 +27,7 @@ where
         Self {
             storage: Some(storage),
             key_pair: None,
+            open: false,
         }
     }
 }
@@ -50,34 +53,35 @@ where
         self
     }
 
+    /// Set open.
+    pub fn set_open(mut self, open: bool) -> Self {
+        self.0.open = open;
+        self
+    }
+
     /// Build a new Hypercore.
-    pub async fn build_new(mut self) -> Result<Hypercore<T>, HypercoreError> {
-        if let Some(storage) = self.0.storage.take() {
+    pub async fn build(mut self) -> Result<Hypercore<T>, HypercoreError> {
+        let storage = self
+            .0
+            .storage
+            .take()
+            .ok_or_else(|| HypercoreError::BadArgument {
+                context: "Storage must be provided when building a hypercore".to_string(),
+            })?;
+        if self.0.open {
+            if self.0.key_pair.is_some() {
+                return Err(HypercoreError::BadArgument {
+                    context: "Key pair can not be used when building an openable hypercore"
+                        .to_string(),
+                });
+            }
+            Hypercore::open(storage).await
+        } else {
             if let Some(key_pair) = self.0.key_pair.take() {
                 Hypercore::new_with_key_pair(storage, key_pair).await
             } else {
                 Hypercore::new(storage).await
             }
-        } else {
-            return Err(HypercoreError::BadArgument {
-                context: "Storage must be provided when building a new hypercore".to_string(),
-            });
-        }
-    }
-
-    /// Build an existing Hypercore.
-    pub async fn build_existing(mut self) -> Result<Hypercore<T>, HypercoreError> {
-        if self.0.key_pair.is_some() {
-            return Err(HypercoreError::BadArgument {
-                context: "Key pair can not be used when building an existing hypercore".to_string(),
-            });
-        }
-        if let Some(storage) = self.0.storage.take() {
-            Hypercore::open(storage).await
-        } else {
-            return Err(HypercoreError::BadArgument {
-                context: "Storage must be provided when building an existing hypercore".to_string(),
-            });
         }
     }
 }
