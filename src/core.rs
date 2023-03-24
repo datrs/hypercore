@@ -54,7 +54,7 @@ where
     T: RandomAccess + Debug + Send,
 {
     /// Creates new hypercore using given storage with random key pair
-    pub async fn new(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
+    pub(crate) async fn new(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
         let key_pair = generate_keypair();
         Hypercore::new_with_key_pair(
             storage,
@@ -67,7 +67,7 @@ where
     }
 
     /// Creates new hypercore with given storage and (partial) key pair
-    pub async fn new_with_key_pair(
+    pub(crate) async fn new_with_key_pair(
         storage: Storage<T>,
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<T>, HypercoreError> {
@@ -75,7 +75,7 @@ where
     }
 
     /// Opens an existing hypercore in given storage.
-    pub async fn open(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
+    pub(crate) async fn open(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
         Hypercore::resume(storage, None).await
     }
 

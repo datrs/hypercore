@@ -29,6 +29,7 @@ pub mod encoding;
 pub mod prelude;
 
 mod bitfield;
+mod builder;
 mod common;
 mod core;
 mod crypto;
@@ -37,6 +38,7 @@ mod oplog;
 mod storage;
 mod tree;
 
+pub use crate::builder::Builder;
 pub use crate::common::{
     DataBlock, DataHash, DataSeek, DataUpgrade, HypercoreError, Node, Proof, RequestBlock,
     RequestSeek, RequestUpgrade, Store,

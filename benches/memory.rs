@@ -1,18 +1,19 @@
 use std::time::Instant;
 
-use anyhow::Error;
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use hypercore::{Hypercore, Storage};
+use hypercore::{Builder, Hypercore, HypercoreError, Storage};
 use random_access_memory::RandomAccessMemory;
 
-async fn create_hypercore(page_size: usize) -> Result<Hypercore<RandomAccessMemory>, Error> {
+async fn create_hypercore(
+    page_size: usize,
+) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
     let storage = Storage::open(
         |_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) }),
         false,
     )
     .await?;
-    Hypercore::new(storage).await
+    Builder::new(storage).build_new().await
 }
 
 fn create(c: &mut Criterion) {

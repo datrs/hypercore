@@ -4,7 +4,7 @@ use std::{path::Path, sync::Once};
 
 use anyhow::Result;
 use common::{create_hypercore_hash, get_test_key_pair};
-use hypercore::{Hypercore, Storage};
+use hypercore::{Builder, Hypercore, Storage};
 use js::{cleanup, install, js_run_step, prepare_test_set};
 use random_access_disk::RandomAccessDisk;
 
@@ -139,13 +139,16 @@ async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>>
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, true).await?;
-    Ok(Hypercore::new_with_key_pair(storage, key_pair).await?)
+    Ok(Builder::new(storage)
+        .set_key_pair(key_pair)
+        .build_new()
+        .await?)
 }
 
 async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
     let path = Path::new(work_dir).to_owned();
     let storage = Storage::new_disk(&path, false).await?;
-    Ok(Hypercore::open(storage).await?)
+    Ok(Builder::new(storage).build_existing().await?)
 }
 
 fn step_0_hash() -> common::HypercoreHash {
