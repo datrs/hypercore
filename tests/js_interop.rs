@@ -140,13 +140,13 @@ async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>>
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, true).await?;
-    Ok(Builder::new(storage).set_key_pair(key_pair).build().await?)
+    Ok(Builder::new(storage).key_pair(key_pair).build().await?)
 }
 
 async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
     let path = Path::new(work_dir).to_owned();
     let storage = Storage::new_disk(&path, false).await?;
-    Ok(Builder::new(storage).set_open(true).build().await?)
+    Ok(Builder::new(storage).open(true).build().await?)
 }
 
 fn step_0_hash() -> common::HypercoreHash {

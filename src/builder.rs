@@ -1,6 +1,6 @@
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 use crate::{Hypercore, HypercoreError, PartialKeypair, Storage};
 
@@ -48,13 +48,13 @@ where
     }
 
     /// Set key pair.
-    pub fn set_key_pair(mut self, key_pair: PartialKeypair) -> Self {
+    pub fn key_pair(mut self, key_pair: PartialKeypair) -> Self {
         self.0.key_pair = Some(key_pair);
         self
     }
 
     /// Set open.
-    pub fn set_open(mut self, open: bool) -> Self {
+    pub fn open(mut self, open: bool) -> Self {
         self.0.open = open;
         self
     }

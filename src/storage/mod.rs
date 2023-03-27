@@ -83,7 +83,7 @@ where
     T: RandomAccess + Debug + Send,
 {
     /// Create a new instance. Takes a callback to create new storage instances and overwrite flag.
-    pub(crate) async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
+    pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
     where
         Cb: Fn(
             Store,
