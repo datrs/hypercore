@@ -1,8 +1,16 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
+use ed25519_dalek::Signature;
+use futures::future::Either;
+use random_access_storage::RandomAccess;
+use std::convert::TryFrom;
+use std::fmt::Debug;
+use tracing::instrument;
 
+#[cfg(feature = "cache")]
+use crate::common::cache::CacheOptions;
 use crate::{
     bitfield::Bitfield,
-    common::{BitfieldUpdate, HypercoreError, Proof, StoreInfo, ValuelessProof},
+    common::{BitfieldUpdate, HypercoreError, NodeByteRange, Proof, StoreInfo, ValuelessProof},
     crypto::generate_keypair,
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
@@ -10,12 +18,25 @@ use crate::{
     tree::{MerkleTree, MerkleTreeChangeset},
     RequestBlock, RequestSeek, RequestUpgrade,
 };
-use ed25519_dalek::Signature;
-use futures::future::Either;
-use random_access_storage::RandomAccess;
-use std::convert::TryFrom;
-use std::fmt::Debug;
-use tracing::instrument;
+
+#[derive(Debug)]
+pub(crate) struct HypercoreOptions {
+    pub(crate) key_pair: Option<PartialKeypair>,
+    pub(crate) open: bool,
+    #[cfg(feature = "cache")]
+    pub(crate) node_cache_options: Option<CacheOptions>,
+}
+
+impl HypercoreOptions {
+    pub(crate) fn new() -> Self {
+        Self {
+            key_pair: None,
+            open: false,
+            #[cfg(feature = "cache")]
+            node_cache_options: None,
+        }
+    }
+}
 
 /// Hypercore is an append-only log structure.
 #[derive(Debug)]
@@ -54,37 +75,29 @@ impl<T> Hypercore<T>
 where
     T: RandomAccess + Debug + Send,
 {
-    /// Creates new hypercore using given storage with random key pair
-    pub(crate) async fn new(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
-        let key_pair = generate_keypair();
-        Hypercore::new_with_key_pair(
-            storage,
-            PartialKeypair {
-                public: key_pair.public,
-                secret: Some(key_pair.secret),
-            },
-        )
-        .await
-    }
-
-    /// Creates new hypercore with given storage and (partial) key pair
-    pub(crate) async fn new_with_key_pair(
-        storage: Storage<T>,
-        key_pair: PartialKeypair,
-    ) -> Result<Hypercore<T>, HypercoreError> {
-        Hypercore::resume(storage, Some(key_pair)).await
-    }
-
-    /// Opens an existing hypercore in given storage.
-    pub(crate) async fn open(storage: Storage<T>) -> Result<Hypercore<T>, HypercoreError> {
-        Hypercore::resume(storage, None).await
-    }
-
-    /// Creates/opens a hypercore with given storage and potentially a key pair
-    async fn resume(
+    /// Creates/opens new hypercore using given storage and options
+    pub(crate) async fn new(
         mut storage: Storage<T>,
-        key_pair: Option<PartialKeypair>,
+        mut options: HypercoreOptions,
     ) -> Result<Hypercore<T>, HypercoreError> {
+        let key_pair: Option<PartialKeypair> = if options.open {
+            if options.key_pair.is_some() {
+                return Err(HypercoreError::BadArgument {
+                    context: "Key pair can not be used when building an openable hypercore"
+                        .to_string(),
+                });
+            }
+            None
+        } else {
+            Some(options.key_pair.take().unwrap_or_else(|| {
+                let key_pair = generate_keypair();
+                PartialKeypair {
+                    public: key_pair.public,
+                    secret: Some(key_pair.secret),
+                }
+            }))
+        };
+
         // Open/create oplog
         let mut oplog_open_outcome = match Oplog::open(&key_pair, None)? {
             Either::Right(value) => value,
@@ -105,11 +118,21 @@ where
             .await?;
 
         // Open/create tree
-        let mut tree = match MerkleTree::open(&oplog_open_outcome.header.tree, None)? {
+        let mut tree = match MerkleTree::open(
+            &oplog_open_outcome.header.tree,
+            None,
+            #[cfg(feature = "cache")]
+            &options.node_cache_options,
+        )? {
             Either::Right(value) => value,
             Either::Left(instructions) => {
                 let infos = storage.read_infos(&instructions).await?;
-                match MerkleTree::open(&oplog_open_outcome.header.tree, Some(&infos))? {
+                match MerkleTree::open(
+                    &oplog_open_outcome.header.tree,
+                    Some(&infos),
+                    #[cfg(feature = "cache")]
+                    &options.node_cache_options,
+                )? {
                     Either::Right(value) => value,
                     Either::Left(_) => {
                         return Err(HypercoreError::InvalidOperation {
@@ -1046,7 +1069,16 @@ mod tests {
         key_pair: PartialKeypair,
     ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
         let storage = Storage::new_memory().await?;
-        let mut hypercore = Hypercore::new_with_key_pair(storage, key_pair).await?;
+        let mut hypercore = Hypercore::new(
+            storage,
+            HypercoreOptions {
+                key_pair: Some(key_pair),
+                open: false,
+                #[cfg(feature = "cache")]
+                node_cache_options: None,
+            },
+        )
+        .await?;
         for i in 0..length {
             hypercore.append(format!("#{}", i).as_bytes()).await?;
         }

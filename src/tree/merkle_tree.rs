@@ -2,8 +2,12 @@ use compact_encoding::State;
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use intmap::IntMap;
+#[cfg(feature = "cache")]
+use moka::sync::Cache;
 use std::convert::TryFrom;
 
+#[cfg(feature = "cache")]
+use crate::common::cache::CacheOptions;
 use crate::common::{HypercoreError, NodeByteRange, Proof, ValuelessProof};
 use crate::crypto::{Hash, PublicKey};
 use crate::oplog::HeaderTree;
@@ -29,15 +33,18 @@ pub struct MerkleTree {
     unflushed: IntMap<Node>,
     truncated: bool,
     truncate_to: u64,
+    #[cfg(feature = "cache")]
+    node_cache: Option<Cache<u64, Node>>,
 }
 
 const NODE_SIZE: u64 = 40;
 
 impl MerkleTree {
     /// Opens MerkleTree, based on read infos.
-    pub fn open(
+    pub(crate) fn open(
         header_tree: &HeaderTree,
         infos: Option<&[StoreInfo]>,
+        #[cfg(feature = "cache")] node_cache_options: &Option<CacheOptions>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, Self>, HypercoreError> {
         match infos {
             None => {
@@ -86,16 +93,22 @@ impl MerkleTree {
                     length = length / 2;
                 }
                 let signature: Option<Signature> = if header_tree.signature.len() > 0 {
-                    Some(Signature::try_from(&*header_tree.signature).map_err(|err| {
-                        HypercoreError::InvalidSignature {
-                            context: "Could not parse signature".to_string(),
-                        }
-                    })?)
+                    Some(
+                        Signature::try_from(&*header_tree.signature).map_err(|_err| {
+                            HypercoreError::InvalidSignature {
+                                context: "Could not parse signature".to_string(),
+                            }
+                        })?,
+                    )
                 } else {
                     None
                 };
 
                 Ok(Either::Right(Self {
+                    #[cfg(feature = "cache")]
+                    node_cache: node_cache_options
+                        .as_ref()
+                        .map(|opts| opts.to_node_cache(roots.clone())),
                     roots,
                     length,
                     byte_length,
@@ -112,12 +125,12 @@ impl MerkleTree {
     /// Initialize a changeset for this tree.
     /// This is called batch() in Javascript, see:
     /// https://github.com/hypercore-protocol/hypercore/blob/master/lib/merkle-tree.js
-    pub fn changeset(&self) -> MerkleTreeChangeset {
+    pub(crate) fn changeset(&self) -> MerkleTreeChangeset {
         MerkleTreeChangeset::new(self.length, self.byte_length, self.fork, self.roots.clone())
     }
 
     /// Commit a created changeset to the tree.
-    pub fn commit(&mut self, changeset: MerkleTreeChangeset) -> Result<(), HypercoreError> {
+    pub(crate) fn commit(&mut self, changeset: MerkleTreeChangeset) -> Result<(), HypercoreError> {
         if !self.commitable(&changeset) {
             return Err(HypercoreError::InvalidOperation {
                 context: "Tree was modified during changeset, refusing to commit".to_string(),
@@ -142,7 +155,7 @@ impl MerkleTree {
     }
 
     /// Flush committed made changes to the tree
-    pub fn flush(&mut self) -> Box<[StoreInfo]> {
+    pub(crate) fn flush(&mut self) -> Box<[StoreInfo]> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::new();
         if self.truncated {
             infos_to_flush.extend(self.flush_truncation());
@@ -153,13 +166,13 @@ impl MerkleTree {
 
     /// Get storage byte range of given hypercore index
     pub fn byte_range(
-        &self,
+        &mut self,
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, NodeByteRange>, HypercoreError> {
         let index = self.validate_hypercore_index(hypercore_index)?;
         // Get nodes out of incoming infos
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
 
         // Start with getting the requested node, which will get the length
         // of the byte range
@@ -200,8 +213,8 @@ impl MerkleTree {
     }
 
     /// Get the byte offset given hypercore index
-    pub fn byte_offset(
-        &self,
+    pub(crate) fn byte_offset(
+        &mut self,
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
@@ -210,8 +223,8 @@ impl MerkleTree {
     }
 
     /// Get the byte offset of hypercore index in a changeset
-    pub fn byte_offset_in_changeset(
-        &self,
+    pub(crate) fn byte_offset_in_changeset(
+        &mut self,
         hypercore_index: u64,
         changeset: &MerkleTreeChangeset,
         infos: Option<&[StoreInfo]>,
@@ -259,11 +272,11 @@ impl MerkleTree {
         }
     }
 
-    pub fn add_node(&mut self, node: Node) {
+    pub(crate) fn add_node(&mut self, node: Node) {
         self.unflushed.insert(node.index, node);
     }
 
-    pub fn truncate(
+    pub(crate) fn truncate(
         &mut self,
         length: u64,
         fork: u64,
@@ -272,7 +285,7 @@ impl MerkleTree {
         let head = length * 2;
         let mut full_roots = vec![];
         flat_tree::full_roots(head, &mut full_roots);
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
         let mut changeset = self.changeset();
 
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
@@ -318,15 +331,15 @@ impl MerkleTree {
     /// TODO: This is now just a clone of javascript's
     /// https://github.com/hypercore-protocol/hypercore/blob/7e30a0fe353c70ada105840ec1ead6627ff521e7/lib/merkle-tree.js#L604
     /// The implementation should be rewritten to make it clearer.
-    pub fn create_valueless_proof(
-        &self,
+    pub(crate) fn create_valueless_proof(
+        &mut self,
         block: Option<&RequestBlock>,
         hash: Option<&RequestBlock>,
         seek: Option<&RequestSeek>,
         upgrade: Option<&RequestUpgrade>,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, ValuelessProof>, HypercoreError> {
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let fork = self.fork;
         let signature = self.signature;
@@ -499,13 +512,13 @@ impl MerkleTree {
     }
 
     /// Verifies a proof received from a peer.
-    pub fn verify_proof(
-        &self,
+    pub(crate) fn verify_proof(
+        &mut self,
         proof: &Proof,
         public_key: &PublicKey,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>, HypercoreError> {
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
         let mut changeset = self.changeset();
 
@@ -556,8 +569,8 @@ impl MerkleTree {
     }
 
     /// Attempts to get missing nodes from given index. NB: must be called in a loop.
-    pub fn missing_nodes(
-        &self,
+    pub(crate) fn missing_nodes(
+        &mut self,
         index: u64,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
@@ -570,7 +583,7 @@ impl MerkleTree {
             return Ok(Either::Right(0));
         }
 
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
         let mut count: u64 = 0;
         while !iter.contains(head) {
             match self.optional_node(iter.index(), &nodes)? {
@@ -591,7 +604,7 @@ impl MerkleTree {
     }
 
     /// Is the changeset commitable to given tree
-    pub fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
+    pub(crate) fn commitable(&self, changeset: &MerkleTreeChangeset) -> bool {
         let correct_length: bool = if changeset.upgraded {
             changeset.original_tree_length == self.length
         } else {
@@ -684,12 +697,12 @@ impl MerkleTree {
     }
 
     fn byte_offset_from_index(
-        &self,
+        &mut self,
         index: u64,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, u64>, HypercoreError> {
         // Get nodes out of incoming infos
-        let nodes: IntMap<Option<Node>> = infos_to_nodes(infos);
+        let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos);
         // Get offset
         let offset_result = self.byte_offset_from_nodes(index, &nodes)?;
         // Get offset
@@ -786,7 +799,15 @@ impl MerkleTree {
         nodes: &IntMap<Option<Node>>,
         allow_miss: bool,
     ) -> Result<Either<StoreInfoInstruction, Option<Node>>, HypercoreError> {
-        // First check if unflushed already has the node
+        // First check the cache
+        #[cfg(feature = "cache")]
+        if let Some(node_cache) = &self.node_cache {
+            if let Some(node) = node_cache.get(&index) {
+                return Ok(Either::Right(Some(node.clone())));
+            }
+        }
+
+        // Then check if unflushed has the node
         if let Some(node) = self.unflushed.get(index) {
             if node.blank || (self.truncated && node.index >= 2 * self.truncate_to) {
                 // The node is either blank or being deleted
@@ -805,7 +826,7 @@ impl MerkleTree {
             return Ok(Either::Right(Some(node.clone())));
         }
 
-        // Then check if it's already in the incoming nodes
+        // Then check if it's in the incoming nodes
         let result = nodes.get(index);
         if let Some(node_maybe) = result {
             if let Some(node) = node_maybe {
@@ -1280,6 +1301,31 @@ impl MerkleTree {
             Ok(Either::Left(instructions))
         }
     }
+
+    fn infos_to_nodes(&mut self, infos: Option<&[StoreInfo]>) -> IntMap<Option<Node>> {
+        match infos {
+            Some(infos) => {
+                let mut nodes: IntMap<Option<Node>> = IntMap::with_capacity(infos.len());
+                for info in infos {
+                    let index = index_from_info(&info);
+                    if !info.miss {
+                        let node = node_from_bytes(&index, info.data.as_ref().unwrap());
+                        #[cfg(feature = "cache")]
+                        if !node.blank {
+                            if let Some(node_cache) = &self.node_cache {
+                                node_cache.insert(node.index, node.clone())
+                            }
+                        }
+                        nodes.insert(index, Some(node));
+                    } else {
+                        nodes.insert(index, None);
+                    }
+                }
+                nodes
+            }
+            None => IntMap::new(),
+        }
+    }
 }
 
 /// Converts a hypercore index into a merkle tree index. In the flat tree
@@ -1434,25 +1480,6 @@ fn node_from_bytes(index: &u64, data: &[u8]) -> Node {
     let mut state = State::from_buffer(len_buf);
     let len = state.decode_u64(len_buf);
     Node::new(*index, hash.to_vec(), len)
-}
-
-fn infos_to_nodes(infos: Option<&[StoreInfo]>) -> IntMap<Option<Node>> {
-    match infos {
-        Some(infos) => {
-            let mut nodes: IntMap<Option<Node>> = IntMap::with_capacity(infos.len());
-            for info in infos {
-                let index = index_from_info(&info);
-                if !info.miss {
-                    let node = node_from_bytes(&index, info.data.as_ref().unwrap());
-                    nodes.insert(index, Some(node));
-                } else {
-                    nodes.insert(index, None);
-                }
-            }
-            nodes
-        }
-        None => IntMap::new(),
-    }
 }
 
 #[derive(Debug, Copy, Clone)]

@@ -38,7 +38,9 @@ mod oplog;
 mod storage;
 mod tree;
 
-pub use crate::builder::Builder;
+#[cfg(feature = "cache")]
+pub use crate::builder::CacheOptionsBuilder;
+pub use crate::builder::HypercoreBuilder;
 pub use crate::common::{
     DataBlock, DataHash, DataSeek, DataUpgrade, HypercoreError, Node, Proof, RequestBlock,
     RequestSeek, RequestUpgrade, Store,

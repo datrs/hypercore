@@ -1,88 +1,93 @@
 use random_access_storage::RandomAccess;
 use std::fmt::Debug;
+#[cfg(feature = "cache")]
+use std::time::Duration;
 use tracing::instrument;
 
-use crate::{Hypercore, HypercoreError, PartialKeypair, Storage};
+#[cfg(feature = "cache")]
+use crate::common::cache::CacheOptions;
+use crate::{core::HypercoreOptions, Hypercore, HypercoreError, PartialKeypair, Storage};
 
-/// Options for a Hypercore instance.
+/// Build CacheOptions.
+#[cfg(feature = "cache")]
 #[derive(Debug)]
-pub struct Options<T>
-where
-    T: RandomAccess + Debug + Send,
-{
-    /// Existing key pair to use
-    pub key_pair: Option<PartialKeypair>,
-    /// Storage
-    pub storage: Option<Storage<T>>,
-    /// Whether or not to open existing or create new
-    pub open: bool,
-}
+pub struct CacheOptionsBuilder(CacheOptions);
 
-impl<T> Options<T>
-where
-    T: RandomAccess + Debug + Send,
-{
-    /// Create with default options.
-    pub fn new(storage: Storage<T>) -> Self {
-        Self {
-            storage: Some(storage),
-            key_pair: None,
-            open: false,
-        }
+#[cfg(feature = "cache")]
+impl CacheOptionsBuilder {
+    /// Create a CacheOptions builder with default options
+    pub fn new() -> Self {
+        Self(CacheOptions::new())
+    }
+
+    /// Set cache time to live.
+    pub fn time_to_live(mut self, time_to_live: Duration) -> Self {
+        self.0.time_to_live = Some(time_to_live);
+        self
+    }
+
+    /// Set cache time to idle.
+    pub fn time_to_idle(mut self, time_to_idle: Duration) -> Self {
+        self.0.time_to_idle = Some(time_to_idle);
+        self
+    }
+
+    /// Set cache max capacity in bytes.
+    pub fn max_capacity(mut self, max_capacity: u64) -> Self {
+        self.0.max_capacity = Some(max_capacity);
+        self
+    }
+
+    /// Build new cache options.
+    pub(crate) fn build(self) -> CacheOptions {
+        self.0
     }
 }
 
 /// Build a Hypercore instance with options.
 #[derive(Debug)]
-pub struct Builder<T>(Options<T>)
+pub struct HypercoreBuilder<T>
 where
-    T: RandomAccess + Debug + Send;
+    T: RandomAccess + Debug + Send,
+{
+    storage: Storage<T>,
+    options: HypercoreOptions,
+}
 
-impl<T> Builder<T>
+impl<T> HypercoreBuilder<T>
 where
     T: RandomAccess + Debug + Send,
 {
     /// Create a hypercore builder with a given storage
     pub fn new(storage: Storage<T>) -> Self {
-        Self(Options::new(storage))
+        Self {
+            storage,
+            options: HypercoreOptions::new(),
+        }
     }
 
     /// Set key pair.
     pub fn key_pair(mut self, key_pair: PartialKeypair) -> Self {
-        self.0.key_pair = Some(key_pair);
+        self.options.key_pair = Some(key_pair);
         self
     }
 
     /// Set open.
     pub fn open(mut self, open: bool) -> Self {
-        self.0.open = open;
+        self.options.open = open;
+        self
+    }
+
+    /// Set node cache options.
+    #[cfg(feature = "cache")]
+    pub fn node_cache_options(mut self, builder: CacheOptionsBuilder) -> Self {
+        self.options.node_cache_options = Some(builder.build());
         self
     }
 
     /// Build a new Hypercore.
     #[instrument(err, skip_all)]
-    pub async fn build(mut self) -> Result<Hypercore<T>, HypercoreError> {
-        let storage = self
-            .0
-            .storage
-            .take()
-            .ok_or_else(|| HypercoreError::BadArgument {
-                context: "Storage must be provided when building a hypercore".to_string(),
-            })?;
-        if self.0.open {
-            if self.0.key_pair.is_some() {
-                return Err(HypercoreError::BadArgument {
-                    context: "Key pair can not be used when building an openable hypercore"
-                        .to_string(),
-                });
-            }
-            Hypercore::open(storage).await
-        } else {
-            if let Some(key_pair) = self.0.key_pair.take() {
-                Hypercore::new_with_key_pair(storage, key_pair).await
-            } else {
-                Hypercore::new(storage).await
-            }
-        }
+    pub async fn build(self) -> Result<Hypercore<T>, HypercoreError> {
+        Hypercore::new(self.storage, self.options).await
     }
 }

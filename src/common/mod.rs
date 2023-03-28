@@ -1,3 +1,5 @@
+#[cfg(feature = "cache")]
+pub(crate) mod cache;
 mod error;
 mod node;
 mod peer;
