@@ -301,24 +301,7 @@ where
             return Ok(None);
         }
 
-        // TODO: Generalize Either response stack
-        let byte_range = match self.tree.byte_range(index, None)? {
-            Either::Right(value) => value,
-            Either::Left(instructions) => {
-                let infos = self.storage.read_infos(&instructions).await?;
-                match self.tree.byte_range(index, Some(&infos))? {
-                    Either::Right(value) => value,
-                    Either::Left(_) => {
-                        return Err(HypercoreError::InvalidOperation {
-                            context: format!(
-                                "Could not read byte range at index {} from tree",
-                                index
-                            ),
-                        });
-                    }
-                }
-            }
-        };
+        let byte_range = self.byte_range(index, None).await?;
 
         // TODO: Generalize Either response stack
         let data = match self.block_store.read(&byte_range, None) {
@@ -389,24 +372,8 @@ where
         };
 
         // Find byte range for last value
-        let last_byte_range = match self.tree.byte_range(end - 1, Some(&infos))? {
-            Either::Right(value) => value,
-            Either::Left(instructions) => {
-                let new_infos = self.storage.read_infos_to_vec(&instructions).await?;
-                infos.extend(new_infos);
-                match self.tree.byte_range(end - 1, Some(&infos))? {
-                    Either::Right(value) => value,
-                    Either::Left(_) => {
-                        return Err(HypercoreError::InvalidOperation {
-                            context: format!(
-                                "Could not read byte range for index {} from tree",
-                                end - 1
-                            ),
-                        });
-                    }
-                }
-            }
-        };
+        let last_byte_range = self.byte_range(end - 1, Some(&infos)).await?;
+
         let clear_length = (last_byte_range.index + last_byte_range.length) - clear_offset;
 
         // Clear blocks
@@ -546,6 +513,31 @@ where
                 loop {
                     infos.extend(self.storage.read_infos_to_vec(&instructions).await?);
                     match self.tree.missing_nodes(merkle_tree_index, Some(&infos))? {
+                        Either::Right(value) => {
+                            return Ok(value);
+                        }
+                        Either::Left(new_instructions) => {
+                            instructions = new_instructions;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    async fn byte_range(
+        &mut self,
+        index: u64,
+        initial_infos: Option<&[StoreInfo]>,
+    ) -> Result<NodeByteRange, HypercoreError> {
+        match self.tree.byte_range(index, initial_infos)? {
+            Either::Right(value) => return Ok(value),
+            Either::Left(instructions) => {
+                let mut instructions = instructions;
+                let mut infos: Vec<StoreInfo> = vec![];
+                loop {
+                    infos.extend(self.storage.read_infos_to_vec(&instructions).await?);
+                    match self.tree.byte_range(index, Some(&infos))? {
                         Either::Right(value) => {
                             return Ok(value);
                         }
