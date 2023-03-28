@@ -650,7 +650,7 @@ impl MerkleTree {
 
     pub fn flush_nodes(&mut self) -> Vec<StoreInfo> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::with_capacity(self.unflushed.len());
-        for node in self.unflushed.values() {
+        for (_, node) in self.unflushed.drain() {
             let (mut state, mut buffer) = State::new_with_size(40);
             state.encode_u64(node.length, &mut buffer);
             state.encode_fixed_32(&node.hash, &mut buffer);
