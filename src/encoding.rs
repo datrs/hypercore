@@ -1,5 +1,5 @@
 //! Hypercore-specific compact encodings
-pub use compact_encoding::{CompactEncoding, State};
+pub use compact_encoding::{CompactEncoding, EncodingError, State};
 use std::ops::{Deref, DerefMut};
 
 use crate::{
@@ -48,194 +48,200 @@ impl DerefMut for HypercoreState {
 }
 
 impl CompactEncoding<Node> for HypercoreState {
-    fn preencode(&mut self, value: &Node) {
-        self.0.preencode(&value.index);
-        self.0.preencode(&value.length);
-        self.0.preencode_fixed_32();
+    fn preencode(&mut self, value: &Node) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.index)?;
+        self.0.preencode(&value.length)?;
+        self.0.preencode_fixed_32()
     }
 
-    fn encode(&mut self, value: &Node, buffer: &mut [u8]) {
-        self.0.encode(&value.index, buffer);
-        self.0.encode(&value.length, buffer);
-        self.0.encode_fixed_32(&value.hash, buffer);
+    fn encode(&mut self, value: &Node, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.index, buffer)?;
+        self.0.encode(&value.length, buffer)?;
+        self.0.encode_fixed_32(&value.hash, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Node {
-        let index: u64 = self.0.decode(buffer);
-        let length: u64 = self.0.decode(buffer);
-        let hash: Box<[u8]> = self.0.decode_fixed_32(buffer);
-        Node::new(index, hash.to_vec(), length)
+    fn decode(&mut self, buffer: &[u8]) -> Result<Node, EncodingError> {
+        let index: u64 = self.0.decode(buffer)?;
+        let length: u64 = self.0.decode(buffer)?;
+        let hash: Box<[u8]> = self.0.decode_fixed_32(buffer)?;
+        Ok(Node::new(index, hash.to_vec(), length))
     }
 }
 
 impl CompactEncoding<Vec<Node>> for HypercoreState {
-    fn preencode(&mut self, value: &Vec<Node>) {
+    fn preencode(&mut self, value: &Vec<Node>) -> Result<usize, EncodingError> {
         let len = value.len();
-        self.0.preencode(&len);
+        self.0.preencode(&len)?;
         for val in value.into_iter() {
-            self.preencode(val);
+            self.preencode(val)?;
         }
+        Ok(self.end())
     }
 
-    fn encode(&mut self, value: &Vec<Node>, buffer: &mut [u8]) {
+    fn encode(&mut self, value: &Vec<Node>, buffer: &mut [u8]) -> Result<usize, EncodingError> {
         let len = value.len();
-        self.0.encode(&len, buffer);
+        self.0.encode(&len, buffer)?;
         for val in value {
-            self.encode(val, buffer);
+            self.encode(val, buffer)?;
         }
+        Ok(self.start())
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Vec<Node> {
-        let len: usize = self.0.decode(buffer);
+    fn decode(&mut self, buffer: &[u8]) -> Result<Vec<Node>, EncodingError> {
+        let len: usize = self.0.decode(buffer)?;
         let mut value = Vec::with_capacity(len);
         for _ in 0..len {
-            value.push(self.decode(buffer));
+            value.push(self.decode(buffer)?);
         }
-        value
+        Ok(value)
     }
 }
 
 impl CompactEncoding<RequestBlock> for HypercoreState {
-    fn preencode(&mut self, value: &RequestBlock) {
-        self.0.preencode(&value.index);
-        self.0.preencode(&value.nodes);
+    fn preencode(&mut self, value: &RequestBlock) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.index)?;
+        self.0.preencode(&value.nodes)
     }
 
-    fn encode(&mut self, value: &RequestBlock, buffer: &mut [u8]) {
-        self.0.encode(&value.index, buffer);
-        self.0.encode(&value.nodes, buffer);
+    fn encode(&mut self, value: &RequestBlock, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.index, buffer)?;
+        self.0.encode(&value.nodes, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> RequestBlock {
-        let index: u64 = self.0.decode(buffer);
-        let nodes: u64 = self.0.decode(buffer);
-        RequestBlock { index, nodes }
+    fn decode(&mut self, buffer: &[u8]) -> Result<RequestBlock, EncodingError> {
+        let index: u64 = self.0.decode(buffer)?;
+        let nodes: u64 = self.0.decode(buffer)?;
+        Ok(RequestBlock { index, nodes })
     }
 }
 
 impl CompactEncoding<RequestSeek> for HypercoreState {
-    fn preencode(&mut self, value: &RequestSeek) {
-        self.0.preencode(&value.bytes);
+    fn preencode(&mut self, value: &RequestSeek) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.bytes)
     }
 
-    fn encode(&mut self, value: &RequestSeek, buffer: &mut [u8]) {
-        self.0.encode(&value.bytes, buffer);
+    fn encode(&mut self, value: &RequestSeek, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.bytes, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> RequestSeek {
-        let bytes: u64 = self.0.decode(buffer);
-        RequestSeek { bytes }
+    fn decode(&mut self, buffer: &[u8]) -> Result<RequestSeek, EncodingError> {
+        let bytes: u64 = self.0.decode(buffer)?;
+        Ok(RequestSeek { bytes })
     }
 }
 
 impl CompactEncoding<RequestUpgrade> for HypercoreState {
-    fn preencode(&mut self, value: &RequestUpgrade) {
-        self.0.preencode(&value.start);
-        self.0.preencode(&value.length);
+    fn preencode(&mut self, value: &RequestUpgrade) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.start)?;
+        self.0.preencode(&value.length)
     }
 
-    fn encode(&mut self, value: &RequestUpgrade, buffer: &mut [u8]) {
-        self.0.encode(&value.start, buffer);
-        self.0.encode(&value.length, buffer);
+    fn encode(
+        &mut self,
+        value: &RequestUpgrade,
+        buffer: &mut [u8],
+    ) -> Result<usize, EncodingError> {
+        self.0.encode(&value.start, buffer)?;
+        self.0.encode(&value.length, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> RequestUpgrade {
-        let start: u64 = self.0.decode(buffer);
-        let length: u64 = self.0.decode(buffer);
-        RequestUpgrade { start, length }
+    fn decode(&mut self, buffer: &[u8]) -> Result<RequestUpgrade, EncodingError> {
+        let start: u64 = self.0.decode(buffer)?;
+        let length: u64 = self.0.decode(buffer)?;
+        Ok(RequestUpgrade { start, length })
     }
 }
 
 impl CompactEncoding<DataBlock> for HypercoreState {
-    fn preencode(&mut self, value: &DataBlock) {
-        self.0.preencode(&value.index);
-        self.0.preencode(&value.value);
-        self.preencode(&value.nodes);
+    fn preencode(&mut self, value: &DataBlock) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.index)?;
+        self.0.preencode(&value.value)?;
+        self.preencode(&value.nodes)
     }
 
-    fn encode(&mut self, value: &DataBlock, buffer: &mut [u8]) {
-        self.0.encode(&value.index, buffer);
-        self.0.encode(&value.value, buffer);
-        self.encode(&value.nodes, buffer);
+    fn encode(&mut self, value: &DataBlock, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.index, buffer)?;
+        self.0.encode(&value.value, buffer)?;
+        self.encode(&value.nodes, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> DataBlock {
-        let index: u64 = self.0.decode(buffer);
-        let value: Vec<u8> = self.0.decode(buffer);
-        let nodes: Vec<Node> = self.decode(buffer);
-        DataBlock {
+    fn decode(&mut self, buffer: &[u8]) -> Result<DataBlock, EncodingError> {
+        let index: u64 = self.0.decode(buffer)?;
+        let value: Vec<u8> = self.0.decode(buffer)?;
+        let nodes: Vec<Node> = self.decode(buffer)?;
+        Ok(DataBlock {
             index,
             value,
             nodes,
-        }
+        })
     }
 }
 
 impl CompactEncoding<DataHash> for HypercoreState {
-    fn preencode(&mut self, value: &DataHash) {
-        self.0.preencode(&value.index);
-        self.preencode(&value.nodes);
+    fn preencode(&mut self, value: &DataHash) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.index)?;
+        self.preencode(&value.nodes)
     }
 
-    fn encode(&mut self, value: &DataHash, buffer: &mut [u8]) {
-        self.0.encode(&value.index, buffer);
-        self.encode(&value.nodes, buffer);
+    fn encode(&mut self, value: &DataHash, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.index, buffer)?;
+        self.encode(&value.nodes, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> DataHash {
-        let index: u64 = self.0.decode(buffer);
-        let nodes: Vec<Node> = self.decode(buffer);
-        DataHash { index, nodes }
+    fn decode(&mut self, buffer: &[u8]) -> Result<DataHash, EncodingError> {
+        let index: u64 = self.0.decode(buffer)?;
+        let nodes: Vec<Node> = self.decode(buffer)?;
+        Ok(DataHash { index, nodes })
     }
 }
 
 impl CompactEncoding<DataSeek> for HypercoreState {
-    fn preencode(&mut self, value: &DataSeek) {
-        self.0.preencode(&value.bytes);
-        self.preencode(&value.nodes);
+    fn preencode(&mut self, value: &DataSeek) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.bytes)?;
+        self.preencode(&value.nodes)
     }
 
-    fn encode(&mut self, value: &DataSeek, buffer: &mut [u8]) {
-        self.0.encode(&value.bytes, buffer);
-        self.encode(&value.nodes, buffer);
+    fn encode(&mut self, value: &DataSeek, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.bytes, buffer)?;
+        self.encode(&value.nodes, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> DataSeek {
-        let bytes: u64 = self.0.decode(buffer);
-        let nodes: Vec<Node> = self.decode(buffer);
-        DataSeek { bytes, nodes }
+    fn decode(&mut self, buffer: &[u8]) -> Result<DataSeek, EncodingError> {
+        let bytes: u64 = self.0.decode(buffer)?;
+        let nodes: Vec<Node> = self.decode(buffer)?;
+        Ok(DataSeek { bytes, nodes })
     }
 }
 
 impl CompactEncoding<DataUpgrade> for HypercoreState {
-    fn preencode(&mut self, value: &DataUpgrade) {
-        self.0.preencode(&value.start);
-        self.0.preencode(&value.length);
-        self.preencode(&value.nodes);
-        self.preencode(&value.additional_nodes);
-        self.0.preencode(&value.signature);
+    fn preencode(&mut self, value: &DataUpgrade) -> Result<usize, EncodingError> {
+        self.0.preencode(&value.start)?;
+        self.0.preencode(&value.length)?;
+        self.preencode(&value.nodes)?;
+        self.preencode(&value.additional_nodes)?;
+        self.0.preencode(&value.signature)
     }
 
-    fn encode(&mut self, value: &DataUpgrade, buffer: &mut [u8]) {
-        self.0.encode(&value.start, buffer);
-        self.0.encode(&value.length, buffer);
-        self.encode(&value.nodes, buffer);
-        self.encode(&value.additional_nodes, buffer);
-        self.0.encode(&value.signature, buffer);
+    fn encode(&mut self, value: &DataUpgrade, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.0.encode(&value.start, buffer)?;
+        self.0.encode(&value.length, buffer)?;
+        self.encode(&value.nodes, buffer)?;
+        self.encode(&value.additional_nodes, buffer)?;
+        self.0.encode(&value.signature, buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> DataUpgrade {
-        let start: u64 = self.0.decode(buffer);
-        let length: u64 = self.0.decode(buffer);
-        let nodes: Vec<Node> = self.decode(buffer);
-        let additional_nodes: Vec<Node> = self.decode(buffer);
-        let signature: Vec<u8> = self.0.decode(buffer);
-        DataUpgrade {
+    fn decode(&mut self, buffer: &[u8]) -> Result<DataUpgrade, EncodingError> {
+        let start: u64 = self.0.decode(buffer)?;
+        let length: u64 = self.0.decode(buffer)?;
+        let nodes: Vec<Node> = self.decode(buffer)?;
+        let additional_nodes: Vec<Node> = self.decode(buffer)?;
+        let signature: Vec<u8> = self.0.decode(buffer)?;
+        Ok(DataUpgrade {
             start,
             length,
             nodes,
             additional_nodes,
             signature,
-        }
+        })
     }
 }

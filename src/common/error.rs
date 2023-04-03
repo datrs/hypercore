@@ -1,3 +1,4 @@
+use compact_encoding::EncodingError;
 use thiserror::Error;
 
 use crate::Store;
@@ -64,6 +65,14 @@ impl From<std::io::Error> for HypercoreError {
         Self::IO {
             context: None,
             source: err,
+        }
+    }
+}
+
+impl From<EncodingError> for HypercoreError {
+    fn from(err: EncodingError) -> Self {
+        Self::InvalidOperation {
+            context: format!("Encoding failed: {}", err),
         }
     }
 }

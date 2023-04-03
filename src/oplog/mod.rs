@@ -105,14 +105,14 @@ impl Oplog {
                         if let Some(mut h2_outcome) = h2_outcome {
                             let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
                             let header: Header = if header_bits[0] == header_bits[1] {
-                                (*h1_outcome.state).decode(&existing)
+                                (*h1_outcome.state).decode(&existing)?
                             } else {
-                                (*h2_outcome.state).decode(&existing)
+                                (*h2_outcome.state).decode(&existing)?
                             };
                             (header, header_bits)
                         } else {
                             (
-                                (*h1_outcome.state).decode(&existing),
+                                (*h1_outcome.state).decode(&existing)?,
                                 [h1_outcome.header_bit, h1_outcome.header_bit],
                             )
                         };
@@ -133,12 +133,12 @@ impl Oplog {
                     };
                     OplogOpenOutcome::new(
                         oplog,
-                        (*h2_outcome.state).decode(&existing),
+                        (*h2_outcome.state).decode(&existing)?,
                         Box::new([]),
                     )
                 } else if let Some(key_pair) = key_pair {
                     // There is nothing in the oplog, start from new given key pair.
-                    Self::new(key_pair.clone())
+                    Self::new(key_pair.clone())?
                 } else {
                     // The storage is empty and no key pair given, erroring
                     return Err(HypercoreError::EmptyStorage {
@@ -155,10 +155,10 @@ impl Oplog {
                         if let Some(mut entry_outcome) =
                             Self::validate_leader(entry_offset as usize, &existing)?
                         {
-                            let entry: Entry = entry_outcome.state.decode(&existing);
+                            let entry: Entry = entry_outcome.state.decode(&existing)?;
                             entries.push(entry);
                             partials.push(entry_outcome.partial_bit);
-                            entry_offset = (*entry_outcome.state).end;
+                            entry_offset = (*entry_outcome.state).end();
                         } else {
                             break;
                         }
@@ -182,7 +182,7 @@ impl Oplog {
         bitfield_update: Option<BitfieldUpdate>,
         atomic: bool,
         header: &Header,
-    ) -> OplogCreateHeaderOutcome {
+    ) -> Result<OplogCreateHeaderOutcome, HypercoreError> {
         let tree_nodes: Vec<Node> = changeset.nodes.clone();
         let mut header: Header = header.clone();
         let entry: Entry = if changeset.upgraded {
@@ -218,14 +218,14 @@ impl Oplog {
             }
         };
 
-        OplogCreateHeaderOutcome {
+        Ok(OplogCreateHeaderOutcome {
             header,
-            infos_to_flush: self.append_entries(&[entry], atomic),
-        }
+            infos_to_flush: self.append_entries(&[entry], atomic)?,
+        })
     }
 
     /// Clears a segment, returns infos to write to storage.
-    pub fn clear(&mut self, start: u64, end: u64) -> Box<[StoreInfo]> {
+    pub fn clear(&mut self, start: u64, end: u64) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let entry: Entry = Entry {
             user_data: vec![],
             tree_nodes: vec![],
@@ -240,73 +240,77 @@ impl Oplog {
     }
 
     /// Flushes pending changes, returns infos to write to storage.
-    pub fn flush(&mut self, header: &Header) -> Box<[StoreInfo]> {
-        let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits);
+    pub fn flush(&mut self, header: &Header) -> Result<Box<[StoreInfo]>, HypercoreError> {
+        let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits)?;
         self.entries_byte_length = 0;
         self.entries_length = 0;
         self.header_bits = new_header_bits;
-        infos_to_flush
+        Ok(infos_to_flush)
     }
 
     /// Appends a batch of entries to the Oplog.
-    fn append_entries(&mut self, batch: &[Entry], atomic: bool) -> Box<[StoreInfo]> {
+    fn append_entries(
+        &mut self,
+        batch: &[Entry],
+        atomic: bool,
+    ) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
         // Leave room for leaders
         let mut state = HypercoreState::new_with_start_and_end(0, len * 8);
 
         for entry in batch.iter() {
-            state.preencode(entry);
+            state.preencode(entry)?;
         }
 
         let mut buffer = state.create_buffer();
         for i in 0..len {
             let entry = &batch[i];
-            (*state).start += 8;
-            let start = state.start;
+            (*state).add_start(8)?;
+            let start = state.start();
             let partial_bit: bool = atomic && i < len - 1;
-            state.encode(entry, &mut buffer);
+            state.encode(entry, &mut buffer)?;
             Self::prepend_leader(
-                state.start - start,
+                state.start() - start,
                 header_bit,
                 partial_bit,
                 &mut state,
                 &mut buffer,
-            );
+            )?;
         }
 
         let index = OplogSlot::Entries as u64 + self.entries_byte_length;
         self.entries_length += len as u64;
         self.entries_byte_length += buffer.len() as u64;
 
-        vec![StoreInfo::new_content(Store::Oplog, index, &buffer)].into_boxed_slice()
+        Ok(vec![StoreInfo::new_content(Store::Oplog, index, &buffer)].into_boxed_slice())
     }
 
-    fn new(key_pair: PartialKeypair) -> OplogOpenOutcome {
+    fn new(key_pair: PartialKeypair) -> Result<OplogOpenOutcome, HypercoreError> {
         let entries_length: u64 = 0;
         let entries_byte_length: u64 = 0;
         let header = Header::new(key_pair);
         let (header_bits, infos_to_flush) =
-            Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS);
+            Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS)?;
         let oplog = Oplog {
             header_bits,
             entries_length,
             entries_byte_length,
         };
-        OplogOpenOutcome::from_create_header_outcome(
+        Ok(OplogOpenOutcome::from_create_header_outcome(
             oplog,
             OplogCreateHeaderOutcome {
                 header,
                 infos_to_flush,
             },
-        )
+        ))
     }
 
     fn insert_header(
         header: &Header,
         entries_byte_length: u64,
         current_header_bits: [bool; 2],
-    ) -> ([bool; 2], Box<[StoreInfo]>) {
+    ) -> Result<([bool; 2], Box<[StoreInfo]>), HypercoreError> {
         // The first 8 bytes will be filled with `prepend_leader`.
         let data_start_index: usize = 8;
         let mut state = HypercoreState::new_with_start_and_end(data_start_index, data_start_index);
@@ -324,34 +328,34 @@ impl Oplog {
         }
 
         // Preencode the new header
-        (*state).preencode(header);
+        (*state).preencode(header)?;
 
         // Create a buffer for the needed data
         let mut buffer = state.create_buffer();
 
         // Encode the header
-        (*state).encode(header, &mut buffer);
+        (*state).encode(header, &mut buffer)?;
 
         // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
         Self::prepend_leader(
-            state.end - data_start_index,
+            state.end() - data_start_index,
             header_bit,
             false,
             &mut state,
             &mut buffer,
-        );
+        )?;
 
         // The oplog is always truncated to the minimum byte size, which is right after
         // the all of the entries in the oplog finish.
         let truncate_index = OplogSlot::Entries as u64 + entries_byte_length;
-        (
+        Ok((
             new_header_bits,
             vec![
                 StoreInfo::new_content(Store::Oplog, oplog_slot as u64, &buffer),
                 StoreInfo::new_truncate(Store::Oplog, truncate_index),
             ]
             .into_boxed_slice(),
-        )
+        ))
     }
 
     /// Prepends given `State` with 4 bytes of CRC followed by 4 bytes containing length of
@@ -365,21 +369,24 @@ impl Oplog {
         partial_bit: bool,
         state: &mut HypercoreState,
         buffer: &mut Box<[u8]>,
-    ) {
+    ) -> Result<(), HypercoreError> {
         // The 4 bytes right before start of data is the length in 8+8+8+6=30 bits. The 31st bit is
         // the partial bit and 32nd bit the header bit.
-        (*state).start = (*state).start - len - 4;
+        let start = (*state).start();
+        (*state).set_start(start - len - 4)?;
         let len_u32: u32 = len.try_into().unwrap();
         let partial_bit: u32 = if partial_bit { 2 } else { 0 };
         let header_bit: u32 = if header_bit { 1 } else { 0 };
         let combined: u32 = (len_u32 << 2) | header_bit | partial_bit;
-        state.encode_u32(combined, buffer);
+        state.encode_u32(combined, buffer)?;
 
         // Before that, is a 4 byte CRC32 that is a checksum of the above encoded 4 bytes and the
         // content.
-        state.start = state.start - 8;
-        let checksum = crc32fast::hash(&buffer[state.start + 4..state.start + 8 + len]);
-        state.encode_u32(checksum, buffer);
+        let start = state.start();
+        state.set_start(start - 8)?;
+        let checksum = crc32fast::hash(&buffer[state.start() + 4..state.start() + 8 + len]);
+        state.encode_u32(checksum, buffer)?;
+        Ok(())
     }
 
     /// Validates that leader at given index is valid, and returns header and partial bits and
@@ -392,23 +399,25 @@ impl Oplog {
             return Ok(None);
         }
         let mut state = HypercoreState::new_with_start_and_end(index, buffer.len());
-        let stored_checksum: u32 = state.decode_u32(buffer);
-        let combined: u32 = state.decode_u32(buffer);
+        let stored_checksum: u32 = state.decode_u32(buffer)?;
+        let combined: u32 = state.decode_u32(buffer)?;
         let len = usize::try_from(combined >> 2)
             .expect("Attempted converting to a 32 bit usize on below 32 bit system");
 
         // NB: In the Javascript version IIUC zero length is caught only with a mismatch
         // of checksums, which is silently interpreted to only mean "no value". That doesn't sound good:
         // better to throw an error on mismatch and let the caller at least log the problem.
-        if len == 0 || state.end - state.start < len {
+        if len == 0 || state.end() - state.start() < len {
             return Ok(None);
         }
         let header_bit = combined & 1 == 1;
         let partial_bit = combined & 2 == 2;
 
-        state.start = index + 8;
-        state.end = state.start + len;
-        let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end]);
+        let new_start = index + 8;
+        state.set_end(new_start + len);
+        state.set_start(new_start)?;
+
+        let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end()]);
         if calculated_checksum != stored_checksum {
             return Err(HypercoreError::InvalidChecksum {
                 context: "Calculated signature does not match oplog signature".to_string(),

@@ -106,7 +106,9 @@ impl Hash {
     /// Hash data
     pub fn data(data: &[u8]) -> Self {
         let (mut state, mut size) = State::new_with_size(8);
-        state.encode_u64(data.len() as u64, &mut size);
+        state
+            .encode_u64(data.len() as u64, &mut size)
+            .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b::new(32);
         hasher.update(&LEAF_TYPE);
@@ -127,7 +129,9 @@ impl Hash {
         };
 
         let (mut state, mut size) = State::new_with_size(8);
-        state.encode_u64((node1.length + node2.length) as u64, &mut size);
+        state
+            .encode_u64((node1.length + node2.length) as u64, &mut size)
+            .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b::new(32);
         hasher.update(&PARENT_TYPE);
@@ -148,8 +152,12 @@ impl Hash {
         for node in roots {
             let node = node.as_ref();
             let (mut state, mut buffer) = State::new_with_size(16);
-            state.encode_u64(node.index() as u64, &mut buffer);
-            state.encode_u64(node.len() as u64, &mut buffer);
+            state
+                .encode_u64(node.index() as u64, &mut buffer)
+                .expect("Encoding u64 should not fail");
+            state
+                .encode_u64(node.len() as u64, &mut buffer)
+                .expect("Encoding u64 should not fail");
 
             hasher.update(node.hash());
             hasher.update(&buffer[..8]);
@@ -186,10 +194,18 @@ impl DerefMut for Hash {
 /// See https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js#L17
 pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
     let (mut state, mut buffer) = State::new_with_size(80);
-    state.encode_fixed_32(&TREE, &mut buffer);
-    state.encode_fixed_32(&hash, &mut buffer);
-    state.encode_u64(length, &mut buffer);
-    state.encode_u64(fork, &mut buffer);
+    state
+        .encode_fixed_32(&TREE, &mut buffer)
+        .expect("Should be able ");
+    state
+        .encode_fixed_32(&hash, &mut buffer)
+        .expect("Encoding fixed 32 bytes should not fail");
+    state
+        .encode_u64(length, &mut buffer)
+        .expect("Encoding u64 should not fail");
+    state
+        .encode_u64(fork, &mut buffer)
+        .expect("Encoding u64 should not fail");
     buffer
 }
 

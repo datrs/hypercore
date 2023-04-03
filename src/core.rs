@@ -291,7 +291,7 @@ where
                 Some(bitfield_update.clone()),
                 false,
                 &self.header,
-            );
+            )?;
             self.storage.flush_infos(&outcome.infos_to_flush).await?;
             self.header = outcome.header;
 
@@ -353,7 +353,7 @@ where
             return Ok(());
         }
         // Write to oplog
-        let infos_to_flush = self.oplog.clear(start, end);
+        let infos_to_flush = self.oplog.clear(start, end)?;
         self.storage.flush_infos(&infos_to_flush).await?;
 
         // Set bitfield
@@ -500,9 +500,12 @@ where
         };
 
         // Append the changeset to the Oplog
-        let outcome =
-            self.oplog
-                .append_changeset(&changeset, bitfield_update.clone(), false, &self.header);
+        let outcome = self.oplog.append_changeset(
+            &changeset,
+            bitfield_update.clone(),
+            false,
+            &self.header,
+        )?;
         self.storage.flush_infos(&outcome.infos_to_flush).await?;
         self.header = outcome.header;
 
@@ -651,7 +654,7 @@ where
         self.storage.flush_infos(&infos).await?;
         let infos = self.tree.flush();
         self.storage.flush_infos(&infos).await?;
-        let infos_to_flush = self.oplog.flush(&self.header);
+        let infos_to_flush = self.oplog.flush(&self.header)?;
         self.storage.flush_infos(&infos_to_flush).await?;
         Ok(())
     }

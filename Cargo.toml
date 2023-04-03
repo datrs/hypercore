@@ -27,7 +27,7 @@ byteorder = "1.3.4"
 ed25519-dalek = "1.0.1"
 thiserror = "1"
 tracing = "0.1"
-compact-encoding = { git = "https://github.com/datrs/compact-encoding", branch = "main" }
+compact-encoding = { git = "https://github.com/datrs/compact-encoding", branch = "error" }
 flat-tree = { git = "https://github.com/ttiurani/flat-tree", branch = "v10" }
 lazy_static = "1.4.0"
 memory-pager = "0.9.0"
