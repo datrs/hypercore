@@ -1,5 +1,5 @@
 //! Hypercore-specific compact encodings
-pub use compact_encoding::{CompactEncoding, EncodingError, State};
+pub use compact_encoding::{CompactEncoding, EncodingError, EncodingErrorKind, State};
 use std::ops::{Deref, DerefMut};
 
 use crate::{
