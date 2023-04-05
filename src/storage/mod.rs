@@ -34,7 +34,7 @@ impl Clone for PartialKeypair {
             None => None,
         };
         PartialKeypair {
-            public: self.public.clone(),
+            public: self.public,
             secret,
         }
     }
@@ -233,7 +233,7 @@ where
                     if !info.miss {
                         if let Some(data) = &info.data {
                             storage
-                                .write(info.index, &data.to_vec())
+                                .write(info.index, data)
                                 .await
                                 .map_err(map_random_access_err)?;
                         }
@@ -278,7 +278,7 @@ impl Storage<RandomAccessMemory> {
     pub async fn new_memory() -> Result<Self, HypercoreError> {
         let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
         // No reason to overwrite, as this is a new memory segment
-        Ok(Self::open(create, false).await?)
+        Self::open(create, false).await
     }
 }
 
@@ -296,6 +296,6 @@ impl Storage<RandomAccessDisk> {
             };
             RandomAccessDisk::open(dir.as_path().join(name)).boxed()
         };
-        Ok(Self::open(storage, overwrite).await?)
+        Self::open(storage, overwrite).await
     }
 }

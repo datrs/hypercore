@@ -10,6 +10,13 @@ use crate::{
 /// Wrapper struct for compact_encoding::State
 pub struct HypercoreState(pub State);
 
+impl Default for HypercoreState {
+    /// Passthrought to compact_encoding
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HypercoreState {
     /// Passthrought to compact_encoding
     pub fn new() -> HypercoreState {
@@ -72,7 +79,7 @@ impl CompactEncoding<Vec<Node>> for HypercoreState {
     fn preencode(&mut self, value: &Vec<Node>) -> Result<usize, EncodingError> {
         let len = value.len();
         self.0.preencode(&len)?;
-        for val in value.into_iter() {
+        for val in value {
             self.preencode(val)?;
         }
         Ok(self.end())

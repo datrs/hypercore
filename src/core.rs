@@ -176,11 +176,11 @@ where
                 }
 
                 if let Some(bitfield_update) = &entry.bitfield {
-                    bitfield.update(&bitfield_update);
+                    bitfield.update(bitfield_update);
                     update_contiguous_length(
                         &mut oplog_open_outcome.header,
                         &bitfield,
-                        &bitfield_update,
+                        bitfield_update,
                     );
                 }
                 if let Some(tree_upgrade) = &entry.tree_upgrade {
@@ -272,7 +272,7 @@ where
             for data in batch.iter() {
                 batch_length += changeset.append(data);
             }
-            changeset.hash_and_sign(&self.key_pair.public, &secret_key);
+            changeset.hash_and_sign(&self.key_pair.public, secret_key);
 
             // Write the received data to the block store
             let info = self
@@ -425,7 +425,7 @@ where
         seek: Option<RequestSeek>,
         upgrade: Option<RequestUpgrade>,
     ) -> Result<Option<Proof>, HypercoreError> {
-        let mut valueless_proof = self
+        let valueless_proof = self
             .create_valueless_proof(block, hash, seek, upgrade)
             .await?;
         let value: Option<Vec<u8>> = if let Some(block) = valueless_proof.block.as_ref() {
@@ -532,7 +532,7 @@ where
     #[instrument(err, skip(self))]
     pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64, HypercoreError> {
         match self.tree.missing_nodes(merkle_tree_index, None)? {
-            Either::Right(value) => return Ok(value),
+            Either::Right(value) => Ok(value),
             Either::Left(instructions) => {
                 let mut instructions = instructions;
                 let mut infos: Vec<StoreInfo> = vec![];
@@ -557,7 +557,7 @@ where
         initial_infos: Option<&[StoreInfo]>,
     ) -> Result<NodeByteRange, HypercoreError> {
         match self.tree.byte_range(index, initial_infos)? {
-            Either::Right(value) => return Ok(value),
+            Either::Right(value) => Ok(value),
             Either::Left(instructions) => {
                 let mut instructions = instructions;
                 let mut infos: Vec<StoreInfo> = vec![];
@@ -590,7 +590,7 @@ where
             upgrade.as_ref(),
             None,
         )? {
-            Either::Right(value) => return Ok(value),
+            Either::Right(value) => Ok(value),
             Either::Left(instructions) => {
                 let mut instructions = instructions;
                 let mut infos: Vec<StoreInfo> = vec![];
@@ -627,11 +627,9 @@ where
                     .verify_proof(proof, &self.key_pair.public, Some(&infos))?
                 {
                     Either::Right(value) => Ok(value),
-                    Either::Left(_) => {
-                        return Err(HypercoreError::InvalidOperation {
-                            context: format!("Could not verify proof from tree"),
-                        });
-                    }
+                    Either::Left(_) => Err(HypercoreError::InvalidOperation {
+                        context: "Could not verify proof from tree".to_string(),
+                    }),
                 }
             }
         }
@@ -671,12 +669,10 @@ fn update_contiguous_length(
         if c <= end && c > bitfield_update.start {
             c = bitfield_update.start;
         }
-    } else {
-        if c <= end && c >= bitfield_update.start {
-            c = end;
-            while bitfield.get(c) {
-                c += 1;
-            }
+    } else if c <= end && c >= bitfield_update.start {
+        c = end;
+        while bitfield.get(c) {
+            c += 1;
         }
     }
 
@@ -1057,14 +1053,14 @@ mod tests {
         length: u64,
     ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
         let key_pair = generate_keypair();
-        Ok(create_hypercore_with_data_and_key_pair(
+        create_hypercore_with_data_and_key_pair(
             length,
             PartialKeypair {
                 public: key_pair.public,
                 secret: Some(key_pair.secret),
             },
         )
-        .await?)
+        .await
     }
 
     async fn create_hypercore_with_data_and_key_pair(

@@ -86,10 +86,10 @@ pub struct Entry {
 impl CompactEncoding<Entry> for HypercoreState {
     fn preencode(&mut self, value: &Entry) -> Result<usize, EncodingError> {
         self.0.add_end(1)?; // flags
-        if value.user_data.len() > 0 {
+        if !value.user_data.is_empty() {
             self.0.preencode(&value.user_data)?;
         }
-        if value.tree_nodes.len() > 0 {
+        if !value.tree_nodes.is_empty() {
             self.preencode(&value.tree_nodes)?;
         }
         if let Some(tree_upgrade) = &value.tree_upgrade {
@@ -105,20 +105,20 @@ impl CompactEncoding<Entry> for HypercoreState {
         let start = self.0.start();
         self.0.add_start(1)?;
         let mut flags: u8 = 0;
-        if value.user_data.len() > 0 {
-            flags = flags | 1;
+        if !value.user_data.is_empty() {
+            flags |= 1;
             self.0.encode(&value.user_data, buffer)?;
         }
-        if value.tree_nodes.len() > 0 {
-            flags = flags | 2;
+        if !value.tree_nodes.is_empty() {
+            flags |= 2;
             self.encode(&value.tree_nodes, buffer)?;
         }
         if let Some(tree_upgrade) = &value.tree_upgrade {
-            flags = flags | 4;
+            flags |= 4;
             self.encode(tree_upgrade, buffer)?;
         }
         if let Some(bitfield) = &value.bitfield {
-            flags = flags | 8;
+            flags |= 8;
             self.encode(bitfield, buffer)?;
         }
 

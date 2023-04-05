@@ -20,7 +20,7 @@ impl BlockStore {
     }
 
     pub fn put(&self, value: &[u8], offset: u64) -> StoreInfo {
-        StoreInfo::new_content(Store::Data, offset, &value.to_vec())
+        StoreInfo::new_content(Store::Data, offset, value)
     }
 
     pub fn read(

@@ -60,7 +60,7 @@ pub struct ValuelessProof {
 }
 
 impl ValuelessProof {
-    pub fn into_proof(&mut self, block_value: Option<Vec<u8>>) -> Proof {
+    pub fn into_proof(mut self, block_value: Option<Vec<u8>>) -> Proof {
         let block = self.block.take().map(|block| DataBlock {
             index: block.index,
             nodes: block.nodes,

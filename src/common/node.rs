@@ -42,7 +42,7 @@ impl Node {
         Self {
             index,
             hash,
-            length: length as u64,
+            length,
             parent: flat_tree::parent(index),
             data: Some(Vec::with_capacity(0)),
             blank,
@@ -75,7 +75,7 @@ impl NodeTrait for Node {
 
     #[inline]
     fn len(&self) -> u64 {
-        self.length as u64
+        self.length
     }
 
     #[inline]
@@ -139,7 +139,7 @@ impl From<NodeParts<Hash>> for Node {
         Node {
             index: partial.index(),
             parent: partial.parent,
-            length: partial.len() as u64,
+            length: partial.len(),
             hash,
             data,
             blank,

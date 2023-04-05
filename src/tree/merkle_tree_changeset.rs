@@ -75,7 +75,7 @@ impl MerkleTreeChangeset {
 
             let node = Node::new(
                 iter.parent(),
-                Hash::parent(&a, &b).as_bytes().into(),
+                Hash::parent(a, b).as_bytes().into(),
                 a.length + b.length,
             );
             let _ = &self.nodes.push(node.clone());
@@ -89,7 +89,7 @@ impl MerkleTreeChangeset {
     pub fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
         let hash = self.hash();
         let signable = self.signable(&hash);
-        let signature = sign(&public_key, &secret_key, &signable);
+        let signature = sign(public_key, secret_key, &signable);
         self.hash = Some(hash);
         self.signature = Some(signature);
     }
@@ -106,7 +106,7 @@ impl MerkleTreeChangeset {
                 context: "Could not parse signature".to_string(),
             })?;
         let hash = self.hash();
-        verify(&public_key, &self.signable(&hash), Some(&signature))?;
+        verify(public_key, &self.signable(&hash), Some(&signature))?;
 
         // Set values to changeset
         self.hash = Some(hash);

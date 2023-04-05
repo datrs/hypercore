@@ -184,12 +184,7 @@ impl DynamicBitfield {
 
             // It wasn't found on the first page, now get the keys that are bigger
             // than the given index and sort them.
-            let mut keys: Vec<&u64> = self
-                .pages
-                .keys()
-                .into_iter()
-                .filter(|key| **key > first_page)
-                .collect();
+            let mut keys: Vec<&u64> = self.pages.keys().filter(|key| **key > first_page).collect();
             keys.sort();
             for key in keys {
                 if let Some(p) = self.pages.get(*key) {
@@ -236,12 +231,7 @@ impl DynamicBitfield {
 
             // It wasn't found on the last page, now get the keys that are smaller
             // than the given index and sort them.
-            let mut keys: Vec<&u64> = self
-                .pages
-                .keys()
-                .into_iter()
-                .filter(|key| **key < last_page)
-                .collect();
+            let mut keys: Vec<&u64> = self.pages.keys().filter(|key| **key < last_page).collect();
             keys.sort();
             keys.reverse();
 
@@ -260,7 +250,7 @@ impl DynamicBitfield {
             // a missing page.
             let mut i = last_page;
             let mut j = last_index as u32;
-            while i == last_page || i <= 0 {
+            while i == last_page || i == 0 {
                 if let Some(p) = self.pages.get(i) {
                     if let Some(index) = p.borrow().last_index_of(value, j) {
                         return Some(i * DYNAMIC_BITFIELD_PAGE_SIZE as u64 + index as u64);
@@ -308,7 +298,7 @@ mod tests {
         assert_eq!(bitfield.last_index_of(false, 10000000), Some(10000000));
 
         bitfield.set(0, true);
-        assert_eq!(bitfield.get(0), true);
+        assert!(bitfield.get(0));
         assert_eq!(bitfield.index_of(true, 0), Some(0));
         assert_eq!(bitfield.index_of(false, 0), Some(1));
         assert_eq!(bitfield.last_index_of(true, 9), Some(0));
@@ -318,18 +308,18 @@ mod tests {
 
         assert_value_range(&bitfield, 1, 63, false);
         bitfield.set(31, true);
-        assert_eq!(bitfield.get(31), true);
+        assert!(bitfield.get(31));
 
         assert_value_range(&bitfield, 32, 32, false);
-        assert_eq!(bitfield.get(32), false);
+        assert!(!bitfield.get(32));
         bitfield.set(32, true);
-        assert_eq!(bitfield.get(32), true);
+        assert!(bitfield.get(32));
         assert_value_range(&bitfield, 33, 31, false);
 
         assert_value_range(&bitfield, 32760, 8, false);
-        assert_eq!(bitfield.get(32767), false);
+        assert!(!bitfield.get(32767));
         bitfield.set(32767, true);
-        assert_eq!(bitfield.get(32767), true);
+        assert!(bitfield.get(32767));
         assert_value_range(&bitfield, 32760, 7, false);
 
         // Now for over one fixed bitfield values
@@ -338,7 +328,7 @@ mod tests {
         assert_value_range(&bitfield, 32769, 9, false);
 
         bitfield.set(10000000, true);
-        assert_eq!(bitfield.get(10000000), true);
+        assert!(bitfield.get(10000000));
         assert_value_range(&bitfield, 9999990, 10, false);
         assert_value_range(&bitfield, 10000001, 9, false);
         assert_eq!(bitfield.index_of(false, 32767), Some(32769));
@@ -358,7 +348,7 @@ mod tests {
         assert_value_range(&bitfield, 5, 59, false);
 
         bitfield.set_range(1, 3, false);
-        assert_eq!(bitfield.get(0), true);
+        assert!(bitfield.get(0));
         assert_value_range(&bitfield, 1, 3, false);
         assert_value_range(&bitfield, 4, 1, true);
         assert_value_range(&bitfield, 5, 59, false);

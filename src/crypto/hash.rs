@@ -53,7 +53,7 @@ impl Hash {
             (right, left)
         };
 
-        let size = u64_as_be((node1.length + node2.length) as u64);
+        let size = u64_as_be(node1.length + node2.length);
 
         let mut hasher = Blake2b::new(32);
         hasher.update(&PARENT_TYPE);
@@ -85,8 +85,8 @@ impl Hash {
         for node in roots {
             let node = node.as_ref();
             hasher.update(node.hash());
-            hasher.update(&u64_as_be((node.index()) as u64));
-            hasher.update(&u64_as_be((node.len()) as u64));
+            hasher.update(&u64_as_be(node.index()));
+            hasher.update(&u64_as_be(node.len()));
         }
 
         Self {
@@ -130,7 +130,7 @@ impl Hash {
 
         let (mut state, mut size) = State::new_with_size(8);
         state
-            .encode_u64((node1.length + node2.length) as u64, &mut size)
+            .encode_u64(node1.length + node2.length, &mut size)
             .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b::new(32);
@@ -153,10 +153,10 @@ impl Hash {
             let node = node.as_ref();
             let (mut state, mut buffer) = State::new_with_size(16);
             state
-                .encode_u64(node.index() as u64, &mut buffer)
+                .encode_u64(node.index(), &mut buffer)
                 .expect("Encoding u64 should not fail");
             state
-                .encode_u64(node.len() as u64, &mut buffer)
+                .encode_u64(node.len(), &mut buffer)
                 .expect("Encoding u64 should not fail");
 
             hasher.update(node.hash());
@@ -198,7 +198,7 @@ pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
         .encode_fixed_32(&TREE, &mut buffer)
         .expect("Should be able ");
     state
-        .encode_fixed_32(&hash, &mut buffer)
+        .encode_fixed_32(hash, &mut buffer)
         .expect("Encoding fixed 32 bytes should not fail");
     state
         .encode_u64(length, &mut buffer)
@@ -218,7 +218,7 @@ mod tests {
 
     fn hash_with_extra_byte(data: &[u8], byte: u8) -> Box<[u8]> {
         let mut hasher = Blake2b::new(32);
-        hasher.update(&data);
+        hasher.update(data);
         hasher.update(&[byte]);
         let hash = hasher.finalize();
         hash.as_bytes().into()
@@ -337,7 +337,7 @@ mod tests {
         hasher.update(&HYPERCORE);
         let hash = hasher.finalize();
         let ns = hash.as_bytes();
-        let tree: Box<[u8]> = { hash_with_extra_byte(ns, 0).into() };
+        let tree: Box<[u8]> = { hash_with_extra_byte(ns, 0) };
         assert_eq!(tree, TREE.into());
     }
 }

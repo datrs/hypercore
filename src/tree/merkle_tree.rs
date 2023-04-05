@@ -90,7 +90,7 @@ impl MerkleTree {
                     roots.push(node);
                 }
                 if length > 0 {
-                    length = length / 2;
+                    length /= 2;
                 }
                 let signature: Option<Signature> = if header_tree.signature.len() > 0 {
                     Some(
@@ -259,7 +259,7 @@ impl MerkleTree {
                 for i in 0..r {
                     tree_offset += self.roots[i].length;
                 }
-                return Ok(Either::Right(tree_offset as u64));
+                return Ok(Either::Right(tree_offset));
             }
             parent.index
         } else {
@@ -289,16 +289,15 @@ impl MerkleTree {
         let mut changeset = self.changeset();
 
         let mut instructions: Vec<StoreInfoInstruction> = Vec::new();
-        for i in 0..full_roots.len() {
-            let root = full_roots[i];
-            if i < changeset.roots.len() && changeset.roots[i].index == root {
+        for (i, root) in full_roots.iter().enumerate() {
+            if i < changeset.roots.len() && changeset.roots[i].index == *root {
                 continue;
             }
             while changeset.roots.len() > i {
                 changeset.roots.pop();
             }
 
-            let node_or_instruction = self.required_node(root, &nodes)?;
+            let node_or_instruction = self.required_node(*root, &nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
                     instructions.push(instruction);
@@ -467,14 +466,10 @@ impl MerkleTree {
                 };
 
             let data_seek: Option<DataSeek> = if let Some(seek) = seek.as_ref() {
-                if let Some(p_seek) = p.seek {
-                    Some(DataSeek {
-                        bytes: seek.bytes,
-                        nodes: p_seek,
-                    })
-                } else {
-                    None
-                }
+                p.seek.map(|p_seek| DataSeek {
+                    bytes: seek.bytes,
+                    nodes: p_seek,
+                })
             } else {
                 None
             };
@@ -882,8 +877,7 @@ impl MerkleTree {
         flat_tree::full_roots(head, &mut roots);
         let mut bytes = bytes;
 
-        for i in 0..roots.len() {
-            let root = roots[i];
+        for root in roots {
             let node_or_instruction = self.required_node(root, nodes)?;
             match node_or_instruction {
                 Either::Left(instruction) => {
@@ -1043,11 +1037,8 @@ impl MerkleTree {
                 if is_seek && iter.contains(seek_root) && iter.index() != seek_root {
                     let success_or_instruction =
                         self.seek_proof(seek_root, iter.index(), p, nodes)?;
-                    match success_or_instruction {
-                        Either::Left(new_instructions) => {
-                            instructions.extend(new_instructions);
-                        }
-                        _ => (),
+                    if let Either::Left(new_instructions) = success_or_instruction {
+                        instructions.extend(new_instructions);
                     }
                 } else {
                     let node_or_instruction = self.required_node(iter.index(), nodes)?;
@@ -1416,7 +1407,7 @@ fn verify_upgrade(
     } else {
         NodeQueue::new(upgrade.nodes.clone(), None)
     };
-    let mut grow: bool = changeset.roots.len() > 0;
+    let mut grow: bool = !changeset.roots.is_empty();
     let mut i: usize = 0;
     let to: u64 = 2 * (upgrade.start + upgrade.length);
     let mut iter = flat_tree::Iterator::new(0);
@@ -1466,7 +1457,7 @@ fn verify_upgrade(
         iter.sibling();
     }
     changeset.fork = fork;
-    changeset.verify_and_set_signature(&upgrade.signature, &public_key)?;
+    changeset.verify_and_set_signature(&upgrade.signature, public_key)?;
     Ok(q.extra.is_none())
 }
 
@@ -1507,15 +1498,13 @@ fn normalize_indexed(
             nodes: block.nodes,
             last_index: block.index,
         })
-    } else if let Some(hash) = hash {
-        Some(NormalizedIndexed {
+    } else {
+        hash.map(|hash| NormalizedIndexed {
             value: false,
             index: hash.index,
             nodes: hash.nodes,
             last_index: flat_tree::right_span(hash.index) / 2,
         })
-    } else {
-        None
     }
 }
 
@@ -1533,14 +1522,12 @@ fn normalize_data(block: Option<&DataBlock>, hash: Option<&DataHash>) -> Option<
             index: block.index * 2,
             nodes: block.nodes.clone(),
         })
-    } else if let Some(hash) = hash {
-        Some(NormalizedData {
+    } else {
+        hash.map(|hash| NormalizedData {
             value: None,
             index: hash.index,
             nodes: hash.nodes.clone(),
         })
-    } else {
-        None
     }
 }
 
