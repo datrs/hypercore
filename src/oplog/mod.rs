@@ -9,10 +9,10 @@ use crate::{HypercoreError, Node, PartialKeypair};
 mod entry;
 mod header;
 
-pub use entry::{Entry, EntryTreeUpgrade};
-pub use header::{Header, HeaderTree};
+pub(crate) use entry::{Entry, EntryTreeUpgrade};
+pub(crate) use header::{Header, HeaderTree};
 
-pub const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
+pub(crate) const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
 
 /// Oplog.
 ///
@@ -20,7 +20,7 @@ pub const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
 /// and one is the older. Which one is used depends on the value stored in the eigth byte's
 /// eight bit of the stored headers.
 #[derive(Debug)]
-pub struct Oplog {
+pub(crate) struct Oplog {
     header_bits: [bool; 2],
     pub(crate) entries_length: u64,
     pub(crate) entries_byte_length: u64,
@@ -28,14 +28,14 @@ pub struct Oplog {
 
 /// Oplog create header outcome
 #[derive(Debug)]
-pub struct OplogCreateHeaderOutcome {
+pub(crate) struct OplogCreateHeaderOutcome {
     pub header: Header,
     pub infos_to_flush: Box<[StoreInfo]>,
 }
 
 /// Oplog open outcome
 #[derive(Debug)]
-pub struct OplogOpenOutcome {
+pub(crate) struct OplogOpenOutcome {
     pub oplog: Oplog,
     pub header: Header,
     pub infos_to_flush: Box<[StoreInfo]>,
@@ -83,7 +83,7 @@ const INITIAL_HEADER_BITS: [bool; 2] = [true, false];
 
 impl Oplog {
     /// Opens an existing Oplog from existing byte buffer or creates a new one.
-    pub fn open(
+    pub(crate) fn open(
         key_pair: &Option<PartialKeypair>,
         info: Option<StoreInfo>,
     ) -> Result<Either<StoreInfoInstruction, OplogOpenOutcome>, HypercoreError> {
@@ -137,8 +137,8 @@ impl Oplog {
                         Box::new([]),
                     )
                 } else if let Some(key_pair) = key_pair {
-                    // There is nothing in the oplog, start from new given key pair.
-                    Self::new(key_pair.clone())?
+                    // There is nothing in the oplog, start from fresh given key pair.
+                    Self::fresh(key_pair.clone())?
                 } else {
                     // The storage is empty and no key pair given, erroring
                     return Err(HypercoreError::EmptyStorage {
@@ -151,21 +151,17 @@ impl Oplog {
                     let mut entry_offset = OplogSlot::Entries as usize;
                     let mut entries: Vec<Entry> = Vec::new();
                     let mut partials: Vec<bool> = Vec::new();
-                    loop {
-                        if let Some(mut entry_outcome) =
-                            Self::validate_leader(entry_offset as usize, &existing)?
-                        {
-                            let entry: Entry = entry_outcome.state.decode(&existing)?;
-                            entries.push(entry);
-                            partials.push(entry_outcome.partial_bit);
-                            entry_offset = (*entry_outcome.state).end();
-                        } else {
-                            break;
-                        }
+                    while let Some(mut entry_outcome) =
+                        Self::validate_leader(entry_offset, &existing)?
+                    {
+                        let entry: Entry = entry_outcome.state.decode(&existing)?;
+                        entries.push(entry);
+                        partials.push(entry_outcome.partial_bit);
+                        entry_offset = (*entry_outcome.state).end();
                     }
 
                     // Remove all trailing partial entries
-                    while partials.len() > 0 && partials[partials.len() - 1] {
+                    while !partials.is_empty() && partials[partials.len() - 1] {
                         entries.pop();
                     }
                     outcome.entries = Some(entries.into_boxed_slice());
@@ -176,7 +172,7 @@ impl Oplog {
     }
 
     /// Appends an upgraded changeset to the Oplog.
-    pub fn append_changeset(
+    pub(crate) fn append_changeset(
         &mut self,
         changeset: &MerkleTreeChangeset,
         bitfield_update: Option<BitfieldUpdate>,
@@ -225,7 +221,11 @@ impl Oplog {
     }
 
     /// Clears a segment, returns infos to write to storage.
-    pub fn clear(&mut self, start: u64, end: u64) -> Result<Box<[StoreInfo]>, HypercoreError> {
+    pub(crate) fn clear(
+        &mut self,
+        start: u64,
+        end: u64,
+    ) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let entry: Entry = Entry {
             user_data: vec![],
             tree_nodes: vec![],
@@ -264,8 +264,7 @@ impl Oplog {
         }
 
         let mut buffer = state.create_buffer();
-        for i in 0..len {
-            let entry = &batch[i];
+        for (i, entry) in batch.iter().enumerate() {
             (*state).add_start(8)?;
             let start = state.start();
             let partial_bit: bool = atomic && i < len - 1;
@@ -286,7 +285,7 @@ impl Oplog {
         Ok(vec![StoreInfo::new_content(Store::Oplog, index, &buffer)].into_boxed_slice())
     }
 
-    fn new(key_pair: PartialKeypair) -> Result<OplogOpenOutcome, HypercoreError> {
+    fn fresh(key_pair: PartialKeypair) -> Result<OplogOpenOutcome, HypercoreError> {
         let entries_length: u64 = 0;
         let entries_byte_length: u64 = 0;
         let header = Header::new(key_pair);
@@ -318,7 +317,7 @@ impl Oplog {
         // Get the right slot and header bit
         let (oplog_slot, header_bit) =
             Oplog::get_next_header_oplog_slot_and_bit_value(&current_header_bits);
-        let mut new_header_bits = current_header_bits.clone();
+        let mut new_header_bits = current_header_bits;
         match oplog_slot {
             OplogSlot::FirstHeader => new_header_bits[0] = header_bit,
             OplogSlot::SecondHeader => new_header_bits[1] = header_bit,
@@ -393,7 +392,7 @@ impl Oplog {
     /// `State` for the header/entry that the leader was for.
     fn validate_leader(
         index: usize,
-        buffer: &Box<[u8]>,
+        buffer: &[u8],
     ) -> Result<Option<ValidateLeaderOutcome>, HypercoreError> {
         if buffer.len() < index + 8 {
             return Ok(None);

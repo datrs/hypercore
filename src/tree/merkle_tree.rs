@@ -801,7 +801,7 @@ impl MerkleTree {
         #[cfg(feature = "cache")]
         if let Some(node_cache) = &self.node_cache {
             if let Some(node) = node_cache.get(&index) {
-                return Ok(Either::Right(Some(node.clone())));
+                return Ok(Either::Right(Some(node)));
             }
         }
 
@@ -1106,6 +1106,7 @@ impl MerkleTree {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn upgrade_proof(
         &self,
         indexed: Option<&NormalizedIndexed>,
@@ -1304,7 +1305,7 @@ impl MerkleTree {
             Some(infos) => {
                 let mut nodes: IntMap<Option<Node>> = IntMap::with_capacity(infos.len());
                 for info in infos {
-                    let index = index_from_info(&info);
+                    let index = index_from_info(info);
                     if !info.miss {
                         let node = node_from_bytes(&index, info.data.as_ref().unwrap())?;
                         #[cfg(feature = "cache")]

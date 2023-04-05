@@ -5,7 +5,7 @@ use crate::PartialKeypair;
 
 /// Oplog header.
 #[derive(Debug, Clone)]
-pub struct Header {
+pub(crate) struct Header {
     pub(crate) types: HeaderTypes,
     // TODO: This is a keyValueArray in JS
     pub(crate) user_data: Vec<String>,
@@ -48,7 +48,7 @@ impl Header {
 
 /// Oplog header types
 #[derive(Debug, PartialEq, Clone)]
-pub struct HeaderTypes {
+pub(crate) struct HeaderTypes {
     pub(crate) tree: String,
     pub(crate) bitfield: String,
     pub(crate) signer: String,
@@ -90,7 +90,7 @@ impl CompactEncoding<HeaderTypes> for State {
 
 /// Oplog header tree
 #[derive(Debug, PartialEq, Clone)]
-pub struct HeaderTree {
+pub(crate) struct HeaderTree {
     pub(crate) fork: u64,
     pub(crate) length: u64,
     pub(crate) root_hash: Box<[u8]>,
@@ -188,7 +188,7 @@ impl CompactEncoding<PartialKeypair> for State {
 
 /// Oplog header hints
 #[derive(Debug, Clone)]
-pub struct HeaderHints {
+pub(crate) struct HeaderHints {
     pub(crate) reorgs: Vec<String>,
 }
 

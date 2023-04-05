@@ -133,22 +133,12 @@ impl FixedBitfield {
 
     /// Finds the first index of the value after given position. Returns None if not found.
     pub fn index_of(&self, value: bool, position: u32) -> Option<u32> {
-        for i in position..FIXED_BITFIELD_BITS_LENGTH as u32 {
-            if self.get(i) == value {
-                return Some(i);
-            }
-        }
-        None
+        (position..FIXED_BITFIELD_BITS_LENGTH as u32).find(|&i| self.get(i) == value)
     }
 
     /// Finds the last index of the value before given position. Returns None if not found.
     pub fn last_index_of(&self, value: bool, position: u32) -> Option<u32> {
-        for i in (0..position + 1).rev() {
-            if self.get(i) == value {
-                return Some(i);
-            }
-        }
-        None
+        (0..position + 1).rev().find(|&i| self.get(i) == value)
     }
 }
 
