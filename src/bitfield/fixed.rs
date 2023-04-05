@@ -14,21 +14,19 @@ use std::convert::TryInto;
 /// https://github.com/hypercore-protocol/hypercore/commit/6392021b11d53041a446e9021c7d79350a052d3d
 #[derive(Debug)]
 pub struct FixedBitfield {
-    pub(crate) parent_index: u64,
     pub(crate) dirty: bool,
     bitfield: [u32; FIXED_BITFIELD_LENGTH],
 }
 
 impl FixedBitfield {
-    pub fn new(parent_index: u64) -> Self {
+    pub fn new() -> Self {
         Self {
-            parent_index,
             dirty: false,
             bitfield: [0; FIXED_BITFIELD_LENGTH],
         }
     }
 
-    pub fn from_data(parent_index: u64, data_index: usize, data: &[u8]) -> Self {
+    pub fn from_data(data_index: usize, data: &[u8]) -> Self {
         let mut bitfield = [0; FIXED_BITFIELD_LENGTH];
         if data.len() >= data_index + 4 {
             let mut i = data_index;
@@ -43,7 +41,6 @@ impl FixedBitfield {
             }
         }
         Self {
-            parent_index,
             dirty: false,
             bitfield,
         }
@@ -171,7 +168,7 @@ mod tests {
 
     #[test]
     fn bitfield_fixed_get_and_set() {
-        let mut bitfield = FixedBitfield::new(0);
+        let mut bitfield = FixedBitfield::new();
         assert_value_range(&bitfield, 0, 9, false);
         assert_eq!(bitfield.index_of(true, 0), None);
         assert_eq!(bitfield.index_of(false, 0), Some(0));
@@ -210,7 +207,7 @@ mod tests {
 
     #[test]
     fn bitfield_fixed_set_range() {
-        let mut bitfield = FixedBitfield::new(0);
+        let mut bitfield = FixedBitfield::new();
         bitfield.set_range(0, 2, true);
         assert_value_range(&bitfield, 0, 2, true);
         assert_value_range(&bitfield, 3, 61, false);

@@ -44,7 +44,7 @@ impl DynamicBitfield {
                         let parent_index: u64 = (data_index / FIXED_BITFIELD_LENGTH) as u64;
                         pages.insert(
                             parent_index,
-                            RefCell::new(FixedBitfield::from_data(parent_index, data_index, &data)),
+                            RefCell::new(FixedBitfield::from_data(data_index, &data)),
                         );
                         if parent_index > biggest_page_index {
                             biggest_page_index = parent_index;
@@ -96,13 +96,14 @@ impl DynamicBitfield {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set(&mut self, index: u64, value: bool) -> bool {
         let j = index & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let i = (index - j) / DYNAMIC_BITFIELD_PAGE_SIZE as u64;
 
         if !self.pages.contains_key(i) {
             if value {
-                self.pages.insert(i, RefCell::new(FixedBitfield::new(i)));
+                self.pages.insert(i, RefCell::new(FixedBitfield::new()));
                 if i > self.biggest_page_index {
                     self.biggest_page_index = i;
                 }
@@ -137,7 +138,7 @@ impl DynamicBitfield {
 
         while length > 0 {
             if !self.pages.contains_key(i) {
-                self.pages.insert(i, RefCell::new(FixedBitfield::new(i)));
+                self.pages.insert(i, RefCell::new(FixedBitfield::new()));
                 if i > self.biggest_page_index {
                     self.biggest_page_index = i;
                 }

@@ -360,7 +360,6 @@ impl MerkleTree {
 
         let mut sub_tree = head;
         let mut p = LocalProof {
-            indexed: None,
             seek: None,
             nodes: None,
             upgrade: None,
@@ -1548,7 +1547,6 @@ fn normalize_data(block: Option<&DataBlock>, hash: Option<&DataHash>) -> Option<
 /// Struct to use for local building of proof
 #[derive(Debug, Clone)]
 struct LocalProof {
-    pub indexed: Option<NormalizedIndexed>,
     pub seek: Option<Vec<Node>>,
     pub nodes: Option<Vec<Node>>,
     pub upgrade: Option<Vec<Node>>,
