@@ -2,8 +2,8 @@
 #![forbid(rust_2018_idioms, rust_2018_compatibility)]
 #![forbid(missing_debug_implementations)]
 #![forbid(missing_docs)]
-// FIXME: Off during v10 coding
-// #![cfg_attr(test, deny(warnings))]
+#![cfg_attr(test, deny(warnings))]
+#![doc(test(attr(deny(warnings))))]
 
 //! ## Introduction
 //! Hypercore is a secure, distributed append-only log. Built for sharing
