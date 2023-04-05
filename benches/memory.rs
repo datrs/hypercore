@@ -71,6 +71,7 @@ fn read_memory(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::unit_arg)]
 fn clear_memory(c: &mut Criterion) {
     c.bench_function("clear_memory", move |b| {
         b.to_async(AsyncStdExecutor)

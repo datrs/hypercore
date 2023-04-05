@@ -54,7 +54,7 @@ pub fn hash_file(file: String) -> Option<String> {
         let hash = format!("{:X}", hash_bytes);
         // Empty file has this hash, don't make a difference between missing and empty file. Rust
         // is much easier and performant to write if the empty file is created.
-        if hash == "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855".to_string() {
+        if hash == *"E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855" {
             None
         } else {
             Some(format!("{:X}", hash_bytes))

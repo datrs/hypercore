@@ -19,7 +19,7 @@ pub fn cleanup() {
 pub fn install() {
     let status = Command::new("npm")
         .current_dir("tests/js")
-        .args(&["install"])
+        .args(["install"])
         .status()
         .expect("Unable to run npm install");
     assert_eq!(
@@ -38,7 +38,7 @@ pub fn prepare_test_set(test_set: &str) -> String {
 pub fn js_run_step(step: u8, test_set: &str) {
     let status = Command::new("npm")
         .current_dir("tests/js")
-        .args(&["run", "step", &step.to_string(), test_set])
+        .args(["run", "step", &step.to_string(), test_set])
         .status()
         .expect("Unable to run npm run");
     assert_eq!(

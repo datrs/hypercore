@@ -77,6 +77,7 @@ fn read_disk(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::unit_arg)]
 fn clear_disk(c: &mut Criterion) {
     let mut group = c.benchmark_group("slow_call");
     group.measurement_time(Duration::from_secs(20));

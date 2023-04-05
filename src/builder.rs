@@ -14,6 +14,13 @@ use crate::{core::HypercoreOptions, Hypercore, HypercoreError, PartialKeypair, S
 pub struct CacheOptionsBuilder(CacheOptions);
 
 #[cfg(feature = "cache")]
+impl Default for CacheOptionsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "cache")]
 impl CacheOptionsBuilder {
     /// Create a CacheOptions builder with default options
     pub fn new() -> Self {

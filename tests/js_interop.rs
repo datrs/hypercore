@@ -89,7 +89,7 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
     let append_outcome = hypercore.append_batch(&[b"second", b"third"]).await?;
     assert_eq!(append_outcome.length, 5);
     assert_eq!(append_outcome.byte_length, 26);
-    let multi_block = &[0x61 as u8; 4096 * 3];
+    let multi_block = &[0x61_u8; 4096 * 3];
     let append_outcome = hypercore.append(multi_block).await?;
     assert_eq!(append_outcome.length, 6);
     assert_eq!(append_outcome.byte_length, 12314);
@@ -112,7 +112,7 @@ async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
     for i in 0..5 {
         let append_outcome = hypercore.append(&[i]).await?;
         assert_eq!(append_outcome.length, (6 + i + 1) as u64);
-        assert_eq!(append_outcome.byte_length, (12314 + i as u64 + 1) as u64);
+        assert_eq!(append_outcome.byte_length, (12314 + i as u64 + 1));
     }
     Ok(())
 }
