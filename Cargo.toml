@@ -47,7 +47,7 @@ intmap = "2.0.0"
 moka = { version = "0.10.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-random-access-disk = { git = "https://github.com/ttiurani/random-access-disk", branch = "thiserror" }
+random-access-disk = { git = "https://github.com/ttiurani/random-access-disk", branch = "thiserror", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.70"
@@ -63,7 +63,8 @@ test-log = { version = "0.2.11", default-features = false, features = ["trace"] 
 tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 
 [features]
-default = ["async-std"]
+default = ["async-std", "sparse"]
+sparse = ["random-access-disk/sparse"]
 tokio = ["random-access-disk/tokio"]
 async-std = ["random-access-disk/async-std"]
 cache = ["moka"]
