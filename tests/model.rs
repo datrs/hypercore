@@ -1,67 +1,61 @@
 pub mod common;
 
-use quickcheck::{quickcheck, Arbitrary, Gen};
-use rand::seq::SliceRandom;
-use rand::Rng;
-use std::u8;
+use proptest::prelude::*;
+use proptest::test_runner::FileFailurePersistence;
+use proptest_derive::Arbitrary;
 
-const MAX_FILE_SIZE: u64 = 5 * 10; // 5mb
+const MAX_FILE_SIZE: u64 = 50000;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Arbitrary)]
 enum Op {
     Get {
+        #[proptest(strategy(index_strategy))]
         index: u64,
     },
     Append {
+        #[proptest(regex(data_regex))]
         data: Vec<u8>,
     },
     Clear {
+        #[proptest(strategy(divisor_strategy))]
         len_divisor_for_start: u8,
+        #[proptest(strategy(divisor_strategy))]
         len_divisor_for_length: u8,
     },
 }
 
-impl Arbitrary for Op {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let choices = [0, 1, 2];
-        match choices.choose(g).expect("Value should exist") {
-            0 => {
-                let index: u64 = g.gen_range(0, MAX_FILE_SIZE);
-                Op::Get { index }
-            }
-            1 => {
-                let length: u64 = g.gen_range(0, MAX_FILE_SIZE / 3);
-                let mut data = Vec::with_capacity(length as usize);
-                for _ in 0..length {
-                    data.push(u8::arbitrary(g));
-                }
-                Op::Append { data }
-            }
-            2 => {
-                let len_divisor_for_start: u8 = g.gen_range(1, 17);
-                let len_divisor_for_length: u8 = g.gen_range(1, 17);
-                Op::Clear {
-                    len_divisor_for_start,
-                    len_divisor_for_length,
-                }
-            }
-            err => panic!("Invalid choice {}", err),
-        }
-    }
+fn index_strategy() -> impl Strategy<Value = u64> {
+    0..MAX_FILE_SIZE
 }
 
-quickcheck! {
+fn divisor_strategy() -> impl Strategy<Value = u8> {
+    1_u8..17_u8
+}
+
+fn data_regex() -> &'static str {
+    // Write 0..5000 byte chunks of ASCII characters as dummy data
+    "([ -~]{1,1}\n){0,5000}"
+}
+
+proptest! {
+  #![proptest_config(ProptestConfig {
+    failure_persistence: Some(Box::new(FileFailurePersistence::WithSource("regressions"))),
+    ..Default::default()
+  })]
+
+  #[test]
   #[cfg(feature = "async-std")]
-  fn implementation_matches_model(ops: Vec<Op>) -> bool {
-    async_std::task::block_on(assert_implementation_matches_model(ops))
+  fn implementation_matches_model(ops: Vec<Op>) {
+    assert!(async_std::task::block_on(assert_implementation_matches_model(ops)));
   }
 
+  #[test]
   #[cfg(feature = "tokio")]
-  fn implementation_matches_model(ops: Vec<Op>) -> bool {
+  fn implementation_matches_model(ops: Vec<Op>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
+    assert!(rt.block_on(async {
       assert_implementation_matches_model(ops).await
-    })
+    }));
   }
 }
 
