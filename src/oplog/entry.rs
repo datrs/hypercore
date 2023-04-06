@@ -3,7 +3,7 @@ use crate::{common::BitfieldUpdate, Node};
 
 /// Entry tree upgrade
 #[derive(Debug)]
-pub struct EntryTreeUpgrade {
+pub(crate) struct EntryTreeUpgrade {
     pub(crate) fork: u64,
     pub(crate) ancestors: u64,
     pub(crate) length: u64,

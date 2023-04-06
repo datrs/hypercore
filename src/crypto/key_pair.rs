@@ -1,11 +1,35 @@
 //! Generate an `Ed25519` keypair.
 
-pub use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, Verifier};
-
+use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, Verifier};
 use rand::rngs::{OsRng, StdRng};
 use rand::SeedableRng;
 
 use crate::HypercoreError;
+
+/// Key pair where for read-only hypercores the secret key can also be missing.
+#[derive(Debug)]
+pub struct PartialKeypair {
+    /// Public key
+    pub public: PublicKey,
+    /// Secret key. If None, the hypercore is read-only.
+    pub secret: Option<SecretKey>,
+}
+
+impl Clone for PartialKeypair {
+    fn clone(&self) -> Self {
+        let secret: Option<SecretKey> = match &self.secret {
+            Some(secret) => {
+                let bytes = secret.to_bytes();
+                Some(SecretKey::from_bytes(&bytes).unwrap())
+            }
+            None => None,
+        };
+        PartialKeypair {
+            public: self.public,
+            secret,
+        }
+    }
+}
 
 /// Generate a new `Ed25519` key pair.
 pub fn generate() -> Keypair {

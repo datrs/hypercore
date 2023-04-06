@@ -45,22 +45,18 @@ pub struct Proof {
 
 #[derive(Debug, Clone, PartialEq)]
 /// Valueless proof generated from corresponding requests
-pub struct ValuelessProof {
-    /// Fork
-    pub fork: u64,
+pub(crate) struct ValuelessProof {
+    pub(crate) fork: u64,
     /// Data block. NB: The ValuelessProof struct uses the Hash type because
     /// the stored binary value is processed externally to the proof.
-    pub block: Option<DataHash>,
-    /// Data hash
-    pub hash: Option<DataHash>,
-    /// Data seek
-    pub seek: Option<DataSeek>,
-    /// Data updrade
-    pub upgrade: Option<DataUpgrade>,
+    pub(crate) block: Option<DataHash>,
+    pub(crate) hash: Option<DataHash>,
+    pub(crate) seek: Option<DataSeek>,
+    pub(crate) upgrade: Option<DataUpgrade>,
 }
 
 impl ValuelessProof {
-    pub fn into_proof(mut self, block_value: Option<Vec<u8>>) -> Proof {
+    pub(crate) fn into_proof(mut self, block_value: Option<Vec<u8>>) -> Proof {
         let block = self.block.take().map(|block| DataBlock {
             index: block.index,
             nodes: block.nodes,

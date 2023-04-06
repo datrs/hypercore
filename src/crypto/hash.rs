@@ -1,4 +1,4 @@
-pub use blake2_rfc::blake2b::Blake2bResult;
+pub(crate) use blake2_rfc::blake2b::Blake2bResult;
 
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -26,13 +26,14 @@ const TREE: [u8; 32] = [
 
 /// `BLAKE2b` hash.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Hash {
+pub(crate) struct Hash {
     hash: Blake2bResult,
 }
 
 impl Hash {
     /// Hash a `Leaf` node.
-    pub fn from_leaf(data: &[u8]) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn from_leaf(data: &[u8]) -> Self {
         let size = u64_as_be(data.len() as u64);
 
         let mut hasher = Blake2b::new(32);
@@ -46,7 +47,8 @@ impl Hash {
     }
 
     /// Hash two `Leaf` nodes hashes together to form a `Parent` hash.
-    pub fn from_hashes(left: &Node, right: &Node) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn from_hashes(left: &Node, right: &Node) -> Self {
         let (node1, node2) = if left.index <= right.index {
             (left, right)
         } else {
@@ -68,7 +70,8 @@ impl Hash {
 
     /// Hash a public key. Useful to find the key you're looking for on a public
     /// network without leaking the key itself.
-    pub fn for_discovery_key(public_key: PublicKey) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn for_discovery_key(public_key: PublicKey) -> Self {
         let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
         hasher.update(&HYPERCORE);
         Self {
@@ -78,7 +81,8 @@ impl Hash {
 
     /// Hash a vector of `Root` nodes.
     // Called `crypto.tree()` in the JS implementation.
-    pub fn from_roots(roots: &[impl AsRef<Node>]) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn from_roots(roots: &[impl AsRef<Node>]) -> Self {
         let mut hasher = Blake2b::new(32);
         hasher.update(&ROOT_TYPE);
 
@@ -95,7 +99,7 @@ impl Hash {
     }
 
     /// Returns a byte slice of this `Hash`'s contents.
-    pub fn as_bytes(&self) -> &[u8] {
+    pub(crate) fn as_bytes(&self) -> &[u8] {
         self.hash.as_bytes()
     }
 
@@ -104,7 +108,7 @@ impl Hash {
     // for v10 that use LE bytes.
 
     /// Hash data
-    pub fn data(data: &[u8]) -> Self {
+    pub(crate) fn data(data: &[u8]) -> Self {
         let (mut state, mut size) = State::new_with_size(8);
         state
             .encode_u64(data.len() as u64, &mut size)
@@ -121,7 +125,7 @@ impl Hash {
     }
 
     /// Hash a parent
-    pub fn parent(left: &Node, right: &Node) -> Self {
+    pub(crate) fn parent(left: &Node, right: &Node) -> Self {
         let (node1, node2) = if left.index <= right.index {
             (left, right)
         } else {
@@ -145,7 +149,7 @@ impl Hash {
     }
 
     /// Hash a tree
-    pub fn tree(roots: &[impl AsRef<Node>]) -> Self {
+    pub(crate) fn tree(roots: &[impl AsRef<Node>]) -> Self {
         let mut hasher = Blake2b::new(32);
         hasher.update(&ROOT_TYPE);
 
@@ -192,7 +196,7 @@ impl DerefMut for Hash {
 
 /// Create a signable buffer for tree. This is treeSignable in Javascript.
 /// See https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js#L17
-pub fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
+pub(crate) fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
     let (mut state, mut buffer) = State::new_with_size(80);
     state
         .encode_fixed_32(&TREE, &mut buffer)

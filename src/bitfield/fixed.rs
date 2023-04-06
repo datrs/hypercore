@@ -13,20 +13,20 @@ use std::convert::TryInto;
 /// TODO: This has been split into segments on the Javascript side "for improved disk performance":
 /// https://github.com/hypercore-protocol/hypercore/commit/6392021b11d53041a446e9021c7d79350a052d3d
 #[derive(Debug)]
-pub struct FixedBitfield {
+pub(crate) struct FixedBitfield {
     pub(crate) dirty: bool,
     bitfield: [u32; FIXED_BITFIELD_LENGTH],
 }
 
 impl FixedBitfield {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             dirty: false,
             bitfield: [0; FIXED_BITFIELD_LENGTH],
         }
     }
 
-    pub fn from_data(data_index: usize, data: &[u8]) -> Self {
+    pub(crate) fn from_data(data_index: usize, data: &[u8]) -> Self {
         let mut bitfield = [0; FIXED_BITFIELD_LENGTH];
         if data.len() >= data_index + 4 {
             let mut i = data_index;
@@ -46,7 +46,7 @@ impl FixedBitfield {
         }
     }
 
-    pub fn to_bytes(&self) -> Box<[u8]> {
+    pub(crate) fn to_bytes(&self) -> Box<[u8]> {
         let mut data: [u8; FIXED_BITFIELD_BYTES_LENGTH] = [0; FIXED_BITFIELD_BYTES_LENGTH];
         let mut i = 0;
         for elem in self.bitfield {
@@ -60,7 +60,7 @@ impl FixedBitfield {
         data.into()
     }
 
-    pub fn get(&self, index: u32) -> bool {
+    pub(crate) fn get(&self, index: u32) -> bool {
         let n = FIXED_BITFIELD_BITS_PER_ELEM;
         let offset = index & (n - 1);
         let i: usize = ((index - offset) / n)
@@ -69,7 +69,7 @@ impl FixedBitfield {
         self.bitfield[i] & (1 << offset) != 0
     }
 
-    pub fn set(&mut self, index: u32, value: bool) -> bool {
+    pub(crate) fn set(&mut self, index: u32, value: bool) -> bool {
         let n = FIXED_BITFIELD_BITS_PER_ELEM;
         let offset = index & (n - 1);
         let i: usize = ((index - offset) / n)
@@ -88,7 +88,7 @@ impl FixedBitfield {
         true
     }
 
-    pub fn set_range(&mut self, start: u32, length: u32, value: bool) -> bool {
+    pub(crate) fn set_range(&mut self, start: u32, length: u32, value: bool) -> bool {
         let end: u32 = start + length;
         let n = FIXED_BITFIELD_BITS_PER_ELEM;
 
@@ -132,12 +132,12 @@ impl FixedBitfield {
     }
 
     /// Finds the first index of the value after given position. Returns None if not found.
-    pub fn index_of(&self, value: bool, position: u32) -> Option<u32> {
+    pub(crate) fn index_of(&self, value: bool, position: u32) -> Option<u32> {
         (position..FIXED_BITFIELD_BITS_LENGTH as u32).find(|&i| self.get(i) == value)
     }
 
     /// Finds the last index of the value before given position. Returns None if not found.
-    pub fn last_index_of(&self, value: bool, position: u32) -> Option<u32> {
+    pub(crate) fn last_index_of(&self, value: bool, position: u32) -> Option<u32> {
         (0..position + 1).rev().find(|&i| self.get(i) == value)
     }
 }

@@ -13,7 +13,7 @@ use crate::{
 /// This is called "MerkleTreeBatch" in Javascript, see:
 /// https://github.com/hypercore-protocol/hypercore/blob/master/lib/merkle-tree.js
 #[derive(Debug)]
-pub struct MerkleTreeChangeset {
+pub(crate) struct MerkleTreeChangeset {
     pub(crate) length: u64,
     pub(crate) ancestors: u64,
     pub(crate) byte_length: u64,
@@ -31,7 +31,12 @@ pub struct MerkleTreeChangeset {
 }
 
 impl MerkleTreeChangeset {
-    pub fn new(length: u64, byte_length: u64, fork: u64, roots: Vec<Node>) -> MerkleTreeChangeset {
+    pub(crate) fn new(
+        length: u64,
+        byte_length: u64,
+        fork: u64,
+        roots: Vec<Node>,
+    ) -> MerkleTreeChangeset {
         Self {
             length,
             ancestors: length,
@@ -48,7 +53,7 @@ impl MerkleTreeChangeset {
         }
     }
 
-    pub fn append(&mut self, data: &[u8]) -> usize {
+    pub(crate) fn append(&mut self, data: &[u8]) -> usize {
         let len = data.len();
         let head = self.length * 2;
         let mut iter = flat_tree::Iterator::new(head);
@@ -58,7 +63,7 @@ impl MerkleTreeChangeset {
         len
     }
 
-    pub fn append_root(&mut self, node: Node, iter: &mut flat_tree::Iterator) {
+    pub(crate) fn append_root(&mut self, node: Node, iter: &mut flat_tree::Iterator) {
         self.upgraded = true;
         self.length += iter.factor() / 2;
         self.byte_length += node.length;
@@ -86,7 +91,7 @@ impl MerkleTreeChangeset {
     }
 
     /// Hashes and signs the changeset
-    pub fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
+    pub(crate) fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
         let hash = self.hash();
         let signable = self.signable(&hash);
         let signature = sign(public_key, secret_key, &signable);
@@ -95,7 +100,7 @@ impl MerkleTreeChangeset {
     }
 
     /// Verify and set signature with given public key
-    pub fn verify_and_set_signature(
+    pub(crate) fn verify_and_set_signature(
         &mut self,
         signature: &[u8],
         public_key: &PublicKey,
@@ -115,12 +120,12 @@ impl MerkleTreeChangeset {
     }
 
     /// Calculates a hash of the current set of roots
-    pub fn hash(&self) -> Box<[u8]> {
+    pub(crate) fn hash(&self) -> Box<[u8]> {
         Hash::tree(&self.roots).as_bytes().into()
     }
 
     /// Creates a signable slice from given hash
-    pub fn signable(&self, hash: &[u8]) -> Box<[u8]> {
+    pub(crate) fn signable(&self, hash: &[u8]) -> Box<[u8]> {
         signable_tree(hash, self.length, self.fork)
     }
 }

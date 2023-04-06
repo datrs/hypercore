@@ -9,11 +9,11 @@ use std::convert::TryFrom;
 #[cfg(feature = "cache")]
 use crate::common::cache::CacheOptions;
 use crate::common::{HypercoreError, NodeByteRange, Proof, ValuelessProof};
-use crate::crypto::{Hash, PublicKey};
+use crate::crypto::Hash;
 use crate::oplog::HeaderTree;
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
-    Node,
+    Node, PublicKey,
 };
 use crate::{
     DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade, Store,
@@ -24,7 +24,7 @@ use super::MerkleTreeChangeset;
 /// Merkle tree.
 /// See https://github.com/hypercore-protocol/hypercore/blob/master/lib/merkle-tree.js
 #[derive(Debug)]
-pub struct MerkleTree {
+pub(crate) struct MerkleTree {
     pub(crate) roots: Vec<Node>,
     pub(crate) length: u64,
     pub(crate) byte_length: u64,
@@ -165,7 +165,7 @@ impl MerkleTree {
     }
 
     /// Get storage byte range of given hypercore index
-    pub fn byte_range(
+    pub(crate) fn byte_range(
         &mut self,
         hypercore_index: u64,
         infos: Option<&[StoreInfo]>,
@@ -644,7 +644,7 @@ impl MerkleTree {
         }
     }
 
-    pub fn flush_truncation(&mut self) -> Vec<StoreInfo> {
+    pub(crate) fn flush_truncation(&mut self) -> Vec<StoreInfo> {
         let offset = if self.truncate_to == 0 {
             0
         } else {
@@ -655,7 +655,7 @@ impl MerkleTree {
         vec![StoreInfo::new_truncate(Store::Tree, offset)]
     }
 
-    pub fn flush_nodes(&mut self) -> Vec<StoreInfo> {
+    pub(crate) fn flush_nodes(&mut self) -> Vec<StoreInfo> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::with_capacity(self.unflushed.len());
         for (_, node) in self.unflushed.drain() {
             let (mut state, mut buffer) = State::new_with_size(40);
@@ -1482,10 +1482,10 @@ fn node_from_bytes(index: &u64, data: &[u8]) -> Result<Node, HypercoreError> {
 
 #[derive(Debug, Copy, Clone)]
 struct NormalizedIndexed {
-    pub value: bool,
-    pub index: u64,
-    pub nodes: u64,
-    pub last_index: u64,
+    value: bool,
+    index: u64,
+    nodes: u64,
+    last_index: u64,
 }
 
 fn normalize_indexed(
@@ -1511,9 +1511,9 @@ fn normalize_indexed(
 
 #[derive(Debug, Clone)]
 struct NormalizedData {
-    pub value: Option<Vec<u8>>,
-    pub index: u64,
-    pub nodes: Vec<Node>,
+    value: Option<Vec<u8>>,
+    index: u64,
+    nodes: Vec<Node>,
 }
 
 fn normalize_data(block: Option<&DataBlock>, hash: Option<&DataHash>) -> Option<NormalizedData> {
@@ -1535,10 +1535,10 @@ fn normalize_data(block: Option<&DataBlock>, hash: Option<&DataHash>) -> Option<
 /// Struct to use for local building of proof
 #[derive(Debug, Clone)]
 struct LocalProof {
-    pub seek: Option<Vec<Node>>,
-    pub nodes: Option<Vec<Node>>,
-    pub upgrade: Option<Vec<Node>>,
-    pub additional_upgrade: Option<Vec<Node>>,
+    seek: Option<Vec<Node>>,
+    nodes: Option<Vec<Node>>,
+    upgrade: Option<Vec<Node>>,
+    additional_upgrade: Option<Vec<Node>>,
 }
 
 fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64, HypercoreError> {
@@ -1581,7 +1581,7 @@ struct NodeQueue {
     length: usize,
 }
 impl NodeQueue {
-    pub fn new(nodes: Vec<Node>, extra: Option<Node>) -> Self {
+    fn new(nodes: Vec<Node>, extra: Option<Node>) -> Self {
         let length = nodes.len() + if extra.is_some() { 1 } else { 0 };
         Self {
             i: 0,
@@ -1590,7 +1590,7 @@ impl NodeQueue {
             length,
         }
     }
-    pub fn shift(&mut self, index: u64) -> Result<Node, HypercoreError> {
+    fn shift(&mut self, index: u64) -> Result<Node, HypercoreError> {
         if let Some(extra) = self.extra.take() {
             if extra.index == index {
                 self.length -= 1;

@@ -13,14 +13,14 @@ const DYNAMIC_BITFIELD_PAGE_SIZE: usize = 32768;
 /// https://github.com/hypercore-protocol/hypercore/blob/master/lib/bitfield.js
 /// for reference.
 #[derive(Debug)]
-pub struct DynamicBitfield {
+pub(crate) struct DynamicBitfield {
     pages: intmap::IntMap<RefCell<FixedBitfield>>,
     biggest_page_index: u64,
     unflushed: Vec<u64>,
 }
 
 impl DynamicBitfield {
-    pub fn open(info: Option<StoreInfo>) -> Either<StoreInfoInstruction, Self> {
+    pub(crate) fn open(info: Option<StoreInfo>) -> Either<StoreInfoInstruction, Self> {
         match info {
             None => Either::Left(StoreInfoInstruction::new_size(Store::Bitfield, 0)),
             Some(info) => {
@@ -68,7 +68,7 @@ impl DynamicBitfield {
     }
 
     /// Flushes pending changes, returns info slices to write to storage.
-    pub fn flush(&mut self) -> Box<[StoreInfo]> {
+    pub(crate) fn flush(&mut self) -> Box<[StoreInfo]> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::with_capacity(self.unflushed.len());
         for unflushed_id in &self.unflushed {
             let mut p = self.pages.get_mut(*unflushed_id).unwrap().borrow_mut();
@@ -84,7 +84,7 @@ impl DynamicBitfield {
         infos_to_flush.into_boxed_slice()
     }
 
-    pub fn get(&self, index: u64) -> bool {
+    pub(crate) fn get(&self, index: u64) -> bool {
         let j = index & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let i = (index - j) / DYNAMIC_BITFIELD_PAGE_SIZE as u64;
 
@@ -97,7 +97,7 @@ impl DynamicBitfield {
     }
 
     #[allow(dead_code)]
-    pub fn set(&mut self, index: u64, value: bool) -> bool {
+    pub(crate) fn set(&mut self, index: u64, value: bool) -> bool {
         let j = index & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let i = (index - j) / DYNAMIC_BITFIELD_PAGE_SIZE as u64;
 
@@ -123,7 +123,7 @@ impl DynamicBitfield {
         changed
     }
 
-    pub fn update(&mut self, bitfield_update: &BitfieldUpdate) {
+    pub(crate) fn update(&mut self, bitfield_update: &BitfieldUpdate) {
         self.set_range(
             bitfield_update.start,
             bitfield_update.length,
@@ -131,7 +131,7 @@ impl DynamicBitfield {
         )
     }
 
-    pub fn set_range(&mut self, start: u64, length: u64, value: bool) {
+    pub(crate) fn set_range(&mut self, start: u64, length: u64, value: bool) {
         let mut j = start & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let mut i = (start - j) / (DYNAMIC_BITFIELD_PAGE_SIZE as u64);
         let mut length = length;
@@ -167,7 +167,7 @@ impl DynamicBitfield {
     }
 
     /// Finds the first index of the value after given position. Returns None if not found.
-    pub fn index_of(&self, value: bool, position: u64) -> Option<u64> {
+    pub(crate) fn index_of(&self, value: bool, position: u64) -> Option<u64> {
         let first_index = position & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let first_page = (position - first_index) / (DYNAMIC_BITFIELD_PAGE_SIZE as u64);
 
@@ -214,7 +214,7 @@ impl DynamicBitfield {
     }
 
     /// Finds the last index of the value before given position. Returns None if not found.
-    pub fn last_index_of(&self, value: bool, position: u64) -> Option<u64> {
+    pub(crate) fn last_index_of(&self, value: bool, position: u64) -> Option<u64> {
         let last_index = position & (DYNAMIC_BITFIELD_PAGE_SIZE as u64 - 1);
         let last_page = (position - last_index) / (DYNAMIC_BITFIELD_PAGE_SIZE as u64);
 

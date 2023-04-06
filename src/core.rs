@@ -11,10 +11,10 @@ use crate::common::cache::CacheOptions;
 use crate::{
     bitfield::Bitfield,
     common::{BitfieldUpdate, HypercoreError, NodeByteRange, Proof, StoreInfo, ValuelessProof},
-    crypto::generate_keypair,
+    crypto::{generate_keypair, PartialKeypair},
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
-    storage::{PartialKeypair, Storage},
+    storage::Storage,
     tree::{MerkleTree, MerkleTreeChangeset},
     RequestBlock, RequestSeek, RequestUpgrade,
 };

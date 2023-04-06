@@ -1,7 +1,7 @@
 use compact_encoding::{CompactEncoding, EncodingError, State};
 
-use crate::crypto::{PublicKey, SecretKey};
 use crate::PartialKeypair;
+use crate::{PublicKey, SecretKey};
 
 /// Oplog header.
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ pub(crate) struct Header {
 
 impl Header {
     /// Creates a new Header from given key pair
-    pub fn new(key_pair: PartialKeypair) -> Self {
+    pub(crate) fn new(key_pair: PartialKeypair) -> Self {
         Self {
             types: HeaderTypes::new(),
             user_data: vec![],
@@ -54,7 +54,7 @@ pub(crate) struct HeaderTypes {
     pub(crate) signer: String,
 }
 impl HeaderTypes {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tree: "blake2b".to_string(),
             bitfield: "raw".to_string(),
@@ -98,7 +98,7 @@ pub(crate) struct HeaderTree {
 }
 
 impl HeaderTree {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             fork: 0,
             length: 0,

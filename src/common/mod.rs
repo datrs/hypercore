@@ -6,12 +6,14 @@ mod peer;
 mod store;
 
 pub use self::error::HypercoreError;
-pub use self::node::{Node, NodeByteRange};
+pub use self::node::Node;
+pub(crate) use self::node::NodeByteRange;
+pub(crate) use self::peer::ValuelessProof;
 pub use self::peer::{
     DataBlock, DataHash, DataSeek, DataUpgrade, Proof, RequestBlock, RequestSeek, RequestUpgrade,
-    ValuelessProof,
 };
-pub use self::store::{Store, StoreInfo, StoreInfoInstruction, StoreInfoType};
+pub use self::store::Store;
+pub(crate) use self::store::{StoreInfo, StoreInfoInstruction, StoreInfoType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BitfieldUpdate {

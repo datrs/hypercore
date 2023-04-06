@@ -3,10 +3,10 @@ use futures::future::Either;
 
 /// Block store
 #[derive(Debug, Default)]
-pub struct BlockStore {}
+pub(crate) struct BlockStore {}
 
 impl BlockStore {
-    pub fn append_batch(
+    pub(crate) fn append_batch(
         &self,
         batch: &[&[u8]],
         batch_length: usize,
@@ -19,11 +19,11 @@ impl BlockStore {
         StoreInfo::new_content(Store::Data, byte_length, &buffer)
     }
 
-    pub fn put(&self, value: &[u8], offset: u64) -> StoreInfo {
+    pub(crate) fn put(&self, value: &[u8], offset: u64) -> StoreInfo {
         StoreInfo::new_content(Store::Data, offset, value)
     }
 
-    pub fn read(
+    pub(crate) fn read(
         &self,
         byte_range: &NodeByteRange,
         info: Option<StoreInfo>,
@@ -40,7 +40,7 @@ impl BlockStore {
     }
 
     /// Clears a segment, returns infos to write to storage.
-    pub fn clear(&mut self, start: u64, length: u64) -> StoreInfo {
+    pub(crate) fn clear(&mut self, start: u64, length: u64) -> StoreInfo {
         StoreInfo::new_delete(Store::Data, start, length)
     }
 }

@@ -24,7 +24,7 @@ impl std::fmt::Display for Store {
 
 /// Information type about a store.
 #[derive(Debug, PartialEq)]
-pub enum StoreInfoType {
+pub(crate) enum StoreInfoType {
     /// Read/write content of the store
     Content,
     /// Size in bytes of the store. When flushed, truncates to the given index. `data` is `None`.
@@ -34,7 +34,7 @@ pub enum StoreInfoType {
 /// Piece of information about a store. Useful for indicating changes that should be made to random
 /// access storages or information read from them.
 #[derive(Debug)]
-pub struct StoreInfo {
+pub(crate) struct StoreInfo {
     pub(crate) store: Store,
     pub(crate) info_type: StoreInfoType,
     pub(crate) index: u64,
@@ -46,7 +46,7 @@ pub struct StoreInfo {
 }
 
 impl StoreInfo {
-    pub fn new_content(store: Store, index: u64, data: &[u8]) -> Self {
+    pub(crate) fn new_content(store: Store, index: u64, data: &[u8]) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -57,7 +57,7 @@ impl StoreInfo {
         }
     }
 
-    pub fn new_content_miss(store: Store, index: u64) -> Self {
+    pub(crate) fn new_content_miss(store: Store, index: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -68,7 +68,7 @@ impl StoreInfo {
         }
     }
 
-    pub fn new_delete(store: Store, index: u64, length: u64) -> Self {
+    pub(crate) fn new_delete(store: Store, index: u64, length: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -79,7 +79,7 @@ impl StoreInfo {
         }
     }
 
-    pub fn new_truncate(store: Store, index: u64) -> Self {
+    pub(crate) fn new_truncate(store: Store, index: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Size,
@@ -90,7 +90,7 @@ impl StoreInfo {
         }
     }
 
-    pub fn new_size(store: Store, index: u64, length: u64) -> Self {
+    pub(crate) fn new_size(store: Store, index: u64, length: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Size,
@@ -104,7 +104,7 @@ impl StoreInfo {
 
 /// Represents an instruction to obtain information about a store.
 #[derive(Debug)]
-pub struct StoreInfoInstruction {
+pub(crate) struct StoreInfoInstruction {
     pub(crate) store: Store,
     pub(crate) info_type: StoreInfoType,
     pub(crate) index: u64,
@@ -113,7 +113,7 @@ pub struct StoreInfoInstruction {
 }
 
 impl StoreInfoInstruction {
-    pub fn new_content(store: Store, index: u64, length: u64) -> Self {
+    pub(crate) fn new_content(store: Store, index: u64, length: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -123,7 +123,7 @@ impl StoreInfoInstruction {
         }
     }
 
-    pub fn new_content_allow_miss(store: Store, index: u64, length: u64) -> Self {
+    pub(crate) fn new_content_allow_miss(store: Store, index: u64, length: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -133,7 +133,7 @@ impl StoreInfoInstruction {
         }
     }
 
-    pub fn new_all_content(store: Store) -> Self {
+    pub(crate) fn new_all_content(store: Store) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Content,
@@ -143,7 +143,7 @@ impl StoreInfoInstruction {
         }
     }
 
-    pub fn new_size(store: Store, index: u64) -> Self {
+    pub(crate) fn new_size(store: Store, index: u64) -> Self {
         Self {
             store,
             info_type: StoreInfoType::Size,

@@ -2,6 +2,7 @@
 #![forbid(rust_2018_idioms, rust_2018_compatibility)]
 #![forbid(missing_debug_implementations)]
 #![forbid(missing_docs)]
+#![warn(unreachable_pub)]
 #![cfg_attr(test, deny(warnings))]
 #![doc(test(attr(deny(warnings))))]
 
@@ -46,9 +47,9 @@ pub use crate::common::{
     RequestSeek, RequestUpgrade, Store,
 };
 pub use crate::core::Hypercore;
-pub use crate::crypto::{generate_keypair, sign, verify, Signature};
-pub use crate::storage::{PartialKeypair, Storage};
+pub use crate::crypto::{generate_keypair, sign, verify, PartialKeypair};
+pub use crate::storage::Storage;
 pub use ed25519_dalek::{
-    ExpandedSecretKey, Keypair, PublicKey, SecretKey, EXPANDED_SECRET_KEY_LENGTH, KEYPAIR_LENGTH,
-    PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
+    ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, EXPANDED_SECRET_KEY_LENGTH,
+    KEYPAIR_LENGTH, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH,
 };

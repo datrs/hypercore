@@ -29,21 +29,21 @@ pub(crate) struct Oplog {
 /// Oplog create header outcome
 #[derive(Debug)]
 pub(crate) struct OplogCreateHeaderOutcome {
-    pub header: Header,
-    pub infos_to_flush: Box<[StoreInfo]>,
+    pub(crate) header: Header,
+    pub(crate) infos_to_flush: Box<[StoreInfo]>,
 }
 
 /// Oplog open outcome
 #[derive(Debug)]
 pub(crate) struct OplogOpenOutcome {
-    pub oplog: Oplog,
-    pub header: Header,
-    pub infos_to_flush: Box<[StoreInfo]>,
-    pub entries: Option<Box<[Entry]>>,
+    pub(crate) oplog: Oplog,
+    pub(crate) header: Header,
+    pub(crate) infos_to_flush: Box<[StoreInfo]>,
+    pub(crate) entries: Option<Box<[Entry]>>,
 }
 
 impl OplogOpenOutcome {
-    pub fn new(oplog: Oplog, header: Header, infos_to_flush: Box<[StoreInfo]>) -> Self {
+    pub(crate) fn new(oplog: Oplog, header: Header, infos_to_flush: Box<[StoreInfo]>) -> Self {
         Self {
             oplog,
             header,
@@ -51,7 +51,7 @@ impl OplogOpenOutcome {
             entries: None,
         }
     }
-    pub fn from_create_header_outcome(
+    pub(crate) fn from_create_header_outcome(
         oplog: Oplog,
         create_header_outcome: OplogCreateHeaderOutcome,
     ) -> Self {
@@ -240,7 +240,7 @@ impl Oplog {
     }
 
     /// Flushes pending changes, returns infos to write to storage.
-    pub fn flush(&mut self, header: &Header) -> Result<Box<[StoreInfo]>, HypercoreError> {
+    pub(crate) fn flush(&mut self, header: &Header) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits)?;
         self.entries_byte_length = 0;
         self.entries_length = 0;

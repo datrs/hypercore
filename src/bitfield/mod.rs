@@ -1,4 +1,4 @@
 mod dynamic;
 mod fixed;
 
-pub use dynamic::DynamicBitfield as Bitfield;
+pub(crate) use dynamic::DynamicBitfield as Bitfield;
