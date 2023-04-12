@@ -28,7 +28,7 @@ ed25519-dalek = "1.0.1"
 thiserror = "1"
 tracing = "0.1"
 compact-encoding = "1"
-flat-tree = { git = "https://github.com/ttiurani/flat-tree", branch = "v10" }
+flat-tree = "6.0.0"
 lazy_static = "1.4.0"
 memory-pager = "0.9.0"
 merkle-tree-stream =  "0.12.0"
