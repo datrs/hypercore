@@ -47,7 +47,7 @@ intmap = "2.0.0"
 moka = { version = "0.10.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-random-access-disk = "3.0.0"
+random-access-disk = { version = "3.0.0", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.70"
