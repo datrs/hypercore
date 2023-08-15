@@ -71,7 +71,8 @@ async fn step_1_create(work_dir: &str) -> Result<()> {
 
 async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
     let mut hypercore = open_hypercore(work_dir).await?;
-    let append_outcome = hypercore.append_batch(&[b"Hello", b"World"]).await?;
+    let batch: &[&[u8]] = &[b"Hello", b"World"];
+    let append_outcome = hypercore.append_batch(batch).await?;
     assert_eq!(append_outcome.length, 2);
     assert_eq!(append_outcome.byte_length, 10);
     Ok(())
@@ -86,14 +87,16 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
     let append_outcome = hypercore.append(b"first").await?;
     assert_eq!(append_outcome.length, 3);
     assert_eq!(append_outcome.byte_length, 15);
-    let append_outcome = hypercore.append_batch(&[b"second", b"third"]).await?;
+    let batch: &[&[u8]] = &[b"second", b"third"];
+    let append_outcome = hypercore.append_batch(batch).await?;
     assert_eq!(append_outcome.length, 5);
     assert_eq!(append_outcome.byte_length, 26);
     let multi_block = &[0x61_u8; 4096 * 3];
     let append_outcome = hypercore.append(multi_block).await?;
     assert_eq!(append_outcome.length, 6);
     assert_eq!(append_outcome.byte_length, 12314);
-    let append_outcome = hypercore.append_batch(&[]).await?;
+    let batch: Vec<Vec<u8>> = vec![];
+    let append_outcome = hypercore.append_batch(&batch).await?;
     assert_eq!(append_outcome.length, 6);
     assert_eq!(append_outcome.byte_length, 12314);
     let first = hypercore.get(2).await?;

@@ -266,26 +266,29 @@ where
     }
 
     /// Appends a given batch of data slices to the hypercore.
-    #[instrument(err, skip_all, fields(batch_len = batch.len()))]
-    pub async fn append_batch(&mut self, batch: &[&[u8]]) -> Result<AppendOutcome, HypercoreError> {
+    #[instrument(err, skip_all, fields(batch_len = batch.as_ref().len()))]
+    pub async fn append_batch<A: AsRef<[u8]>, B: AsRef<[A]>>(
+        &mut self,
+        batch: B,
+    ) -> Result<AppendOutcome, HypercoreError> {
         let secret_key = match &self.key_pair.secret {
             Some(key) => key,
             None => return Err(HypercoreError::NotWritable),
         };
 
-        if !batch.is_empty() {
+        if !batch.as_ref().is_empty() {
             // Create a changeset for the tree
             let mut changeset = self.tree.changeset();
             let mut batch_length: usize = 0;
-            for data in batch.iter() {
-                batch_length += changeset.append(data);
+            for data in batch.as_ref().iter() {
+                batch_length += changeset.append(data.as_ref());
             }
             changeset.hash_and_sign(&self.key_pair.public, secret_key);
 
             // Write the received data to the block store
-            let info = self
-                .block_store
-                .append_batch(batch, batch_length, self.tree.byte_length);
+            let info =
+                self.block_store
+                    .append_batch(batch.as_ref(), batch_length, self.tree.byte_length);
             self.storage.flush_info(info).await?;
 
             // Append the changeset to the Oplog

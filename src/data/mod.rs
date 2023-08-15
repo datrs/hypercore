@@ -6,15 +6,15 @@ use futures::future::Either;
 pub(crate) struct BlockStore {}
 
 impl BlockStore {
-    pub(crate) fn append_batch(
+    pub(crate) fn append_batch<A: AsRef<[u8]>, B: AsRef<[A]>>(
         &self,
-        batch: &[&[u8]],
+        batch: B,
         batch_length: usize,
         byte_length: u64,
     ) -> StoreInfo {
         let mut buffer: Vec<u8> = Vec::with_capacity(batch_length);
-        for data in batch.iter() {
-            buffer.extend_from_slice(data);
+        for data in batch.as_ref().iter() {
+            buffer.extend_from_slice(data.as_ref());
         }
         StoreInfo::new_content(Store::Data, byte_length, &buffer)
     }
