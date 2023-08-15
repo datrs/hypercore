@@ -57,17 +57,25 @@ where
 /// Response from append, matches that of the Javascript result
 #[derive(Debug)]
 pub struct AppendOutcome {
+    /// Length of the hypercore after append
     pub length: u64,
+    /// Byte length of the hypercore after append
     pub byte_length: u64,
 }
 
 /// Info about the hypercore
 #[derive(Debug)]
 pub struct Info {
+    /// Length of the hypercore
     pub length: u64,
+    /// Byte length of the hypercore
     pub byte_length: u64,
+    /// Continuous length of entries in the hypercore with data
+    /// starting from index 0
     pub contiguous_length: u64,
+    /// Fork index. 0 if hypercore not forked.
     pub fork: u64,
+    /// True if hypercore is writeable, false if read-only
     pub writeable: bool,
 }
 

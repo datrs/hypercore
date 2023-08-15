@@ -46,7 +46,7 @@ pub use crate::common::{
     DataBlock, DataHash, DataSeek, DataUpgrade, HypercoreError, Node, Proof, RequestBlock,
     RequestSeek, RequestUpgrade, Store,
 };
-pub use crate::core::Hypercore;
+pub use crate::core::{AppendOutcome, Hypercore, Info};
 pub use crate::crypto::{generate_keypair, sign, verify, PartialKeypair};
 pub use crate::storage::Storage;
 pub use ed25519_dalek::{
