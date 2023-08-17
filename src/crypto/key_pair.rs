@@ -1,50 +1,33 @@
 //! Generate an `Ed25519` keypair.
 
-use ed25519_dalek::{ExpandedSecretKey, Keypair, PublicKey, SecretKey, Signature, Verifier};
-use rand::rngs::{OsRng, StdRng};
-use rand::SeedableRng;
+use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use rand::rngs::OsRng;
 
 use crate::HypercoreError;
 
 /// Key pair where for read-only hypercores the secret key can also be missing.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PartialKeypair {
     /// Public key
-    pub public: PublicKey,
+    pub public: VerifyingKey,
     /// Secret key. If None, the hypercore is read-only.
     pub secret: Option<SecretKey>,
 }
 
-impl Clone for PartialKeypair {
-    fn clone(&self) -> Self {
-        let secret: Option<SecretKey> = match &self.secret {
-            Some(secret) => {
-                let bytes = secret.to_bytes();
-                Some(SecretKey::from_bytes(&bytes).unwrap())
-            }
-            None => None,
-        };
-        PartialKeypair {
-            public: self.public,
-            secret,
-        }
-    }
-}
-
 /// Generate a new `Ed25519` key pair.
-pub fn generate() -> Keypair {
-    let mut rng = StdRng::from_rng(OsRng::default()).unwrap();
-    Keypair::generate(&mut rng)
+pub fn generate() -> SigningKey {
+    let mut csprng = OsRng;
+    SigningKey::generate(&mut csprng)
 }
 
 /// Sign a byte slice using a keypair's private key.
-pub fn sign(public_key: &PublicKey, secret: &SecretKey, msg: &[u8]) -> Signature {
-    ExpandedSecretKey::from(secret).sign(msg, public_key)
+pub fn sign(secret: &SecretKey, msg: &[u8]) -> Signature {
+    SigningKey::from(secret).sign(msg)
 }
 
 /// Verify a signature on a message with a keypair's public key.
 pub fn verify(
-    public: &PublicKey,
+    public: &VerifyingKey,
     msg: &[u8],
     sig: Option<&Signature>,
 ) -> Result<(), HypercoreError> {
@@ -66,9 +49,9 @@ pub fn verify(
 
 #[test]
 fn can_verify_messages() {
-    let keypair = generate();
+    let signing_key = generate();
     let from = b"hello";
-    let sig = sign(&keypair.public, &keypair.secret, from);
-    verify(&keypair.public, from, Some(&sig)).unwrap();
-    verify(&keypair.public, b"oops", Some(&sig)).unwrap_err();
+    let sig = sign(&signing_key.to_bytes(), from);
+    verify(&signing_key.verifying_key(), from, Some(&sig)).unwrap();
+    verify(&signing_key.verifying_key(), b"oops", Some(&sig)).unwrap_err();
 }

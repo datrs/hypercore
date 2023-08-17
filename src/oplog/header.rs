@@ -1,7 +1,9 @@
 use compact_encoding::{CompactEncoding, EncodingError, State};
+use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+use std::convert::TryInto;
 
 use crate::PartialKeypair;
-use crate::{PublicKey, SecretKey};
+use crate::{SecretKey, VerifyingKey};
 
 /// Oplog header.
 #[derive(Debug, Clone)]
@@ -17,12 +19,12 @@ pub(crate) struct Header {
 
 impl Header {
     /// Creates a new Header from given key pair
-    pub(crate) fn new(key_pair: PartialKeypair) -> Self {
+    pub(crate) fn new(signing_key: PartialKeypair) -> Self {
         Self {
             types: HeaderTypes::new(),
             user_data: vec![],
             tree: HeaderTree::new(),
-            signer: key_pair,
+            signer: signing_key,
             hints: HeaderHints { reorgs: vec![] },
             contiguous_length: 0,
         }
@@ -141,11 +143,11 @@ impl CompactEncoding<HeaderTree> for State {
 /// maintain binary compatibility, we store the public key in the oplog now twice.
 impl CompactEncoding<PartialKeypair> for State {
     fn preencode(&mut self, value: &PartialKeypair) -> Result<usize, EncodingError> {
-        self.add_end(1 + 32)?;
+        self.add_end(1 + PUBLIC_KEY_LENGTH)?;
         match &value.secret {
             Some(_) => {
                 // Also add room for the public key
-                self.add_end(1 + 64)
+                self.add_end(1 + SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH)
             }
             None => self.add_end(1),
         }
@@ -160,8 +162,9 @@ impl CompactEncoding<PartialKeypair> for State {
         self.encode(&public_key_bytes, buffer)?;
         match &value.secret {
             Some(secret_key) => {
-                let mut secret_key_bytes: Vec<u8> = Vec::with_capacity(64);
-                secret_key_bytes.extend_from_slice(secret_key.as_bytes());
+                let mut secret_key_bytes: Vec<u8> =
+                    Vec::with_capacity(SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH);
+                secret_key_bytes.extend_from_slice(secret_key);
                 secret_key_bytes.extend_from_slice(&public_key_bytes);
                 let secret_key_bytes: Box<[u8]> = secret_key_bytes.into_boxed_slice();
                 self.encode(&secret_key_bytes, buffer)
@@ -172,15 +175,19 @@ impl CompactEncoding<PartialKeypair> for State {
 
     fn decode(&mut self, buffer: &[u8]) -> Result<PartialKeypair, EncodingError> {
         let public_key_bytes: Box<[u8]> = self.decode(buffer)?;
+        let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] =
+            public_key_bytes[0..PUBLIC_KEY_LENGTH].try_into().unwrap();
         let secret_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let secret: Option<SecretKey> = if secret_key_bytes.len() == 0 {
+        let secret_key_bytes: [u8; SECRET_KEY_LENGTH] =
+            secret_key_bytes[0..SECRET_KEY_LENGTH].try_into().unwrap();
+        let secret: Option<SecretKey> = if secret_key_bytes.is_empty() {
             None
         } else {
-            Some(SecretKey::from_bytes(&secret_key_bytes[0..32]).unwrap())
+            Some(secret_key_bytes)
         };
 
         Ok(PartialKeypair {
-            public: PublicKey::from_bytes(&public_key_bytes).unwrap(),
+            public: VerifyingKey::from_bytes(&public_key_bytes).unwrap(),
             secret,
         })
     }
@@ -256,7 +263,7 @@ impl CompactEncoding<Header> for State {
 mod tests {
     use super::*;
 
-    use crate::crypto::generate_keypair;
+    use crate::crypto::generate_signing_key;
 
     #[test]
     fn encode_header_types() -> Result<(), EncodingError> {
@@ -275,10 +282,10 @@ mod tests {
     #[test]
     fn encode_partial_key_pair() -> Result<(), EncodingError> {
         let mut enc_state = State::new();
-        let key_pair = generate_keypair();
+        let signing_key = generate_signing_key();
         let key_pair = PartialKeypair {
-            public: key_pair.public,
-            secret: Some(key_pair.secret),
+            public: signing_key.verifying_key(),
+            secret: Some(signing_key.to_bytes()),
         };
         enc_state.preencode(&key_pair)?;
         let mut buffer = enc_state.create_buffer();
@@ -292,10 +299,7 @@ mod tests {
         let mut dec_state = State::from_buffer(&buffer);
         let key_pair_ret: PartialKeypair = dec_state.decode(&buffer)?;
         assert_eq!(key_pair.public, key_pair_ret.public);
-        assert_eq!(
-            key_pair.secret.unwrap().as_bytes(),
-            key_pair_ret.secret.unwrap().as_bytes()
-        );
+        assert_eq!(key_pair.secret.unwrap(), key_pair_ret.secret.unwrap());
         Ok(())
     }
 
@@ -315,12 +319,12 @@ mod tests {
     #[test]
     fn encode_header() -> Result<(), EncodingError> {
         let mut enc_state = State::new();
-        let key_pair = generate_keypair();
-        let key_pair = PartialKeypair {
-            public: key_pair.public,
-            secret: Some(key_pair.secret),
+        let signing_key = generate_signing_key();
+        let signing_key = PartialKeypair {
+            public: signing_key.verifying_key(),
+            secret: Some(signing_key.to_bytes()),
         };
-        let header = Header::new(key_pair);
+        let header = Header::new(signing_key);
         enc_state.preencode(&header)?;
         let mut buffer = enc_state.create_buffer();
         enc_state.encode(&header, &mut buffer)?;

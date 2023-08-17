@@ -11,7 +11,7 @@ use crate::common::cache::CacheOptions;
 use crate::{
     bitfield::Bitfield,
     common::{BitfieldUpdate, HypercoreError, NodeByteRange, Proof, StoreInfo, ValuelessProof},
-    crypto::{generate_keypair, PartialKeypair},
+    crypto::{generate_signing_key, PartialKeypair},
     data::BlockStore,
     oplog::{Header, Oplog, MAX_OPLOG_ENTRIES_BYTE_SIZE},
     storage::Storage,
@@ -98,10 +98,10 @@ where
             None
         } else {
             Some(options.key_pair.take().unwrap_or_else(|| {
-                let key_pair = generate_keypair();
+                let signing_key = generate_signing_key();
                 PartialKeypair {
-                    public: key_pair.public,
-                    secret: Some(key_pair.secret),
+                    public: signing_key.verifying_key(),
+                    secret: Some(signing_key.to_bytes()),
                 }
             }))
         };
@@ -283,7 +283,7 @@ where
             for data in batch.as_ref().iter() {
                 batch_length += changeset.append(data.as_ref());
             }
-            changeset.hash_and_sign(&self.key_pair.public, secret_key);
+            changeset.hash_and_sign(secret_key);
 
             // Write the received data to the block store
             let info =
@@ -1063,12 +1063,12 @@ mod tests {
     async fn create_hypercore_with_data(
         length: u64,
     ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
-        let key_pair = generate_keypair();
+        let signing_key = generate_signing_key();
         create_hypercore_with_data_and_key_pair(
             length,
             PartialKeypair {
-                public: key_pair.public,
-                secret: Some(key_pair.secret),
+                public: signing_key.verifying_key(),
+                secret: Some(signing_key.to_bytes()),
             },
         )
         .await

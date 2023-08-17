@@ -3,7 +3,7 @@ pub(crate) use blake2_rfc::blake2b::Blake2bResult;
 use blake2_rfc::blake2b::Blake2b;
 use byteorder::{BigEndian, WriteBytesExt};
 use compact_encoding::State;
-use ed25519_dalek::PublicKey;
+use ed25519_dalek::VerifyingKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
 use std::mem;
@@ -71,7 +71,7 @@ impl Hash {
     /// Hash a public key. Useful to find the key you're looking for on a public
     /// network without leaking the key itself.
     #[allow(dead_code)]
-    pub(crate) fn for_discovery_key(public_key: PublicKey) -> Self {
+    pub(crate) fn for_discovery_key(public_key: VerifyingKey) -> Self {
         let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
         hasher.update(&HYPERCORE);
         Self {
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn discovery_key_hashing() -> Result<(), ed25519_dalek::SignatureError> {
-        let public_key = PublicKey::from_bytes(&[
+        let public_key = VerifyingKey::from_bytes(&[
             119, 143, 141, 149, 81, 117, 201, 46, 76, 237, 94, 79, 85, 99, 246, 155, 254, 192, 200,
             108, 198, 246, 112, 53, 44, 69, 121, 67, 102, 111, 230, 57,
         ])?;

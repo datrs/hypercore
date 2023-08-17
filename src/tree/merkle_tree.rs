@@ -13,7 +13,7 @@ use crate::crypto::Hash;
 use crate::oplog::HeaderTree;
 use crate::{
     common::{StoreInfo, StoreInfoInstruction},
-    Node, PublicKey,
+    Node, VerifyingKey,
 };
 use crate::{
     DataBlock, DataHash, DataSeek, DataUpgrade, RequestBlock, RequestSeek, RequestUpgrade, Store,
@@ -509,7 +509,7 @@ impl MerkleTree {
     pub(crate) fn verify_proof(
         &mut self,
         proof: &Proof,
-        public_key: &PublicKey,
+        public_key: &VerifyingKey,
         infos: Option<&[StoreInfo]>,
     ) -> Result<Either<Box<[StoreInfoInstruction]>, MerkleTreeChangeset>, HypercoreError> {
         let nodes: IntMap<Option<Node>> = self.infos_to_nodes(infos)?;
@@ -1400,7 +1400,7 @@ fn verify_upgrade(
     fork: u64,
     upgrade: &DataUpgrade,
     block_root: Option<&Node>,
-    public_key: &PublicKey,
+    public_key: &VerifyingKey,
     changeset: &mut MerkleTreeChangeset,
 ) -> Result<bool, HypercoreError> {
     let mut q = if let Some(block_root) = block_root {

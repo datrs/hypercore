@@ -1,4 +1,4 @@
-use ed25519_dalek::{PublicKey, SecretKey, Signature};
+use ed25519_dalek::{SecretKey, Signature, VerifyingKey};
 use std::convert::TryFrom;
 
 use crate::{
@@ -91,10 +91,10 @@ impl MerkleTreeChangeset {
     }
 
     /// Hashes and signs the changeset
-    pub(crate) fn hash_and_sign(&mut self, public_key: &PublicKey, secret_key: &SecretKey) {
+    pub(crate) fn hash_and_sign(&mut self, secret_key: &SecretKey) {
         let hash = self.hash();
         let signable = self.signable(&hash);
-        let signature = sign(public_key, secret_key, &signable);
+        let signature = sign(secret_key, &signable);
         self.hash = Some(hash);
         self.signature = Some(signature);
     }
@@ -103,7 +103,7 @@ impl MerkleTreeChangeset {
     pub(crate) fn verify_and_set_signature(
         &mut self,
         signature: &[u8],
-        public_key: &PublicKey,
+        public_key: &VerifyingKey,
     ) -> Result<(), HypercoreError> {
         // Verify that the received signature matches the public key
         let signature =
