@@ -178,11 +178,11 @@ impl CompactEncoding<PartialKeypair> for State {
         let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] =
             public_key_bytes[0..PUBLIC_KEY_LENGTH].try_into().unwrap();
         let secret_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let secret_key_bytes: [u8; SECRET_KEY_LENGTH] =
-            secret_key_bytes[0..SECRET_KEY_LENGTH].try_into().unwrap();
         let secret: Option<SecretKey> = if secret_key_bytes.is_empty() {
             None
         } else {
+            let secret_key_bytes: [u8; SECRET_KEY_LENGTH] =
+                secret_key_bytes[0..SECRET_KEY_LENGTH].try_into().unwrap();
             Some(secret_key_bytes)
         };
 
