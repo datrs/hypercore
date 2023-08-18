@@ -13,6 +13,7 @@ pub(crate) use entry::{Entry, EntryTreeUpgrade};
 pub(crate) use header::{Header, HeaderTree};
 
 pub(crate) const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
+const HEADER_SIZE: usize = 4096;
 
 /// Oplog.
 ///
@@ -64,10 +65,11 @@ impl OplogOpenOutcome {
     }
 }
 
+#[repr(usize)]
 enum OplogSlot {
     FirstHeader = 0,
-    SecondHeader = 4096,
-    Entries = 4096 * 2,
+    SecondHeader = HEADER_SIZE,
+    Entries = HEADER_SIZE * 2,
 }
 
 #[derive(Debug)]
@@ -179,8 +181,22 @@ impl Oplog {
         atomic: bool,
         header: &Header,
     ) -> Result<OplogCreateHeaderOutcome, HypercoreError> {
-        let tree_nodes: Vec<Node> = changeset.nodes.clone();
         let mut header: Header = header.clone();
+        let entry = self.update_header_with_changeset(changeset, bitfield_update, &mut header)?;
+
+        Ok(OplogCreateHeaderOutcome {
+            header,
+            infos_to_flush: self.append_entries(&[entry], atomic)?,
+        })
+    }
+
+    pub(crate) fn update_header_with_changeset(
+        &mut self,
+        changeset: &MerkleTreeChangeset,
+        bitfield_update: Option<BitfieldUpdate>,
+        header: &mut Header,
+    ) -> Result<Entry, HypercoreError> {
+        let tree_nodes: Vec<Node> = changeset.nodes.clone();
         let entry: Entry = if changeset.upgraded {
             let hash = changeset
                 .hash
@@ -213,11 +229,7 @@ impl Oplog {
                 bitfield: bitfield_update,
             }
         };
-
-        Ok(OplogCreateHeaderOutcome {
-            header,
-            infos_to_flush: self.append_entries(&[entry], atomic)?,
-        })
+        Ok(entry)
     }
 
     /// Clears a segment, returns infos to write to storage.
@@ -240,8 +252,30 @@ impl Oplog {
     }
 
     /// Flushes pending changes, returns infos to write to storage.
-    pub(crate) fn flush(&mut self, header: &Header) -> Result<Box<[StoreInfo]>, HypercoreError> {
-        let (new_header_bits, infos_to_flush) = Self::insert_header(header, 0, self.header_bits)?;
+    pub(crate) fn flush(
+        &mut self,
+        header: &Header,
+        clear_traces: bool,
+    ) -> Result<Box<[StoreInfo]>, HypercoreError> {
+        let (new_header_bits, infos_to_flush) = if clear_traces {
+            // When clearing traces, both slots need to be cleared, hence
+            // do this twice, but for the first time, ignore the truncate
+            // store info, to end up with three StoreInfos.
+            let (new_header_bits, infos_to_flush) =
+                Self::insert_header(header, 0, self.header_bits, clear_traces)?;
+            let mut combined_infos_to_flush = vec![infos_to_flush
+                .into_vec()
+                .drain(0..1)
+                .into_iter()
+                .next()
+                .unwrap()];
+            let (new_header_bits, infos_to_flush) =
+                Self::insert_header(header, 0, new_header_bits, clear_traces)?;
+            combined_infos_to_flush.extend(infos_to_flush.into_vec());
+            (new_header_bits, combined_infos_to_flush.into_boxed_slice())
+        } else {
+            Self::insert_header(header, 0, self.header_bits, clear_traces)?
+        };
         self.entries_byte_length = 0;
         self.entries_length = 0;
         self.header_bits = new_header_bits;
@@ -290,7 +324,7 @@ impl Oplog {
         let entries_byte_length: u64 = 0;
         let header = Header::new(key_pair);
         let (header_bits, infos_to_flush) =
-            Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS)?;
+            Self::insert_header(&header, entries_byte_length, INITIAL_HEADER_BITS, false)?;
         let oplog = Oplog {
             header_bits,
             entries_length,
@@ -309,6 +343,7 @@ impl Oplog {
         header: &Header,
         entries_byte_length: u64,
         current_header_bits: [bool; 2],
+        clear_traces: bool,
     ) -> Result<([bool; 2], Box<[StoreInfo]>), HypercoreError> {
         // The first 8 bytes will be filled with `prepend_leader`.
         let data_start_index: usize = 8;
@@ -329,6 +364,15 @@ impl Oplog {
         // Preencode the new header
         (*state).preencode(header)?;
 
+        // If clearing, lets add zeros to the end
+        let end = if clear_traces {
+            let end = state.end();
+            state.set_end(HEADER_SIZE);
+            end
+        } else {
+            state.end()
+        };
+
         // Create a buffer for the needed data
         let mut buffer = state.create_buffer();
 
@@ -337,7 +381,7 @@ impl Oplog {
 
         // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
         Self::prepend_leader(
-            state.end() - data_start_index,
+            end - data_start_index,
             header_bit,
             false,
             &mut state,
@@ -345,7 +389,7 @@ impl Oplog {
         )?;
 
         // The oplog is always truncated to the minimum byte size, which is right after
-        // the all of the entries in the oplog finish.
+        // all of the entries in the oplog finish.
         let truncate_index = OplogSlot::Entries as u64 + entries_byte_length;
         Ok((
             new_header_bits,

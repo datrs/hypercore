@@ -1,12 +1,10 @@
 pub mod common;
 pub mod js;
-use std::{path::Path, sync::Once};
+use std::sync::Once;
 
 use anyhow::Result;
-use common::{create_hypercore_hash, get_test_key_pair};
-use hypercore::{Hypercore, HypercoreBuilder, Storage};
+use common::{create_hypercore, create_hypercore_hash, open_hypercore};
 use js::{cleanup, install, js_run_step, prepare_test_set};
-use random_access_disk::RandomAccessDisk;
 use test_log::test;
 
 #[cfg(feature = "async-std")]
@@ -137,22 +135,6 @@ async fn step_5_clear_some(work_dir: &str) -> Result<()> {
     let third = hypercore.get(4).await?;
     assert_eq!(third.unwrap(), b"third");
     Ok(())
-}
-
-async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
-    let path = Path::new(work_dir).to_owned();
-    let key_pair = get_test_key_pair();
-    let storage = Storage::new_disk(&path, true).await?;
-    Ok(HypercoreBuilder::new(storage)
-        .key_pair(key_pair)
-        .build()
-        .await?)
-}
-
-async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
-    let path = Path::new(work_dir).to_owned();
-    let storage = Storage::new_disk(&path, false).await?;
-    Ok(HypercoreBuilder::new(storage).open(true).build().await?)
 }
 
 fn step_0_hash() -> common::HypercoreHash {

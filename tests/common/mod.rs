@@ -1,7 +1,11 @@
+use anyhow::Result;
 use ed25519_dalek::{SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+use random_access_disk::RandomAccessDisk;
 use sha2::{Digest, Sha256};
+use std::io::prelude::*;
+use std::path::Path;
 
-use hypercore::PartialKeypair;
+use hypercore::{Hypercore, HypercoreBuilder, PartialKeypair, Storage};
 
 const TEST_PUBLIC_KEY_BYTES: [u8; PUBLIC_KEY_LENGTH] = [
     0x97, 0x60, 0x6c, 0xaa, 0xd2, 0xb0, 0x8c, 0x1d, 0x5f, 0xe1, 0x64, 0x2e, 0xee, 0xa5, 0x62, 0xcb,
@@ -29,6 +33,22 @@ pub fn get_test_key_pair() -> PartialKeypair {
     assert_eq!(public.to_bytes(), signing_key.verifying_key().to_bytes());
     let secret = Some(signing_key);
     PartialKeypair { public, secret }
+}
+
+pub async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+    let path = Path::new(work_dir).to_owned();
+    let key_pair = get_test_key_pair();
+    let storage = Storage::new_disk(&path, true).await?;
+    Ok(HypercoreBuilder::new(storage)
+        .key_pair(key_pair)
+        .build()
+        .await?)
+}
+
+pub async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+    let path = Path::new(work_dir).to_owned();
+    let storage = Storage::new_disk(&path, false).await?;
+    Ok(HypercoreBuilder::new(storage).open(true).build().await?)
 }
 
 pub fn create_hypercore_hash(dir: &str) -> HypercoreHash {
@@ -62,4 +82,21 @@ pub fn hash_file(file: String) -> Option<String> {
             Some(format!("{:X}", hash_bytes))
         }
     }
+}
+
+pub fn storage_contains_data(dir: &Path, data: &[u8]) -> bool {
+    for file_name in ["bitfield", "data", "oplog", "tree"] {
+        let file_path = dir.join(file_name);
+        let mut file = std::fs::File::open(file_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        if is_sub(&buffer, data) {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_sub<T: PartialEq>(haystack: &[T], needle: &[T]) -> bool {
+    haystack.windows(needle.len()).any(|c| c == needle)
 }

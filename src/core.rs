@@ -216,12 +216,21 @@ where
                             }
                         };
                     changeset.ancestors = tree_upgrade.ancestors;
+                    changeset.hash = Some(changeset.hash());
                     changeset.signature =
                         Some(Signature::try_from(&*tree_upgrade.signature).map_err(|_| {
                             HypercoreError::InvalidSignature {
                                 context: "Could not parse changeset signature".to_string(),
                             }
                         })?);
+
+                    // Update the header with this changeset to make in-memory value match that
+                    // of the stored value.
+                    oplog_open_outcome.oplog.update_header_with_changeset(
+                        &changeset,
+                        None,
+                        &mut oplog_open_outcome.header,
+                    )?;
 
                     // TODO: Skip reorg hints for now, seems to only have to do with replication
                     // addReorgHint(header.hints.reorgs, tree, batch)
@@ -317,7 +326,7 @@ where
 
             // Now ready to flush
             if self.should_flush_bitfield_and_tree_and_oplog() {
-                self.flush_bitfield_and_tree_and_oplog().await?;
+                self.flush_bitfield_and_tree_and_oplog(false).await?;
             }
         }
 
@@ -416,7 +425,7 @@ where
 
         // Now ready to flush
         if self.should_flush_bitfield_and_tree_and_oplog() {
-            self.flush_bitfield_and_tree_and_oplog().await?;
+            self.flush_bitfield_and_tree_and_oplog(false).await?;
         }
 
         Ok(())
@@ -533,7 +542,7 @@ where
 
         // Now ready to flush
         if self.should_flush_bitfield_and_tree_and_oplog() {
-            self.flush_bitfield_and_tree_and_oplog().await?;
+            self.flush_bitfield_and_tree_and_oplog(false).await?;
         }
         Ok(true)
     }
@@ -559,6 +568,23 @@ where
                     }
                 }
             }
+        }
+    }
+
+    /// Makes the hypercore read-only by deleting the secret key. Returns true if the
+    /// hypercore was changed, false if the hypercore was already read-only. This is useful
+    /// in scenarios where a hypercore should be made immutable after initial values have
+    /// been stored.
+    #[instrument(err, skip_all)]
+    pub async fn make_read_only(&mut self) -> Result<bool, HypercoreError> {
+        if self.key_pair.secret.is_some() {
+            self.key_pair.secret = None;
+            self.header.signer.secret = None;
+            // Need to flush clearing traces to make sure both oplog slots are cleared
+            self.flush_bitfield_and_tree_and_oplog(true).await?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -658,13 +684,16 @@ where
         }
     }
 
-    async fn flush_bitfield_and_tree_and_oplog(&mut self) -> Result<(), HypercoreError> {
+    async fn flush_bitfield_and_tree_and_oplog(
+        &mut self,
+        clear_traces: bool,
+    ) -> Result<(), HypercoreError> {
         let infos = self.bitfield.flush();
         self.storage.flush_infos(&infos).await?;
         let infos = self.tree.flush();
         self.storage.flush_infos(&infos).await?;
-        let infos_to_flush = self.oplog.flush(&self.header)?;
-        self.storage.flush_infos(&infos_to_flush).await?;
+        let infos = self.oplog.flush(&self.header, clear_traces)?;
+        self.storage.flush_infos(&infos).await?;
         Ok(())
     }
 }
