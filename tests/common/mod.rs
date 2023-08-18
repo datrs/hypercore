@@ -1,4 +1,4 @@
-use ed25519_dalek::{VerifyingKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+use ed25519_dalek::{SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use sha2::{Digest, Sha256};
 
 use hypercore::PartialKeypair;
@@ -25,7 +25,9 @@ pub struct HypercoreHash {
 
 pub fn get_test_key_pair() -> PartialKeypair {
     let public = VerifyingKey::from_bytes(&TEST_PUBLIC_KEY_BYTES).unwrap();
-    let secret = Some(TEST_SECRET_KEY_BYTES);
+    let signing_key = SigningKey::from_bytes(&TEST_SECRET_KEY_BYTES);
+    assert_eq!(public.to_bytes(), signing_key.verifying_key().to_bytes());
+    let secret = Some(signing_key);
     PartialKeypair { public, secret }
 }
 

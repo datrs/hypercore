@@ -1,4 +1,4 @@
-use ed25519_dalek::{SecretKey, Signature, VerifyingKey};
+use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use std::convert::TryFrom;
 
 use crate::{
@@ -91,10 +91,10 @@ impl MerkleTreeChangeset {
     }
 
     /// Hashes and signs the changeset
-    pub(crate) fn hash_and_sign(&mut self, secret_key: &SecretKey) {
+    pub(crate) fn hash_and_sign(&mut self, signing_key: &SigningKey) {
         let hash = self.hash();
         let signable = self.signable(&hash);
-        let signature = sign(secret_key, &signable);
+        let signature = sign(signing_key, &signable);
         self.hash = Some(hash);
         self.signature = Some(signature);
     }

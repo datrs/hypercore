@@ -101,7 +101,7 @@ where
                 let signing_key = generate_signing_key();
                 PartialKeypair {
                     public: signing_key.verifying_key(),
-                    secret: Some(signing_key.to_bytes()),
+                    secret: Some(signing_key),
                 }
             }))
         };
@@ -1068,7 +1068,7 @@ mod tests {
             length,
             PartialKeypair {
                 public: signing_key.verifying_key(),
-                secret: Some(signing_key.to_bytes()),
+                secret: Some(signing_key),
             },
         )
         .await

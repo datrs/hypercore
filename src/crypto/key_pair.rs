@@ -1,6 +1,6 @@
 //! Generate an `Ed25519` keypair.
 
-use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 
 use crate::HypercoreError;
@@ -11,7 +11,7 @@ pub struct PartialKeypair {
     /// Public key
     pub public: VerifyingKey,
     /// Secret key. If None, the hypercore is read-only.
-    pub secret: Option<SecretKey>,
+    pub secret: Option<SigningKey>,
 }
 
 /// Generate a new `Ed25519` key pair.
@@ -21,8 +21,8 @@ pub fn generate() -> SigningKey {
 }
 
 /// Sign a byte slice using a keypair's private key.
-pub fn sign(secret: &SecretKey, msg: &[u8]) -> Signature {
-    SigningKey::from(secret).sign(msg)
+pub fn sign(signing_key: &SigningKey, msg: &[u8]) -> Signature {
+    signing_key.sign(msg)
 }
 
 /// Verify a signature on a message with a keypair's public key.
@@ -51,7 +51,7 @@ pub fn verify(
 fn can_verify_messages() {
     let signing_key = generate();
     let from = b"hello";
-    let sig = sign(&signing_key.to_bytes(), from);
+    let sig = sign(&signing_key, from);
     verify(&signing_key.verifying_key(), from, Some(&sig)).unwrap();
     verify(&signing_key.verifying_key(), b"oops", Some(&sig)).unwrap_err();
 }
