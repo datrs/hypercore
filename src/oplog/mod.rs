@@ -263,12 +263,8 @@ impl Oplog {
             // store info, to end up with three StoreInfos.
             let (new_header_bits, infos_to_flush) =
                 Self::insert_header(header, 0, self.header_bits, clear_traces)?;
-            let mut combined_infos_to_flush = vec![infos_to_flush
-                .into_vec()
-                .drain(0..1)
-                .into_iter()
-                .next()
-                .unwrap()];
+            let mut combined_infos_to_flush: Vec<StoreInfo> =
+                infos_to_flush.into_vec().drain(0..1).into_iter().collect();
             let (new_header_bits, infos_to_flush) =
                 Self::insert_header(header, 0, new_header_bits, clear_traces)?;
             combined_infos_to_flush.extend(infos_to_flush.into_vec());
