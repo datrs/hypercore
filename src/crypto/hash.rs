@@ -1,6 +1,7 @@
-pub(crate) use blake2_rfc::blake2b::Blake2bResult;
-
-use blake2_rfc::blake2b::Blake2b;
+use blake2::{
+    digest::{generic_array::GenericArray, typenum::U32, FixedOutput},
+    Blake2b, Blake2bMac, Digest,
+};
 use byteorder::{BigEndian, WriteBytesExt};
 use compact_encoding::State;
 use ed25519_dalek::VerifyingKey;
@@ -24,6 +25,9 @@ const TREE: [u8; 32] = [
     0x8B, 0x5A, 0xAD, 0x8B, 0x58, 0x81, 0xBF, 0xC0, 0xAD, 0xB5, 0xEF, 0x38, 0xA3, 0x27, 0x5B, 0x9C,
 ];
 
+pub(crate) type Blake2bResult = GenericArray<u8, U32>;
+type Blake2b256 = Blake2b<U32>;
+
 /// `BLAKE2b` hash.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Hash {
@@ -36,9 +40,9 @@ impl Hash {
     pub(crate) fn from_leaf(data: &[u8]) -> Self {
         let size = u64_as_be(data.len() as u64);
 
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&LEAF_TYPE);
-        hasher.update(&size);
+        let mut hasher = Blake2b256::new();
+        hasher.update(LEAF_TYPE);
+        hasher.update(size);
         hasher.update(data);
 
         Self {
@@ -57,9 +61,9 @@ impl Hash {
 
         let size = u64_as_be(node1.length + node2.length);
 
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&PARENT_TYPE);
-        hasher.update(&size);
+        let mut hasher = Blake2b256::new();
+        hasher.update(PARENT_TYPE);
+        hasher.update(size);
         hasher.update(node1.hash());
         hasher.update(node2.hash());
 
@@ -72,10 +76,11 @@ impl Hash {
     /// network without leaking the key itself.
     #[allow(dead_code)]
     pub(crate) fn for_discovery_key(public_key: VerifyingKey) -> Self {
-        let mut hasher = Blake2b::with_key(32, public_key.as_bytes());
-        hasher.update(&HYPERCORE);
+        let mut hasher =
+            Blake2bMac::<U32>::new_with_salt_and_personal(public_key.as_bytes(), &[], &[]).unwrap();
+        blake2::digest::Update::update(&mut hasher, &HYPERCORE);
         Self {
-            hash: hasher.finalize(),
+            hash: hasher.finalize_fixed(),
         }
     }
 
@@ -83,14 +88,14 @@ impl Hash {
     // Called `crypto.tree()` in the JS implementation.
     #[allow(dead_code)]
     pub(crate) fn from_roots(roots: &[impl AsRef<Node>]) -> Self {
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&ROOT_TYPE);
+        let mut hasher = Blake2b256::new();
+        hasher.update(ROOT_TYPE);
 
         for node in roots {
             let node = node.as_ref();
             hasher.update(node.hash());
-            hasher.update(&u64_as_be(node.index()));
-            hasher.update(&u64_as_be(node.len()));
+            hasher.update(u64_as_be(node.index()));
+            hasher.update(u64_as_be(node.len()));
         }
 
         Self {
@@ -100,7 +105,7 @@ impl Hash {
 
     /// Returns a byte slice of this `Hash`'s contents.
     pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.hash.as_bytes()
+        self.hash.as_slice()
     }
 
     // NB: The following methods mirror Javascript naming in
@@ -114,8 +119,8 @@ impl Hash {
             .encode_u64(data.len() as u64, &mut size)
             .expect("Encoding u64 should not fail");
 
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&LEAF_TYPE);
+        let mut hasher = Blake2b256::new();
+        hasher.update(LEAF_TYPE);
         hasher.update(&size);
         hasher.update(data);
 
@@ -137,8 +142,8 @@ impl Hash {
             .encode_u64(node1.length + node2.length, &mut size)
             .expect("Encoding u64 should not fail");
 
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&PARENT_TYPE);
+        let mut hasher = Blake2b256::new();
+        hasher.update(PARENT_TYPE);
         hasher.update(&size);
         hasher.update(node1.hash());
         hasher.update(node2.hash());
@@ -150,8 +155,8 @@ impl Hash {
 
     /// Hash a tree
     pub(crate) fn tree(roots: &[impl AsRef<Node>]) -> Self {
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&ROOT_TYPE);
+        let mut hasher = Blake2b256::new();
+        hasher.update(ROOT_TYPE);
 
         for node in roots {
             let node = node.as_ref();
@@ -221,11 +226,11 @@ mod tests {
     use data_encoding;
 
     fn hash_with_extra_byte(data: &[u8], byte: u8) -> Box<[u8]> {
-        let mut hasher = Blake2b::new(32);
+        let mut hasher = Blake2b256::new();
         hasher.update(data);
-        hasher.update(&[byte]);
+        hasher.update([byte]);
         let hash = hasher.finalize();
-        hash.as_bytes().into()
+        hash.as_slice().into()
     }
 
     fn hex_bytes(hex: &str) -> Vec<u8> {
@@ -337,10 +342,10 @@ mod tests {
     // and validates that our arrays match
     #[test]
     fn hash_namespace() {
-        let mut hasher = Blake2b::new(32);
-        hasher.update(&HYPERCORE);
+        let mut hasher = Blake2b256::new();
+        hasher.update(HYPERCORE);
         let hash = hasher.finalize();
-        let ns = hash.as_bytes();
+        let ns = hash.as_slice();
         let tree: Box<[u8]> = { hash_with_extra_byte(ns, 0) };
         assert_eq!(tree, TREE.into());
     }

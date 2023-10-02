@@ -18,11 +18,7 @@ categories = [
 edition = "2018"
 
 [dependencies]
-# TODO: After this issue:
-# https://github.com/RustCrypto/hashes/issues/360
-# that blocks public key => discovery key creation is fixed, switching to the blake2 crate
-# would probably be wise.
-blake2-rfc = "0.2.18"
+blake2 = "0.10.6"
 byteorder = "1.3.4"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 thiserror = "1"
