@@ -6,14 +6,19 @@ use hypercore::{HypercoreBuilder, Storage};
 use tempfile::Builder;
 use test_log::test;
 
-#[test(async_std::test)]
+#[cfg(feature = "async-std")]
+use async_std::test as async_test;
+#[cfg(feature = "tokio")]
+use tokio::test as async_test;
+
+#[test(async_test)]
 async fn hypercore_new() -> Result<()> {
     let storage = Storage::new_memory().await?;
     let _hypercore = HypercoreBuilder::new(storage).build();
     Ok(())
 }
 
-#[test(async_std::test)]
+#[test(async_test)]
 async fn hypercore_new_with_key_pair() -> Result<()> {
     let storage = Storage::new_memory().await?;
     let key_pair = get_test_key_pair();
@@ -24,7 +29,7 @@ async fn hypercore_new_with_key_pair() -> Result<()> {
     Ok(())
 }
 
-#[test(async_std::test)]
+#[test(async_test)]
 async fn hypercore_open_with_key_pair_error() -> Result<()> {
     let storage = Storage::new_memory().await?;
     let key_pair = get_test_key_pair();
@@ -37,7 +42,7 @@ async fn hypercore_open_with_key_pair_error() -> Result<()> {
     Ok(())
 }
 
-#[test(async_std::test)]
+#[test(async_test)]
 async fn hypercore_make_read_only() -> Result<()> {
     let dir = Builder::new()
         .prefix("hypercore_make_read_only")
