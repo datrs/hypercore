@@ -52,10 +52,10 @@ pub async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk
 }
 
 pub fn create_hypercore_hash(dir: &str) -> HypercoreHash {
-    let bitfield = hash_file(format!("{}/bitfield", dir));
-    let data = hash_file(format!("{}/data", dir));
-    let oplog = hash_file(format!("{}/oplog", dir));
-    let tree = hash_file(format!("{}/tree", dir));
+    let bitfield = hash_file(format!("{dir}/bitfield"));
+    let data = hash_file(format!("{dir}/data"));
+    let oplog = hash_file(format!("{dir}/oplog"));
+    let tree = hash_file(format!("{dir}/tree"));
     HypercoreHash {
         bitfield,
         data,
@@ -73,13 +73,13 @@ pub fn hash_file(file: String) -> Option<String> {
         let mut file = std::fs::File::open(path).unwrap();
         std::io::copy(&mut file, &mut hasher).unwrap();
         let hash_bytes = hasher.finalize();
-        let hash = format!("{:X}", hash_bytes);
+        let hash = format!("{hash_bytes:X}");
         // Empty file has this hash, don't make a difference between missing and empty file. Rust
         // is much easier and performant to write if the empty file is created.
         if hash == *"E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855" {
             None
         } else {
-            Some(format!("{:X}", hash_bytes))
+            Some(format!("{hash_bytes:X}"))
         }
     }
 }
