@@ -688,7 +688,7 @@ impl MerkleTree {
         };
         if compare_index >= head {
             return Err(HypercoreError::BadArgument {
-                context: format!("Hypercore index {} is out of bounds", hypercore_index),
+                context: format!("Hypercore index {hypercore_index} is out of bounds"),
             });
         }
         Ok(index)
@@ -760,7 +760,7 @@ impl MerkleTree {
         }
 
         Err(HypercoreError::BadArgument {
-            context: format!("Could not calculate byte offset for index {}", index),
+            context: format!("Could not calculate byte offset for index {index}"),
         })
     }
 
@@ -1548,8 +1548,7 @@ fn nodes_to_root(index: u64, nodes: u64, head: u64) -> Result<u64, HypercoreErro
         if iter.contains(head) {
             return Err(HypercoreError::InvalidOperation {
                 context: format!(
-                    "Nodes is out of bounds, index: {}, nodes: {}, head {}",
-                    index, nodes, head
+                    "Nodes is out of bounds, index: {index}, nodes: {nodes}, head {head}"
                 ),
             });
         }
@@ -1601,14 +1600,14 @@ impl NodeQueue {
         }
         if self.i >= self.nodes.len() {
             return Err(HypercoreError::InvalidOperation {
-                context: format!("Expected node {}, got (nil)", index),
+                context: format!("Expected node {index}, got (nil)"),
             });
         }
         let node = self.nodes[self.i].clone();
         self.i += 1;
         if node.index != index {
             return Err(HypercoreError::InvalidOperation {
-                context: format!("Expected node {}, got node {}", index, node.index),
+                context: format!("Expected node {index}, got node {}", node.index),
             });
         }
         self.length -= 1;

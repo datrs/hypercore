@@ -35,7 +35,7 @@ pub enum HypercoreError {
     },
     /// Corrupt storage
     #[error("Corrupt storage: {store}.{}",
-          .context.as_ref().map_or_else(String::new, |ctx| format!(" Context: {}.", ctx)))]
+          .context.as_ref().map_or_else(String::new, |ctx| format!(" Context: {ctx}.")))]
     CorruptStorage {
         /// Store that was corrupt
         store: Store,
@@ -50,7 +50,7 @@ pub enum HypercoreError {
     },
     /// Unexpected IO error occured
     #[error("Unrecoverable input/output error occured.{}",
-          .context.as_ref().map_or_else(String::new, |ctx| format!(" {}.", ctx)))]
+          .context.as_ref().map_or_else(String::new, |ctx| format!(" {ctx}.")))]
     IO {
         /// Context for the error
         context: Option<String>,
@@ -72,7 +72,7 @@ impl From<std::io::Error> for HypercoreError {
 impl From<EncodingError> for HypercoreError {
     fn from(err: EncodingError) -> Self {
         Self::InvalidOperation {
-            context: format!("Encoding failed: {}", err),
+            context: format!("Encoding failed: {err}"),
         }
     }
 }

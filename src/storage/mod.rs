@@ -34,8 +34,7 @@ pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
             source,
         } => HypercoreError::IO {
             context: Some(format!(
-                "RandomAccess IO error. Context: {:?}, return_code: {:?}",
-                context, return_code
+                "RandomAccess IO error. Context: {context:?}, return_code: {return_code:?}",
             )),
             source,
         },
@@ -45,8 +44,7 @@ pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
             length,
         } => HypercoreError::InvalidOperation {
             context: format!(
-                "RandomAccess out of bounds. Offset: {}, end: {:?}, length: {}",
-                offset, end, length
+                "RandomAccess out of bounds. Offset: {offset}, end: {end:?}, length: {length}",
             ),
         },
     }

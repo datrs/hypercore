@@ -407,7 +407,7 @@ where
                     Either::Right(value) => value,
                     Either::Left(_) => {
                         return Err(HypercoreError::InvalidOperation {
-                            context: format!("Could not read offset for index {} from tree", start),
+                            context: format!("Could not read offset for index {start} from tree"),
                         });
                     }
                 }
