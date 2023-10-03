@@ -243,7 +243,7 @@ where
 
         let oplog = oplog_open_outcome.oplog;
         let header = oplog_open_outcome.header;
-        let key_pair = header.signer.clone();
+        let key_pair = header.key_pair.clone();
 
         Ok(Hypercore {
             key_pair,
@@ -262,7 +262,7 @@ where
         Info {
             length: self.tree.length,
             byte_length: self.tree.byte_length,
-            contiguous_length: self.header.contiguous_length,
+            contiguous_length: self.header.hints.contiguous_length,
             fork: self.tree.fork,
             writeable: self.key_pair.secret.is_some(),
         }
@@ -380,8 +380,8 @@ where
         self.bitfield.set_range(start, end - start, false);
 
         // Set contiguous length
-        if start < self.header.contiguous_length {
-            self.header.contiguous_length = start;
+        if start < self.header.hints.contiguous_length {
+            self.header.hints.contiguous_length = start;
         }
 
         // Find the biggest hole that can be punched into the data
@@ -579,7 +579,7 @@ where
     pub async fn make_read_only(&mut self) -> Result<bool, HypercoreError> {
         if self.key_pair.secret.is_some() {
             self.key_pair.secret = None;
-            self.header.signer.secret = None;
+            self.header.key_pair.secret = None;
             // Need to flush clearing traces to make sure both oplog slots are cleared
             self.flush_bitfield_and_tree_and_oplog(true).await?;
             Ok(true)
@@ -704,7 +704,7 @@ fn update_contiguous_length(
     bitfield_update: &BitfieldUpdate,
 ) {
     let end = bitfield_update.start + bitfield_update.length;
-    let mut c = header.contiguous_length;
+    let mut c = header.hints.contiguous_length;
     if bitfield_update.drop {
         if c <= end && c > bitfield_update.start {
             c = bitfield_update.start;
@@ -716,8 +716,8 @@ fn update_contiguous_length(
         }
     }
 
-    if c != header.contiguous_length {
-        header.contiguous_length = c;
+    if c != header.hints.contiguous_length {
+        header.hints.contiguous_length = c;
     }
 }
 

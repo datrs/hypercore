@@ -1,92 +1,63 @@
+use compact_encoding::EncodingErrorKind;
 use compact_encoding::{CompactEncoding, EncodingError, State};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use std::convert::TryInto;
 
+use crate::crypto::default_signer_manifest;
+use crate::crypto::Manifest;
 use crate::PartialKeypair;
 use crate::VerifyingKey;
 
 /// Oplog header.
 #[derive(Debug, Clone)]
 pub(crate) struct Header {
-    pub(crate) types: HeaderTypes,
+    // TODO: v11 has external
+    // pub(crate) external: Option<bool>,
+    // NB: This is the manifest hash in v11, right now
+    // just the public key,
+    pub(crate) key: [u8; 32],
+    pub(crate) manifest: Manifest,
+    pub(crate) key_pair: PartialKeypair,
     // TODO: This is a keyValueArray in JS
     pub(crate) user_data: Vec<String>,
     pub(crate) tree: HeaderTree,
-    pub(crate) signer: PartialKeypair,
     pub(crate) hints: HeaderHints,
-    pub(crate) contiguous_length: u64,
 }
 
 impl Header {
     /// Creates a new Header from given key pair
-    pub(crate) fn new(signing_key: PartialKeypair) -> Self {
+    pub(crate) fn new(key_pair: PartialKeypair) -> Self {
+        let key = key_pair.public.to_bytes();
+        let manifest = default_signer_manifest(key);
         Self {
-            types: HeaderTypes::new(),
+            key,
+            manifest,
+            key_pair,
             user_data: vec![],
             tree: HeaderTree::new(),
-            signer: signing_key,
-            hints: HeaderHints { reorgs: vec![] },
-            contiguous_length: 0,
+            hints: HeaderHints {
+                reorgs: vec![],
+                contiguous_length: 0,
+            },
         }
         // Javascript side, initial header
-        //
         // header = {
-        //   types: { tree: 'blake2b', bitfield: 'raw', signer: 'ed25519' },
-        //   userData: [],
-        //   tree: {
-        //     fork: 0,
-        //     length: 0,
-        //     rootHash: null,
-        //     signature: null
-        //   },
-        //   signer: opts.keyPair || crypto.keyPair(),
-        //   hints: {
-        //     reorgs: []
-        //   },
-        //   contiguousLength: 0
-        // }
-    }
-}
-
-/// Oplog header types
-#[derive(Debug, PartialEq, Clone)]
-pub(crate) struct HeaderTypes {
-    pub(crate) tree: String,
-    pub(crate) bitfield: String,
-    pub(crate) signer: String,
-}
-impl HeaderTypes {
-    pub(crate) fn new() -> Self {
-        Self {
-            tree: "blake2b".to_string(),
-            bitfield: "raw".to_string(),
-            signer: "ed25519".to_string(),
-        }
-    }
-}
-
-impl CompactEncoding<HeaderTypes> for State {
-    fn preencode(&mut self, value: &HeaderTypes) -> Result<usize, EncodingError> {
-        self.preencode(&value.tree)?;
-        self.preencode(&value.bitfield)?;
-        self.preencode(&value.signer)
-    }
-
-    fn encode(&mut self, value: &HeaderTypes, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.tree, buffer)?;
-        self.encode(&value.bitfield, buffer)?;
-        self.encode(&value.signer, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<HeaderTypes, EncodingError> {
-        let tree: String = self.decode(buffer)?;
-        let bitfield: String = self.decode(buffer)?;
-        let signer: String = self.decode(buffer)?;
-        Ok(HeaderTypes {
-            tree,
-            bitfield,
-            signer,
-        })
+        //    external: null,
+        //    key: opts.key || (compat ? manifest.signer.publicKey : manifestHash(manifest)),
+        //    manifest,
+        //    keyPair,
+        //    userData: [],
+        //    tree: {
+        //      fork: 0,
+        //      length: 0,
+        //      rootHash: null,
+        //      signature: null
+        //    },
+        //    hints: {
+        //      reorgs: [],
+        //      contiguousLength: 0
+        //    }
+        //  }
     }
 }
 
@@ -197,20 +168,24 @@ impl CompactEncoding<PartialKeypair> for State {
 #[derive(Debug, Clone)]
 pub(crate) struct HeaderHints {
     pub(crate) reorgs: Vec<String>,
+    pub(crate) contiguous_length: u64,
 }
 
 impl CompactEncoding<HeaderHints> for State {
     fn preencode(&mut self, value: &HeaderHints) -> Result<usize, EncodingError> {
-        self.preencode(&value.reorgs)
+        self.preencode(&value.reorgs)?;
+        self.preencode(&value.contiguous_length)
     }
 
     fn encode(&mut self, value: &HeaderHints, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.reorgs, buffer)
+        self.encode(&value.reorgs, buffer)?;
+        self.encode(&value.contiguous_length, buffer)
     }
 
     fn decode(&mut self, buffer: &[u8]) -> Result<HeaderHints, EncodingError> {
         Ok(HeaderHints {
             reorgs: self.decode(buffer)?,
+            contiguous_length: self.decode(buffer)?,
         })
     }
 }
@@ -218,43 +193,56 @@ impl CompactEncoding<HeaderHints> for State {
 impl CompactEncoding<Header> for State {
     fn preencode(&mut self, value: &Header) -> Result<usize, EncodingError> {
         self.add_end(1)?; // Version
-        self.preencode(&value.types)?;
+        self.add_end(1)?; // Flags
+        self.preencode_fixed_32()?; // key
+        self.preencode(&value.manifest)?;
+        self.preencode(&value.key_pair)?;
         self.preencode(&value.user_data)?;
         self.preencode(&value.tree)?;
-        self.preencode(&value.signer)?;
-        self.preencode(&value.hints)?;
-        self.preencode(&value.contiguous_length)
+        self.preencode(&value.hints)
     }
 
     fn encode(&mut self, value: &Header, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.set_byte_to_buffer(0, buffer)?; // Version
-        self.encode(&value.types, buffer)?;
+        self.set_byte_to_buffer(1, buffer)?; // Version
+        let flags: u8 = 2 | 4; // Manifest and key pair, TODO: external=1
+        self.set_byte_to_buffer(flags, buffer)?;
+        self.encode_fixed_32(&value.key, buffer)?;
+        self.encode(&value.manifest, buffer)?;
+        self.encode(&value.key_pair, buffer)?;
         self.encode(&value.user_data, buffer)?;
         self.encode(&value.tree, buffer)?;
-        self.encode(&value.signer, buffer)?;
-        self.encode(&value.hints, buffer)?;
-        self.encode(&value.contiguous_length, buffer)
+        self.encode(&value.hints, buffer)
     }
 
     fn decode(&mut self, buffer: &[u8]) -> Result<Header, EncodingError> {
         let version: u8 = self.decode_u8(buffer)?;
-        if version != 0 {
+        if version != 1 {
             panic!("Unknown oplog version {}", version);
         }
-        let types: HeaderTypes = self.decode(buffer)?;
+        let _flags: u8 = self.decode_u8(buffer)?;
+        let key: [u8; 32] = self
+            .decode_fixed_32(buffer)?
+            .to_vec()
+            .try_into()
+            .map_err(|_err| {
+                EncodingError::new(
+                    EncodingErrorKind::InvalidData,
+                    "Invalid key in oplog header",
+                )
+            })?;
+        let manifest: Manifest = self.decode(buffer)?;
+        let key_pair: PartialKeypair = self.decode(buffer)?;
         let user_data: Vec<String> = self.decode(buffer)?;
         let tree: HeaderTree = self.decode(buffer)?;
-        let signer: PartialKeypair = self.decode(buffer)?;
         let hints: HeaderHints = self.decode(buffer)?;
-        let contiguous_length: u64 = self.decode(buffer)?;
 
         Ok(Header {
-            types,
+            key,
+            manifest,
+            key_pair,
             user_data,
             tree,
-            signer,
             hints,
-            contiguous_length,
         })
     }
 }
@@ -264,20 +252,6 @@ mod tests {
     use super::*;
 
     use crate::crypto::generate_signing_key;
-
-    #[test]
-    fn encode_header_types() -> Result<(), EncodingError> {
-        let mut enc_state = State::new_with_start_and_end(8, 8);
-        let header_types = HeaderTypes::new();
-        enc_state.preencode(&header_types)?;
-        let mut buffer = enc_state.create_buffer();
-        enc_state.encode(&header_types, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        dec_state.add_start(8)?;
-        let header_types_ret: HeaderTypes = dec_state.decode(&buffer)?;
-        assert_eq!(header_types, header_types_ret);
-        Ok(())
-    }
 
     #[test]
     fn encode_partial_key_pair() -> Result<(), EncodingError> {
@@ -333,10 +307,19 @@ mod tests {
         enc_state.encode(&header, &mut buffer)?;
         let mut dec_state = State::from_buffer(&buffer);
         let header_ret: Header = dec_state.decode(&buffer)?;
-        assert_eq!(header.signer.public, header_ret.signer.public);
+        assert_eq!(header.key_pair.public, header_ret.key_pair.public);
         assert_eq!(header.tree.fork, header_ret.tree.fork);
         assert_eq!(header.tree.length, header_ret.tree.length);
-        assert_eq!(header.types, header_ret.types);
+        assert_eq!(header.tree.length, header_ret.tree.length);
+        assert_eq!(header.manifest.hash, header_ret.manifest.hash);
+        assert_eq!(
+            header.manifest.signer.public_key,
+            header_ret.manifest.signer.public_key
+        );
+        assert_eq!(
+            header.manifest.signer.signature,
+            header_ret.manifest.signer.signature
+        );
         Ok(())
     }
 }

@@ -1,8 +1,10 @@
 //! Hypercore-specific compact encodings
 pub use compact_encoding::{CompactEncoding, EncodingError, EncodingErrorKind, State};
+use std::convert::TryInto;
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    crypto::{Manifest, ManifestSigner},
     DataBlock, DataHash, DataSeek, DataUpgrade, Node, RequestBlock, RequestSeek, RequestUpgrade,
 };
 
@@ -249,6 +251,120 @@ impl CompactEncoding<DataUpgrade> for HypercoreState {
             nodes,
             additional_nodes,
             signature,
+        })
+    }
+}
+
+impl CompactEncoding<Manifest> for State {
+    fn preencode(&mut self, value: &Manifest) -> Result<usize, EncodingError> {
+        self.add_end(1)?; // Version
+        self.add_end(1)?; // hash in one byte
+        self.add_end(1)?; // type in one byte
+        self.preencode(&value.signer)
+    }
+
+    fn encode(&mut self, value: &Manifest, buffer: &mut [u8]) -> Result<usize, EncodingError> {
+        self.set_byte_to_buffer(0, buffer)?; // Version
+        if &value.hash == "blake2b" {
+            self.set_byte_to_buffer(0, buffer)?; // Version
+        } else {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash: {}", &value.hash),
+            ));
+        }
+        // Type. 0: static, 1: signer, 2: multiple signers
+        self.set_byte_to_buffer(1, buffer)?; // Version
+        self.encode(&value.signer, buffer)
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> Result<Manifest, EncodingError> {
+        let version: u8 = self.decode_u8(buffer)?;
+        if version != 0 {
+            panic!("Unknown manifest version {}", version);
+        }
+        let hash_id: u8 = self.decode_u8(buffer)?;
+        let hash: String = if hash_id != 0 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash id: {hash_id}"),
+            ));
+        } else {
+            "blake2b".to_string()
+        };
+
+        let manifest_type: u8 = self.decode_u8(buffer)?;
+        if manifest_type != 1 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown manifest type: {manifest_type}"),
+            ));
+        }
+        let signer: ManifestSigner = self.decode(buffer)?;
+
+        Ok(Manifest { hash, signer })
+    }
+}
+
+impl CompactEncoding<ManifestSigner> for State {
+    fn preencode(&mut self, _value: &ManifestSigner) -> Result<usize, EncodingError> {
+        self.add_end(1)?; // Signature
+        self.preencode_fixed_32()?;
+        self.preencode_fixed_32()
+    }
+
+    fn encode(
+        &mut self,
+        value: &ManifestSigner,
+        buffer: &mut [u8],
+    ) -> Result<usize, EncodingError> {
+        if &value.signature == "ed25519" {
+            self.set_byte_to_buffer(0, buffer)?;
+        } else {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown signature type: {}", &value.signature),
+            ));
+        }
+        self.encode_fixed_32(&value.namespace, buffer)?;
+        self.encode_fixed_32(&value.public_key, buffer)
+    }
+
+    fn decode(&mut self, buffer: &[u8]) -> Result<ManifestSigner, EncodingError> {
+        let signature_id: u8 = self.decode_u8(buffer)?;
+        let signature: String = if signature_id != 0 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown signature id: {signature_id}"),
+            ));
+        } else {
+            "ed25519".to_string()
+        };
+        let namespace: [u8; 32] =
+            self.decode_fixed_32(buffer)?
+                .to_vec()
+                .try_into()
+                .map_err(|_err| {
+                    EncodingError::new(
+                        EncodingErrorKind::InvalidData,
+                        "Invalid namespace in manifest signer",
+                    )
+                })?;
+        let public_key: [u8; 32] =
+            self.decode_fixed_32(buffer)?
+                .to_vec()
+                .try_into()
+                .map_err(|_err| {
+                    EncodingError::new(
+                        EncodingErrorKind::InvalidData,
+                        "Invalid public key in manifest signer",
+                    )
+                })?;
+
+        Ok(ManifestSigner {
+            signature,
+            namespace,
+            public_key,
         })
     }
 }
