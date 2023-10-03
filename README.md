@@ -8,6 +8,9 @@ WIP. Secure, distributed, append-only log structure. Adapted from
 - [Documentation][8]
 - [Crates.io][2]
 
+**NOTE**: The master branch currently only works with the old hypercore version 9.
+For ongoing work to support the latest version 10 of hypercore [see the v10 branch](https://github.com/datrs/hypercore/tree/v10).
+
 ## Usage
 ```rust
 let mut feed = hypercore::open("./feed.db").await?;
