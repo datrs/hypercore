@@ -6,6 +6,7 @@ use random_access_disk::RandomAccessDisk;
 use random_access_memory::RandomAccessMemory;
 use random_access_storage::{RandomAccess, RandomAccessError};
 use std::fmt::Debug;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use tracing::instrument;
 
