@@ -550,7 +550,17 @@ where
     /// Used to fill the nodes field of a `RequestBlock` during
     /// synchronization.
     #[instrument(err, skip(self))]
-    pub async fn missing_nodes(&mut self, merkle_tree_index: u64) -> Result<u64, HypercoreError> {
+    pub async fn missing_nodes(&mut self, index: u64) -> Result<u64, HypercoreError> {
+        self.missing_nodes_from_merkle_tree_index(index * 2).await
+    }
+
+    /// Get missing nodes using a merkle tree index. Advanced variant of missing_nodex
+    /// that allow for special cases of searching directly from the merkle tree.
+    #[instrument(err, skip(self))]
+    pub async fn missing_nodes_from_merkle_tree_index(
+        &mut self,
+        merkle_tree_index: u64,
+    ) -> Result<u64, HypercoreError> {
         match self.tree.missing_nodes(merkle_tree_index, None)? {
             Either::Right(value) => Ok(value),
             Either::Left(instructions) => {

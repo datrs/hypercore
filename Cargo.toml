@@ -1,12 +1,15 @@
 [package]
 name = "hypercore"
-version = "0.12.0-alpha.7"
+version = "0.12.0-alpha.8"
 license = "MIT OR Apache-2.0"
 description = "Secure, distributed, append-only log"
 documentation = "https://docs.rs/hypercore"
 repository = "https://github.com/datrs/hypercore"
 readme = "README.md"
-authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
+authors = [
+  "Yoshua Wuyts <yoshuawuyts@gmail.com>",
+  "Timo Tiuraniemi <timo.tiuraniemi@iki.fi>"
+]
 keywords = ["dat", "p2p", "stream", "feed", "merkle"]
 categories = [
   "asynchronous",

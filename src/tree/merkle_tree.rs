@@ -328,7 +328,7 @@ impl MerkleTree {
 
     /// Creates valueless proof from requests.
     /// TODO: This is now just a clone of javascript's
-    /// https://github.com/hypercore-protocol/hypercore/blob/7e30a0fe353c70ada105840ec1ead6627ff521e7/lib/merkle-tree.js#L604
+    /// https://github.com/holepunchto/hypercore/blob/9ce03363cb8938dbab53baba7d7cc9dde0508a7e/lib/merkle-tree.js#L1181
     /// The implementation should be rewritten to make it clearer.
     pub(crate) fn create_valueless_proof(
         &mut self,

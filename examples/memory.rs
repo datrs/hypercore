@@ -1,9 +1,10 @@
 #[cfg(feature = "async-std")]
 use async_std::main as async_main;
-use hypercore::{HypercoreBuilder, Storage};
+use hypercore::{HypercoreBuilder, HypercoreError, Storage};
 #[cfg(feature = "tokio")]
 use tokio::main as async_main;
 
+/// Example about using an in-memory hypercore.
 #[async_main]
 async fn main() {
     // Create a memory storage
@@ -44,7 +45,15 @@ async fn main() {
     // Print values, converting binary back to string
     println!(
         "{}{}",
-        String::from_utf8(hypercore.get(0).await.unwrap().unwrap()).unwrap(),
-        String::from_utf8(hypercore.get(1).await.unwrap().unwrap()).unwrap()
+        format_res(hypercore.get(0).await),
+        format_res(hypercore.get(1).await)
     ); // prints "Hello, from memory hypercore!"
+}
+
+fn format_res(res: Result<Option<Vec<u8>>, HypercoreError>) -> String {
+    match res {
+        Ok(Some(bytes)) => String::from_utf8(bytes).expect("Shouldn't fail in example"),
+        Ok(None) => "Got None in feed".to_string(),
+        Err(e) => format!("Error getting value from feed, reason = {e:?}"),
+    }
 }
