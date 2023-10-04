@@ -1067,7 +1067,7 @@ mod tests {
         )
         .await?;
         let index = 6;
-        let nodes = clone.missing_nodes(index * 2).await?;
+        let nodes = clone.missing_nodes(index).await?;
         let proof = main
             .create_proof(
                 None,
@@ -1090,7 +1090,7 @@ mod tests {
 
         // Fetch data for index 6 and verify it is found
         let index = 6;
-        let nodes = clone.missing_nodes(index * 2).await?;
+        let nodes = clone.missing_nodes(index).await?;
         let proof = main
             .create_proof(Some(RequestBlock { index, nodes }), None, None, None)
             .await?
