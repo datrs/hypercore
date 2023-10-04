@@ -62,12 +62,12 @@ jobs:
           cargo check --no-default-features --features async-std
           cargo check --no-default-features --features async-std,sparse
           cargo check --no-default-features --features async-std,sparse,cache
-          cargo test --no-default-features --features js_interop_tests,tokio
-          cargo test --no-default-features --features js_interop_tests,tokio,sparse
-          cargo test --no-default-features --features js_interop_tests,tokio,sparse,cache
-          cargo test --no-default-features --features js_interop_tests,async-std
-          cargo test --no-default-features --features js_interop_tests,async-std,sparse
-          cargo test --no-default-features --features js_interop_tests,async-std,sparse,cache
+          cargo test --no-default-features --features tokio
+          cargo test --no-default-features --features tokio,sparse
+          cargo test --no-default-features --features tokio,sparse,cache
+          cargo test --no-default-features --features async-std
+          cargo test --no-default-features --features async-std,sparse
+          cargo test --no-default-features --features async-std,sparse,cache
 
   test-macos:
     runs-on: macos-latest
