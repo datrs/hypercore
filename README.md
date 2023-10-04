@@ -13,6 +13,20 @@ corresponding wire protocol implementation.
 - [Documentation][8]
 - [Crates.io][2]
 
+## Features
+
+- [x] Create [in-memory](https://github.com/datrs/random-access-memory) and [disk](https://github.com/datrs/random-access-disk) hypercores
+- [x] Append to hypercore either a single entry or a batch of entries
+- [x] Get entries from hypercore
+- [x] Clear range from hypercore, with optional support for sparse files
+- [x] Support basic replication by creating proofs in a source hypercore and verifying and applying them to a destination hypercore
+- [x] Support `tokio` or `async-std` runtimes
+- [x] Support WASM for in-memory storage
+- [x] Test Javascript interoperability for supported features
+- [x] Add optional read cache
+- [ ] Support the new [manifest](https://github.com/holepunchto/hypercore/blob/main/lib/manifest.js) in the wire protocol to remain compatible with upcoming v11
+- [ ] Finalize documentation and release v1.0.0
+
 ## Usage
 ```rust
 // Create an in-memory hypercore using a builder
@@ -32,7 +46,7 @@ assert_eq!(hypercore.get(1).await.unwrap().unwrap(), b"world!");
 
 ## Installation
 ```sh
-$ cargo add hypercore
+cargo add hypercore
 ```
 
 Find more examples in the [examples](./examples) folder.

@@ -3,8 +3,7 @@ on:
   pull_request:
   push:
     branches:
-      # FIXME: Temporarily test on v10 branch
-      - v10
+      - master
 
 env:
   RUST_BACKTRACE: 1
