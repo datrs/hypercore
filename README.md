@@ -1,25 +1,33 @@
-# hypercore
+# Hypercore
 [![crates.io version][1]][2] [![build status][3]][4]
 [![downloads][5]][6] [![docs.rs docs][7]][8]
 
-WIP. Secure, distributed, append-only log structure. Adapted from
-[mafintosh/hypercore](https://github.com/mafintosh/hypercore).
+Hypercore is a secure, distributed append-only log. This crate is a limited Rust
+port of the original Javascript
+[holepunchto/hypercore](https://github.com/holepunchto/hypercore). The goal is to
+maintain binary compatibility with the LTS version with regards to disk storage.
+
+See [hypercore-protocol-rs](https://github.com/datrs/hypercore-protocol-rs) for the
+corresponding wire protocol implementation.
 
 - [Documentation][8]
 - [Crates.io][2]
 
-**NOTE**: The master branch currently only works with the old hypercore version 9.
-For ongoing work to support the latest version 10 of hypercore [see the v10 branch](https://github.com/datrs/hypercore/tree/v10).
-
 ## Usage
 ```rust
-let mut feed = hypercore::open("./feed.db").await?;
+// Create an in-memory hypercore using a builder
+let mut hypercore = HypercoreBuilder::new(Storage::new_memory().await.unwrap())
+    .build()
+    .await
+    .unwrap();
 
-feed.append(b"hello").await?;
-feed.append(b"world").await?;
+// Append entries to the log
+hypercore.append(b"Hello, ").await.unwrap();
+hypercore.append(b"world!").await.unwrap();
 
-assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
-assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
+// Read entries from the log
+assert_eq!(hypercore.get(0).await.unwrap().unwrap(), b"Hello, ");
+assert_eq!(hypercore.get(1).await.unwrap().unwrap(), b"world!");
 ```
 
 ## Installation
@@ -27,8 +35,10 @@ assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
 $ cargo add hypercore
 ```
 
+Find more examples in the [examples](./examples) folder.
+
 ## Safety
-This crate uses ``#![deny(unsafe_code)]`` to ensure everything is implemented in
+This crate uses ``#![forbid(unsafe_code)]`` to ensure everythong is implemented in
 100% Safe Rust.
 
 ## Contributing
@@ -38,16 +48,13 @@ look at some of these issues:
 - [Issues labeled "good first issue"][good-first-issue]
 - [Issues labeled "help wanted"][help-wanted]
 
-## References
-- [github.com/mafintosh/hypercore](https://github.com/mafintosh/hypercore)
-
 ## License
 [MIT](./LICENSE-MIT) OR [Apache-2.0](./LICENSE-APACHE)
 
 [1]: https://img.shields.io/crates/v/hypercore.svg?style=flat-square
 [2]: https://crates.io/crates/hypercore
-[3]: https://img.shields.io/travis/datrs/hypercore/master.svg?style=flat-square
-[4]: https://travis-ci.org/datrs/hypercore
+[3]: https://github.com/datrs/hypercore/actions/workflows/ci.yml/badge.svg
+[4]: https://github.com/datrs/hypercore/actions
 [5]: https://img.shields.io/crates/d/hypercore.svg?style=flat-square
 [6]: https://crates.io/crates/hypercore
 [7]: https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square
