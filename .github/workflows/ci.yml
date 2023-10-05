@@ -44,6 +44,8 @@ jobs:
         cargo test --no-default-features --features js_interop_tests,async-std
         cargo test --no-default-features --features js_interop_tests,async-std,sparse
         cargo test --no-default-features --features js_interop_tests,async-std,sparse,cache
+        cargo test --benches --no-default-features --features tokio
+        cargo test --benches --no-default-features --features async-std
 
   test-windows:
     runs-on: windows-latest
@@ -67,6 +69,8 @@ jobs:
           cargo test --no-default-features --features async-std
           cargo test --no-default-features --features async-std,sparse
           cargo test --no-default-features --features async-std,sparse,cache
+          cargo test --benches --no-default-features --features tokio
+          cargo test --benches --no-default-features --features async-std
 
   test-macos:
     runs-on: macos-latest
@@ -90,6 +94,8 @@ jobs:
           cargo test --no-default-features --features js_interop_tests,async-std
           cargo test --no-default-features --features js_interop_tests,async-std,sparse
           cargo test --no-default-features --features js_interop_tests,async-std,sparse,cache
+          cargo test --benches --no-default-features --features tokio
+          cargo test --benches --no-default-features --features async-std
 
   build-extra:
     runs-on: ubuntu-latest
@@ -103,10 +109,6 @@ jobs:
         run: |
           cargo build --target=wasm32-unknown-unknown --no-default-features --features tokio
           cargo build --target=wasm32-unknown-unknown --no-default-features --features async-std
-      - name: Build benches
-        run: |
-          cargo build --benches --no-default-features --features tokio
-          cargo build --benches --no-default-features --features async-std
       - name: Build release
         run: |
           cargo build --release --no-default-features --features tokio

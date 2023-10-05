@@ -64,6 +64,20 @@ cargo add hypercore
 This crate uses ``#![forbid(unsafe_code)]`` to ensure everythong is implemented in
 100% Safe Rust.
 
+## Development
+
+To test interoperability with Javascript, enable the `js_interop_tests` feature:
+
+```bash
+cargo test --features js_interop_tests
+```
+
+Run benches with:
+
+```bash
+cargo bench
+```
+
 ## Contributing
 
 Want to join us? Check out our ["Contributing" guide][contributing] and take a
