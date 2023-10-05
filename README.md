@@ -28,6 +28,7 @@ corresponding wire protocol implementation.
 - [ ] Finalize documentation and release v1.0.0
 
 ## Usage
+
 ```rust
 // Create an in-memory hypercore using a builder
 let mut hypercore = HypercoreBuilder::new(Storage::new_memory().await.unwrap())
@@ -44,18 +45,27 @@ assert_eq!(hypercore.get(0).await.unwrap().unwrap(), b"Hello, ");
 assert_eq!(hypercore.get(1).await.unwrap().unwrap(), b"world!");
 ```
 
+Find more examples in the [examples](./examples) folder, and/or run:
+
+```bash
+cargo run --example memory
+cargo run --example disk
+cargo run --example replication
+```
+
 ## Installation
-```sh
+
+```bash
 cargo add hypercore
 ```
 
-Find more examples in the [examples](./examples) folder.
-
 ## Safety
+
 This crate uses ``#![forbid(unsafe_code)]`` to ensure everythong is implemented in
 100% Safe Rust.
 
 ## Contributing
+
 Want to join us? Check out our ["Contributing" guide][contributing] and take a
 look at some of these issues:
 
@@ -63,6 +73,7 @@ look at some of these issues:
 - [Issues labeled "help wanted"][help-wanted]
 
 ## License
+
 [MIT](./LICENSE-MIT) OR [Apache-2.0](./LICENSE-APACHE)
 
 [1]: https://img.shields.io/crates/v/hypercore.svg?style=flat-square
