@@ -1,3 +1,78 @@
+## 2023-10-12, Version v0.12.0
+### Commits
+- [[`fa7d487758`](https://github.com/datrs/hypercore/commit/fa7d4877582023e310a7129b11ebd55eb877a75f)] Merge pull request #138 from datrs/v10 (Timo Tiuraniemi)
+
+### Stats
+```diff
+.github/workflows/ci.yml          |  142 ++++
+ .gitignore                        |    2 +
+ CHANGELOG.md                      |   31 +
+ Cargo.toml                        |   83 +-
+ README.md                         |   81 +-
+ benches/bench.rs                  |   58 --
+ benches/disk.rs                   |  140 ++++
+ benches/memory.rs                 |  128 +++
+ examples/async.rs                 |   29 -
+ examples/disk.rs                  |   88 ++
+ examples/iter.rs                  |   80 --
+ examples/main.rs                  |   29 -
+ examples/memory.rs                |   59 ++
+ examples/replication.rs           |  116 +++
+ src/audit.rs                      |   20 -
+ src/bitfield/dynamic.rs           |  403 +++++++++
+ src/bitfield/fixed.rs             |  228 ++++++
+ src/bitfield/iterator.rs          |  158 ----
+ src/bitfield/masks.rs             |  108 ---
+ src/bitfield/mod.rs               |  379 +--------
+ src/builder.rs                    |  100 +++
+ src/common/cache.rs               |   58 ++
+ src/common/error.rs               |   78 ++
+ src/common/mod.rs                 |   23 +
+ src/{storage => common}/node.rs   |   77 +-
+ src/common/peer.rs                |  117 +++
+ src/common/store.rs               |  155 ++++
+ src/core.rs                       | 1136 ++++++++++++++++++++++++++
+ src/crypto/hash.rs                |  227 +++++-
+ src/crypto/key_pair.rs            |   56 +-
+ src/crypto/manifest.rs            |   43 +
+ src/crypto/merkle.rs              |   74 --
+ src/crypto/mod.rs                 |   10 +-
+ src/crypto/root.rs                |   52 --
+ src/data/mod.rs                   |   46 ++
+ src/encoding.rs                   |  370 +++++++++
+ src/event.rs                      |    3 -
+ src/feed.rs                       |  676 ----------------
+ src/feed_builder.rs               |   89 --
+ src/lib.rs                        |  112 ++-
+ src/oplog/entry.rs                |  164 ++++
+ src/oplog/header.rs               |  325 ++++++++
+ src/oplog/mod.rs                  |  495 ++++++++++++
+ src/prelude.rs                    |   16 +-
+ src/proof.rs                      |   30 -
+ src/replicate/message.rs          |    6 -
+ src/replicate/mod.rs              |    5 -
+ src/replicate/peer.rs             |   40 -
+ src/storage/mod.rs                |  578 +++++--------
+ src/storage/persist.rs            |   19 -
+ src/tree/merkle_tree.rs           | 1616 +++++++++++++++++++++++++++++++++++++
+ src/tree/merkle_tree_changeset.rs |  131 +++
+ src/tree/mod.rs                   |    5 +
+ tests/bitfield.rs                 |  195 -----
+ tests/common/mod.rs               |  108 ++-
+ tests/compat.rs                   |  178 ----
+ tests/core.rs                     |   79 ++
+ tests/feed.rs                     |  340 --------
+ tests/js/interop.js               |  128 +++
+ tests/js/mod.rs                   |   50 ++
+ tests/js/package.json             |   10 +
+ tests/js_interop.rs               |  192 +++++
+ tests/model.rs                    |  175 ++--
+ tests/regression.rs               |   18 -
+ tests/storage.rs                  |   51 --
+ 65 files changed, 7558 insertions(+), 3260 deletions(-)
+```
+
+
 ## 2020-07-19, Version v0.11.1-beta.10
 ### Commits
 - [[`084f00dd3c`](https://github.com/datrs/hypercore/commit/084f00dd3cd9d201315e43eef44352317f9f9b8b)] (cargo-release) version 0.11.1-beta.10 (Bruno Tavares)
