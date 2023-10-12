@@ -2,60 +2,100 @@
 #![forbid(rust_2018_idioms, rust_2018_compatibility)]
 #![forbid(missing_debug_implementations)]
 #![forbid(missing_docs)]
+#![warn(unreachable_pub)]
 #![cfg_attr(test, deny(warnings))]
+#![doc(test(attr(deny(warnings))))]
 
 //! ## Introduction
+//!
 //! Hypercore is a secure, distributed append-only log. Built for sharing
 //! large datasets and streams of real time data as part of the [Dat] project.
-//! This is a rust port of [the original node version][dat-node]
-//! aiming for interoperability. The primary way to use this crate is through the [Feed] struct.
+//! This is a rust port of [the original Javascript version][holepunch-hypercore]
+//! aiming for interoperability with LTS version. The primary way to use this
+//! crate is through the [Hypercore] struct, which can be created using the
+//! [HypercoreBuilder].
+//!
+//! This crate supports WASM with `cargo build --target=wasm32-unknown-unknown`.
+//!
+//! ## Features
+//!
+//! ### `sparse` (default)
+//!
+//! When using disk storage, clearing values may create sparse files. On by default.
+//!
+//! ### `async-std` (default)
+//!
+//! Use the async-std runtime, on by default. Either this or `tokio` is mandatory.
+//!
+//! ### `tokio`
+//!
+//! Use the tokio runtime. Either this or `async_std` is mandatory.
+//!
+//! ### `cache`
+//!
+//! Use a moka cache for merkle tree nodes to speed-up reading.
 //!
 //! ## Example
 //! ```rust
-//! # fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//! # #[cfg(feature = "tokio")]
+//! # tokio_test::block_on(async {
+//! # example().await;
+//! # });
+//! # #[cfg(feature = "async-std")]
 //! # async_std::task::block_on(async {
-//! let mut feed = hypercore::open("./feed.db").await?;
+//! # example().await;
+//! # });
+//! # async fn example() {
+//! use hypercore::{HypercoreBuilder, Storage};
 //!
-//! feed.append(b"hello").await?;
-//! feed.append(b"world").await?;
+//! // Create an in-memory hypercore using a builder
+//! let mut hypercore = HypercoreBuilder::new(Storage::new_memory().await.unwrap())
+//!     .build()
+//!     .await
+//!     .unwrap();
 //!
-//! assert_eq!(feed.get(0).await?, Some(b"hello".to_vec()));
-//! assert_eq!(feed.get(1).await?, Some(b"world".to_vec()));
-//! # Ok(())
-//! # })
+//! // Append entries to the log
+//! hypercore.append(b"Hello, ").await.unwrap();
+//! hypercore.append(b"world!").await.unwrap();
+//!
+//! // Read entries from the log
+//! assert_eq!(hypercore.get(0).await.unwrap().unwrap(), b"Hello, ");
+//! assert_eq!(hypercore.get(1).await.unwrap().unwrap(), b"world!");
 //! # }
 //! ```
 //!
-//! [dat-node]: https://github.com/mafintosh/hypercore
+//! Find more examples in the [examples] folder.
+//!
 //! [Dat]: https://github.com/datrs
-//! [Feed]: crate::feed::Feed
+//! [holepunch-hypercore]: https://github.com/holepunchto/hypercore
+//! [Hypercore]: crate::core::Hypercore
+//! [HypercoreBuilder]: crate::builder::HypercoreBuilder
+//! [examples]: https://github.com/datrs/hypercore/tree/master/examples
 
-pub mod bitfield;
+pub mod encoding;
 pub mod prelude;
 
-mod audit;
+mod bitfield;
+mod builder;
+mod common;
+mod core;
 mod crypto;
-mod event;
-mod feed;
-mod feed_builder;
-mod proof;
-mod replicate;
+mod data;
+mod oplog;
 mod storage;
+mod tree;
 
-pub use crate::crypto::{generate_keypair, sign, verify, Signature};
-pub use crate::event::Event;
-pub use crate::feed::Feed;
-pub use crate::feed_builder::FeedBuilder;
-pub use crate::proof::Proof;
-pub use crate::replicate::Peer;
-pub use crate::storage::{Node, NodeTrait, Storage, Store};
-pub use ed25519_dalek::{PublicKey, SecretKey};
-
-use std::path::Path;
-
-/// Create a new Hypercore `Feed`.
-pub async fn open<P: AsRef<Path>>(
-    path: P,
-) -> anyhow::Result<Feed<random_access_disk::RandomAccessDisk>> {
-    Feed::open(path).await
-}
+#[cfg(feature = "cache")]
+pub use crate::builder::CacheOptionsBuilder;
+pub use crate::builder::HypercoreBuilder;
+pub use crate::common::{
+    DataBlock, DataHash, DataSeek, DataUpgrade, HypercoreError, Node, Proof, RequestBlock,
+    RequestSeek, RequestUpgrade, Store,
+};
+pub use crate::core::{AppendOutcome, Hypercore, Info};
+pub use crate::crypto::{generate_signing_key, sign, verify, PartialKeypair};
+pub use crate::storage::Storage;
+pub use ed25519_dalek::{
+    SecretKey, Signature, SigningKey, VerifyingKey, KEYPAIR_LENGTH, PUBLIC_KEY_LENGTH,
+    SECRET_KEY_LENGTH,
+};

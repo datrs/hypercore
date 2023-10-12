@@ -1,80 +1,127 @@
-mod common;
+pub mod common;
 
-use common::create_feed;
-use quickcheck::{quickcheck, Arbitrary, Gen};
-use rand::seq::SliceRandom;
-use rand::Rng;
-use std::u8;
+use proptest::prelude::*;
+use proptest::test_runner::FileFailurePersistence;
+use proptest_derive::Arbitrary;
 
-const MAX_FILE_SIZE: u64 = 5 * 10; // 5mb
+const MAX_FILE_SIZE: u64 = 50000;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Arbitrary)]
 enum Op {
-    Get { index: u64 },
-    Append { data: Vec<u8> },
-    Verify,
+    Get {
+        #[proptest(strategy(index_strategy))]
+        index: u64,
+    },
+    Append {
+        #[proptest(regex(data_regex))]
+        data: Vec<u8>,
+    },
+    Clear {
+        #[proptest(strategy(divisor_strategy))]
+        len_divisor_for_start: u8,
+        #[proptest(strategy(divisor_strategy))]
+        len_divisor_for_length: u8,
+    },
 }
 
-impl Arbitrary for Op {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let choices = [0, 1, 2];
-        match choices.choose(g).expect("Value should exist") {
-            0 => {
-                let index: u64 = g.gen_range(0, MAX_FILE_SIZE);
-                Op::Get { index }
+fn index_strategy() -> impl Strategy<Value = u64> {
+    0..MAX_FILE_SIZE
+}
+
+fn divisor_strategy() -> impl Strategy<Value = u8> {
+    1_u8..17_u8
+}
+
+fn data_regex() -> &'static str {
+    // Write 0..5000 byte chunks of ASCII characters as dummy data
+    "([ -~]{1,1}\n){0,5000}"
+}
+
+proptest! {
+  #![proptest_config(ProptestConfig {
+    failure_persistence: Some(Box::new(FileFailurePersistence::WithSource("regressions"))),
+    ..Default::default()
+  })]
+
+  #[test]
+  #[cfg(feature = "async-std")]
+  fn implementation_matches_model(ops: Vec<Op>) {
+    assert!(async_std::task::block_on(assert_implementation_matches_model(ops)));
+  }
+
+  #[test]
+  #[cfg(feature = "tokio")]
+  fn implementation_matches_model(ops: Vec<Op>) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    assert!(rt.block_on(async {
+      assert_implementation_matches_model(ops).await
+    }));
+  }
+}
+
+async fn assert_implementation_matches_model(ops: Vec<Op>) -> bool {
+    use hypercore::{HypercoreBuilder, Storage};
+
+    let storage = Storage::new_memory()
+        .await
+        .expect("Memory storage creation should be successful");
+    let mut hypercore = HypercoreBuilder::new(storage)
+        .build()
+        .await
+        .expect("Hypercore creation should be successful");
+
+    let mut model: Vec<Option<Vec<u8>>> = vec![];
+
+    for op in ops {
+        match op {
+            Op::Append { data } => {
+                hypercore
+                    .append(&data)
+                    .await
+                    .expect("Append should be successful");
+                model.push(Some(data));
             }
-            1 => {
-                let length: u64 = g.gen_range(0, MAX_FILE_SIZE / 3);
-                let mut data = Vec::with_capacity(length as usize);
-                for _ in 0..length {
-                    data.push(u8::arbitrary(g));
+            Op::Get { index } => {
+                let data = hypercore
+                    .get(index)
+                    .await
+                    .expect("Get should be successful");
+                if index >= hypercore.info().length {
+                    assert_eq!(data, None);
+                } else {
+                    assert_eq!(data, model[index as usize].clone());
                 }
-                Op::Append { data }
             }
-            2 => Op::Verify,
-            err => panic!("Invalid choice {}", err),
+            Op::Clear {
+                len_divisor_for_start,
+                len_divisor_for_length,
+            } => {
+                let start = {
+                    let result = model.len() as u64 / len_divisor_for_start as u64;
+                    if result == model.len() as u64 {
+                        if !model.is_empty() {
+                            result - 1
+                        } else {
+                            0
+                        }
+                    } else {
+                        result
+                    }
+                };
+                let length = model.len() as u64 / len_divisor_for_length as u64;
+                let end = start + length;
+                let model_end = if end < model.len() as u64 {
+                    end
+                } else {
+                    model.len() as u64
+                };
+                hypercore
+                    .clear(start, end)
+                    .await
+                    .expect("Clear should be successful");
+                model[start as usize..model_end as usize].fill(None);
+            }
         }
     }
-}
-
-quickcheck! {
-  fn implementation_matches_model(ops: Vec<Op>) -> bool {
-    async_std::task::block_on(async {
-      let page_size = 50;
-
-      let mut insta = create_feed(page_size)
-        .await
-        .expect("Instance creation should be successful");
-      let mut model = vec![];
-
-      for op in ops {
-        match op {
-          Op::Append { data } => {
-            insta.append(&data).await.expect("Append should be successful");
-            model.push(data);
-          },
-          Op::Get { index } => {
-            let data = insta.get(index).await.expect("Get should be successful");
-            if index >= insta.len() {
-              assert_eq!(data, None);
-            } else {
-              assert_eq!(data, Some(model[index as usize].clone()));
-            }
-          },
-          Op::Verify => {
-            let len = insta.len();
-            if len == 0 {
-              insta.signature(len).await.unwrap_err();
-            } else {
-              // Always test index of last entry, which is `len - 1`.
-              let len = len - 1;
-              let sig = insta.signature(len).await.expect("Signature should exist");
-              insta.verify(len, &sig).await.expect("Signature should match");
-            }
-          },
-        }
-      }
-      true
-    })
-  }
+    true
 }

@@ -1,15 +1,18 @@
-use anyhow::ensure;
-use anyhow::Result;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use merkle_tree_stream::Node as NodeTrait;
 use merkle_tree_stream::{NodeKind, NodeParts};
 use pretty_hash::fmt as pretty_fmt;
 use std::cmp::Ordering;
 use std::convert::AsRef;
 use std::fmt::{self, Display};
-use std::io::Cursor;
 
 use crate::crypto::Hash;
+
+/// Node byte range
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NodeByteRange {
+    pub(crate) index: u64,
+    pub(crate) length: u64,
+}
 
 /// Nodes that are persisted to disk.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
@@ -22,53 +25,40 @@ pub struct Node {
     pub(crate) length: u64,
     pub(crate) parent: u64,
     pub(crate) data: Option<Vec<u8>>,
+    pub(crate) blank: bool,
 }
 
 impl Node {
     /// Create a new instance.
     // TODO: ensure sizes are correct.
     pub fn new(index: u64, hash: Vec<u8>, length: u64) -> Self {
+        let mut blank = true;
+        for byte in &hash {
+            if *byte != 0 {
+                blank = false;
+                break;
+            }
+        }
         Self {
             index,
             hash,
-            length: length as u64,
+            length,
             parent: flat_tree::parent(index),
             data: Some(Vec::with_capacity(0)),
+            blank,
         }
     }
 
-    /// Convert a vector to a new instance.
-    ///
-    /// Requires the index at which the buffer was read to be passed.
-    pub fn from_bytes(index: u64, buffer: &[u8]) -> Result<Self> {
-        ensure!(buffer.len() == 40, "buffer should be 40 bytes");
-
-        let parent = flat_tree::parent(index);
-        let mut reader = Cursor::new(buffer);
-
-        // TODO: subslice directly, move cursor forward.
-        let capacity = 32;
-        let mut hash = Vec::with_capacity(capacity);
-        for _ in 0..capacity {
-            hash.push(reader.read_u8()?);
-        }
-
-        let length = reader.read_u64::<BigEndian>()?;
-        Ok(Self {
-            hash,
-            length,
+    /// Creates a new blank node
+    pub fn new_blank(index: u64) -> Self {
+        Self {
             index,
-            parent,
-            data: Some(Vec::with_capacity(0)),
-        })
-    }
-
-    /// Convert to a buffer that can be written to disk.
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut writer = Vec::with_capacity(40);
-        writer.extend_from_slice(&self.hash);
-        writer.write_u64::<BigEndian>(self.length as u64)?;
-        Ok(writer)
+            hash: vec![0, 32],
+            length: 0,
+            parent: 0,
+            data: None,
+            blank: true,
+        }
     }
 }
 
@@ -85,7 +75,7 @@ impl NodeTrait for Node {
 
     #[inline]
     fn len(&self) -> u64 {
-        self.length as u64
+        self.length
     }
 
     #[inline]
@@ -137,13 +127,22 @@ impl From<NodeParts<Hash>> for Node {
             NodeKind::Leaf(data) => Some(data.clone()),
             NodeKind::Parent => None,
         };
+        let hash: Vec<u8> = parts.hash().as_bytes().into();
+        let mut blank = true;
+        for byte in &hash {
+            if *byte != 0 {
+                blank = false;
+                break;
+            }
+        }
 
         Node {
             index: partial.index(),
             parent: partial.parent,
-            length: partial.len() as u64,
-            hash: parts.hash().as_bytes().into(),
+            length: partial.len(),
+            hash,
             data,
+            blank,
         }
     }
 }
