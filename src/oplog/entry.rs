@@ -147,7 +147,7 @@ impl CompactEncoding<Entry> for HypercoreState {
             None
         };
 
-        let bitfield: Option<BitfieldUpdate> = if flags & 4 != 0 {
+        let bitfield: Option<BitfieldUpdate> = if flags & 8 != 0 {
             let value: BitfieldUpdate = self.decode(buffer)?;
             Some(value)
         } else {
