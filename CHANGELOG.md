@@ -1,10 +1,21 @@
+## 2023-10-28, Version v0.12.1
+### Commits
+- [[`60d50a5e76`](https://github.com/datrs/hypercore/commit/60d50a5e7638c60047c722b6cfb7c50e29ecd502)] Fix Oplog decoding failing on bitfied update (Timo Tiuraniemi)
+
+### Stats
+```diff
+ src/oplog/entry.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+
 ## 2023-10-12, Version v0.12.0
 ### Commits
 - [[`fa7d487758`](https://github.com/datrs/hypercore/commit/fa7d4877582023e310a7129b11ebd55eb877a75f)] Merge pull request #138 from datrs/v10 (Timo Tiuraniemi)
 
 ### Stats
 ```diff
-.github/workflows/ci.yml          |  142 ++++
+ .github/workflows/ci.yml          |  142 ++++
  .gitignore                        |    2 +
  CHANGELOG.md                      |   31 +
  Cargo.toml                        |   83 +-
