@@ -3,8 +3,10 @@ use ed25519_dalek::Signature;
 use futures::future::Either;
 use std::convert::TryFrom;
 use std::fmt::Debug;
+use tokio::sync::broadcast::{self, Receiver, Sender};
 use tracing::instrument;
 
+static MAX_EVENT_QUEUE_CAPACITY: usize = 32;
 #[cfg(feature = "cache")]
 use crate::common::cache::CacheOptions;
 use crate::{
@@ -37,6 +39,19 @@ impl HypercoreOptions {
     }
 }
 
+#[derive(Debug)]
+struct Events {
+    onupgrade: Sender<()>,
+}
+
+impl Events {
+    fn new() -> Self {
+        Self {
+            onupgrade: broadcast::channel(MAX_EVENT_QUEUE_CAPACITY).0,
+        }
+    }
+}
+
 /// Hypercore is an append-only log structure.
 #[derive(Debug)]
 pub struct Hypercore {
@@ -48,6 +63,7 @@ pub struct Hypercore {
     pub(crate) bitfield: Bitfield,
     skip_flush_count: u8, // autoFlush in Javascript
     header: Header,
+    events: Events,
 }
 
 /// Response from append, matches that of the Javascript result
@@ -247,6 +263,7 @@ impl Hypercore {
             bitfield,
             header,
             skip_flush_count: 0,
+            events: Events::new(),
         })
     }
 
@@ -323,11 +340,25 @@ impl Hypercore {
             }
         }
 
+        // if we drop the receiver and there are no listeners, this will error, but we don't care
+        match self.events.onupgrade.send(()) {
+            Err(e) => {
+                dbg!(e);
+                ()
+            }
+            Ok(_) => (),
+        }
+
         // Return the new value
         Ok(AppendOutcome {
             length: self.tree.length,
             byte_length: self.tree.byte_length,
         })
+    }
+
+    /// Subscribe to upgrade events
+    pub fn onupgrade(&self) -> Receiver<()> {
+        self.events.onupgrade.subscribe()
     }
 
     /// Read value at given index, if any.
