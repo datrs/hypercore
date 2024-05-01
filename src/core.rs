@@ -340,14 +340,9 @@ impl Hypercore {
             }
         }
 
-        // if we drop the receiver and there are no listeners, this will error, but we don't care
-        match self.events.onupgrade.send(()) {
-            Err(e) => {
-                dbg!(e);
-                ()
-            }
-            Ok(_) => (),
-        }
+        // NB: send() returns an error when there are no receivers. Which is the case when there is
+        // no replication. We ignore the error. No recievers is ok.
+        let _ = self.events.onupgrade.send(());
 
         // Return the new value
         Ok(AppendOutcome {
