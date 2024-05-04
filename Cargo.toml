@@ -39,7 +39,7 @@ futures = "0.3"
 crc32fast = "1"
 intmap = "2"
 moka = { version = "0.12", optional = true, features = ["sync"] }
-tokio = { version = "1.27.0", features = ["sync"] }
+tokio = { version = "1.27.0", features = ["sync"], optional = true}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 random-access-disk = { version = "3", default-features = false }
@@ -62,7 +62,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 [features]
 default = ["async-std", "sparse"]
 sparse = ["random-access-disk/sparse"]
-tokio = ["random-access-disk/tokio"]
+tokio = ["dep:tokio", "random-access-disk/tokio"]
 async-std = ["random-access-disk/async-std"]
 cache = ["moka"]
 # Used only in interoperability tests under tests/js-interop which use the javascript version of hypercore

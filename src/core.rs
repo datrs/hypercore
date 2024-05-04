@@ -3,6 +3,7 @@ use ed25519_dalek::Signature;
 use futures::future::Either;
 use std::convert::TryFrom;
 use std::fmt::Debug;
+#[cfg(feature = "tokio")]
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use tracing::instrument;
 
@@ -39,11 +40,13 @@ impl HypercoreOptions {
     }
 }
 
+#[cfg(feature = "tokio")]
 #[derive(Debug)]
 struct Events {
     onupgrade: Sender<()>,
 }
 
+#[cfg(feature = "tokio")]
 impl Events {
     fn new() -> Self {
         Self {
@@ -63,6 +66,7 @@ pub struct Hypercore {
     pub(crate) bitfield: Bitfield,
     skip_flush_count: u8, // autoFlush in Javascript
     header: Header,
+    #[cfg(feature = "tokio")]
     events: Events,
 }
 
@@ -263,6 +267,7 @@ impl Hypercore {
             bitfield,
             header,
             skip_flush_count: 0,
+            #[cfg(feature = "tokio")]
             events: Events::new(),
         })
     }
@@ -342,6 +347,7 @@ impl Hypercore {
 
         // NB: send() returns an error when there are no receivers. Which is the case when there is
         // no replication. We ignore the error. No recievers is ok.
+        #[cfg(feature = "tokio")]
         let _ = self.events.onupgrade.send(());
 
         // Return the new value
@@ -351,6 +357,7 @@ impl Hypercore {
         })
     }
 
+    #[cfg(feature = "tokio")]
     /// Subscribe to upgrade events
     pub fn onupgrade(&self) -> Receiver<()> {
         self.events.onupgrade.subscribe()
