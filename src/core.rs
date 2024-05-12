@@ -43,15 +43,14 @@ impl HypercoreOptions {
 #[cfg(feature = "tokio")]
 #[derive(Debug)]
 struct Events {
-    onupgrade: Sender<()>,
+    on_upgrade: Sender<()>,
 }
 
 #[cfg(feature = "tokio")]
 impl Events {
     fn new() -> Self {
-        Self {
-            onupgrade: broadcast::channel(MAX_EVENT_QUEUE_CAPACITY).0,
-        }
+        let (sender, _) = broadcast::channel(MAX_EVENT_QUEUE_CAPACITY);
+        Self { on_upgrade: sender }
     }
 }
 
@@ -348,7 +347,7 @@ impl Hypercore {
         // NB: send() returns an error when there are no receivers. Which is the case when there is
         // no replication. We ignore the error. No recievers is ok.
         #[cfg(feature = "tokio")]
-        let _ = self.events.onupgrade.send(());
+        let _ = self.events.on_upgrade.send(());
 
         // Return the new value
         Ok(AppendOutcome {
@@ -359,8 +358,8 @@ impl Hypercore {
 
     #[cfg(feature = "tokio")]
     /// Subscribe to upgrade events
-    pub fn onupgrade(&self) -> Receiver<()> {
-        self.events.onupgrade.subscribe()
+    pub fn on_upgrade(&self) -> Receiver<()> {
+        self.events.on_upgrade.subscribe()
     }
 
     /// Read value at given index, if any.
