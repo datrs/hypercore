@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use tokio::sync::broadcast::{self, Receiver, Sender};
 use tracing::instrument;
 
+#[cfg(feature = "tokio")]
 static MAX_EVENT_QUEUE_CAPACITY: usize = 32;
 #[cfg(feature = "cache")]
 use crate::common::cache::CacheOptions;
