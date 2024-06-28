@@ -94,7 +94,7 @@ pub use crate::common::{
 };
 pub use crate::core::{AppendOutcome, Hypercore, Info};
 pub use crate::crypto::{generate_signing_key, sign, verify, PartialKeypair};
-pub use crate::storage::Storage;
+pub use crate::storage::{Storage, StorageTraits};
 pub use ed25519_dalek::{
     SecretKey, Signature, SigningKey, VerifyingKey, KEYPAIR_LENGTH, PUBLIC_KEY_LENGTH,
     SECRET_KEY_LENGTH,

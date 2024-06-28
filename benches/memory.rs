@@ -22,8 +22,14 @@ fn bench_create_memory(c: &mut Criterion) {
 async fn create_hypercore(
     page_size: usize,
 ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
+    use hypercore::StorageTraits;
+
     let storage = Storage::open(
-        |_| Box::pin(async move { Ok(RandomAccessMemory::new(page_size)) }),
+        |_| {
+            Box::pin(async move {
+                Ok(Box::new(RandomAccessMemory::new(page_size)) as Box<dyn StorageTraits>)
+            })
+        },
         false,
     )
     .await?;

@@ -3,6 +3,7 @@ pub mod common;
 use proptest::prelude::*;
 use proptest::test_runner::FileFailurePersistence;
 use proptest_derive::Arbitrary;
+use random_access_memory::RandomAccessMemory;
 
 const MAX_FILE_SIZE: u64 = 50000;
 
@@ -66,7 +67,7 @@ async fn assert_implementation_matches_model(ops: Vec<Op>) -> bool {
         .await
         .expect("Memory storage creation should be successful");
     let mut hypercore = HypercoreBuilder::new(storage)
-        .build()
+        .build::<RandomAccessMemory>()
         .await
         .expect("Hypercore creation should be successful");
 

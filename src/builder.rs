@@ -53,20 +53,14 @@ impl CacheOptionsBuilder {
 
 /// Build a Hypercore instance with options.
 #[derive(Debug)]
-pub struct HypercoreBuilder<T>
-where
-    T: RandomAccess + Debug + Send,
-{
-    storage: Storage<T>,
+pub struct HypercoreBuilder {
+    storage: Storage,
     options: HypercoreOptions,
 }
 
-impl<T> HypercoreBuilder<T>
-where
-    T: RandomAccess + Debug + Send,
-{
+impl HypercoreBuilder {
     /// Create a hypercore builder with a given storage
-    pub fn new(storage: Storage<T>) -> Self {
+    pub fn new(storage: Storage) -> Self {
         Self {
             storage,
             options: HypercoreOptions::new(),
@@ -94,7 +88,9 @@ where
 
     /// Build a new Hypercore.
     #[instrument(err, skip_all)]
-    pub async fn build(self) -> Result<Hypercore<T>, HypercoreError> {
+    pub async fn build<T: RandomAccess + Debug + Send>(
+        self,
+    ) -> Result<Hypercore<T>, HypercoreError> {
         Hypercore::new(self.storage, self.options).await
     }
 }

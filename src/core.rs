@@ -45,13 +45,14 @@ where
     T: RandomAccess + Debug,
 {
     pub(crate) key_pair: PartialKeypair,
-    pub(crate) storage: Storage<T>,
+    pub(crate) storage: Storage,
     pub(crate) oplog: Oplog,
     pub(crate) tree: MerkleTree,
     pub(crate) block_store: BlockStore,
     pub(crate) bitfield: Bitfield,
     skip_flush_count: u8, // autoFlush in Javascript
     header: Header,
+    _foo: Option<T>,
 }
 
 /// Response from append, matches that of the Javascript result
@@ -85,7 +86,7 @@ where
 {
     /// Creates/opens new hypercore using given storage and options
     pub(crate) async fn new(
-        mut storage: Storage<T>,
+        mut storage: Storage,
         mut options: HypercoreOptions,
     ) -> Result<Hypercore<T>, HypercoreError> {
         let key_pair: Option<PartialKeypair> = if options.open {
@@ -254,6 +255,7 @@ where
             bitfield,
             header,
             skip_flush_count: 0,
+            _foo: None,
         })
     }
 

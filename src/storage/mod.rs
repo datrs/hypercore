@@ -15,16 +15,17 @@ use crate::{
     HypercoreError,
 };
 
+/// rmme
+pub trait StorageTraits: RandomAccess + Debug {}
+impl<T: RandomAccess + Debug> StorageTraits for T {}
+
 /// Save data to a desired storage backend.
 #[derive(Debug)]
-pub struct Storage<T>
-where
-    T: RandomAccess + Debug,
-{
-    tree: T,
-    data: T,
-    bitfield: T,
-    oplog: T,
+pub struct Storage {
+    tree: Box<dyn StorageTraits>,
+    data: Box<dyn StorageTraits>,
+    bitfield: Box<dyn StorageTraits>,
+    oplog: Box<dyn StorageTraits>,
 }
 
 pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
@@ -51,17 +52,17 @@ pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
     }
 }
 
-impl<T> Storage<T>
-where
-    T: RandomAccess + Debug + Send,
-{
+impl Storage {
     /// Create a new instance. Takes a callback to create new storage instances and overwrite flag.
     pub async fn open<Cb>(create: Cb, overwrite: bool) -> Result<Self, HypercoreError>
     where
         Cb: Fn(
             Store,
         ) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<T, RandomAccessError>> + Send>,
+            Box<
+                dyn std::future::Future<Output = Result<Box<dyn StorageTraits>, RandomAccessError>>
+                    + Send,
+            >,
         >,
     {
         let mut tree = create(Store::Tree).await.map_err(map_random_access_err)?;
@@ -235,7 +236,7 @@ where
         Ok(())
     }
 
-    fn get_random_access(&mut self, store: &Store) -> &mut T {
+    fn get_random_access(&mut self, store: &Store) -> &mut Box<dyn StorageTraits> {
         match store {
             Store::Tree => &mut self.tree,
             Store::Data => &mut self.data,
@@ -243,31 +244,36 @@ where
             Store::Oplog => &mut self.oplog,
         }
     }
-}
 
-impl Storage<RandomAccessMemory> {
     /// New storage backed by a `RandomAccessMemory` instance.
     #[instrument(err)]
     pub async fn new_memory() -> Result<Self, HypercoreError> {
-        let create = |_| async { Ok(RandomAccessMemory::default()) }.boxed();
+        let create = |_| {
+            async { Ok(Box::new(RandomAccessMemory::default()) as Box<dyn StorageTraits>) }.boxed()
+        };
         // No reason to overwrite, as this is a new memory segment
         Self::open(create, false).await
     }
-}
 
-#[cfg(not(target_arch = "wasm32"))]
-impl Storage<RandomAccessDisk> {
     /// New storage backed by a `RandomAccessDisk` instance.
+    #[cfg(not(target_arch = "wasm32"))]
     #[instrument(err)]
     pub async fn new_disk(dir: &PathBuf, overwrite: bool) -> Result<Self, HypercoreError> {
         let storage = |store: Store| {
-            let name = match store {
-                Store::Tree => "tree",
-                Store::Data => "data",
-                Store::Bitfield => "bitfield",
-                Store::Oplog => "oplog",
-            };
-            RandomAccessDisk::open(dir.as_path().join(name)).boxed()
+            let dir = dir.clone();
+            async move {
+                let name = match store {
+                    Store::Tree => "tree",
+                    Store::Data => "data",
+                    Store::Bitfield => "bitfield",
+                    Store::Oplog => "oplog",
+                };
+                Ok(
+                    Box::new(RandomAccessDisk::open(dir.as_path().join(name)).await?)
+                        as Box<dyn StorageTraits>,
+                )
+            }
+            .boxed()
         };
         Self::open(storage, overwrite).await
     }
