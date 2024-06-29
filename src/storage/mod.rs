@@ -15,7 +15,7 @@ use crate::{
     HypercoreError,
 };
 
-/// rmme
+/// Supertrait for Storage
 pub trait StorageTraits: RandomAccess + Debug {}
 impl<T: RandomAccess + Debug> StorageTraits for T {}
 
