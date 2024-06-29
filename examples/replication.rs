@@ -4,8 +4,6 @@ use hypercore::{
     Hypercore, HypercoreBuilder, HypercoreError, PartialKeypair, RequestBlock, RequestUpgrade,
     Storage,
 };
-use random_access_disk::RandomAccessDisk;
-use random_access_memory::RandomAccessMemory;
 use tempfile::Builder;
 #[cfg(feature = "tokio")]
 use tokio::main as async_main;
@@ -73,8 +71,8 @@ async fn main() {
 }
 
 async fn replicate_index(
-    origin_hypercore: &mut Hypercore<RandomAccessDisk>,
-    replicated_hypercore: &mut Hypercore<RandomAccessMemory>,
+    origin_hypercore: &mut Hypercore,
+    replicated_hypercore: &mut Hypercore,
     request_index: u64,
 ) {
     let missing_nodes = origin_hypercore

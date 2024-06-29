@@ -1,4 +1,3 @@
-use random_access_storage::RandomAccess;
 use std::fmt::Debug;
 #[cfg(feature = "cache")]
 use std::time::Duration;
@@ -88,9 +87,7 @@ impl HypercoreBuilder {
 
     /// Build a new Hypercore.
     #[instrument(err, skip_all)]
-    pub async fn build<T: RandomAccess + Debug + Send>(
-        self,
-    ) -> Result<Hypercore<T>, HypercoreError> {
+    pub async fn build(self) -> Result<Hypercore, HypercoreError> {
         Hypercore::new(self.storage, self.options).await
     }
 }

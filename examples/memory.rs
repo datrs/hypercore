@@ -1,7 +1,6 @@
 #[cfg(feature = "async-std")]
 use async_std::main as async_main;
 use hypercore::{HypercoreBuilder, HypercoreError, Storage};
-use random_access_memory::RandomAccessMemory;
 #[cfg(feature = "tokio")]
 use tokio::main as async_main;
 
@@ -15,7 +14,7 @@ async fn main() {
 
     // Build hypercore
     let mut hypercore = HypercoreBuilder::new(storage)
-        .build::<RandomAccessMemory>()
+        .build()
         .await
         .expect("Could not create memory hypercore");
 

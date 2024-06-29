@@ -1,7 +1,6 @@
 #[cfg(feature = "async-std")]
 use async_std::main as async_main;
 use hypercore::{HypercoreBuilder, HypercoreError, Storage};
-use random_access_memory::RandomAccessMemory;
 use tempfile::Builder;
 #[cfg(feature = "tokio")]
 use tokio::main as async_main;
@@ -25,7 +24,7 @@ async fn main() {
 
     // Build a new disk hypercore
     let mut hypercore = HypercoreBuilder::new(storage)
-        .build::<RandomAccessMemory>()
+        .build()
         .await
         .expect("Could not create disk hypercore");
 
@@ -44,7 +43,7 @@ async fn main() {
         .expect("Could not open existing disk storage");
     let mut hypercore = HypercoreBuilder::new(storage)
         .open(true)
-        .build::<RandomAccessMemory>()
+        .build()
         .await
         .expect("Could not open disk hypercore");
 
