@@ -22,10 +22,10 @@ impl<T: RandomAccess + Debug> StorageTraits for T {}
 /// Save data to a desired storage backend.
 #[derive(Debug)]
 pub struct Storage {
-    tree: Box<dyn StorageTraits>,
-    data: Box<dyn StorageTraits>,
-    bitfield: Box<dyn StorageTraits>,
-    oplog: Box<dyn StorageTraits>,
+    tree: Box<dyn StorageTraits + Send>,
+    data: Box<dyn StorageTraits + Send>,
+    bitfield: Box<dyn StorageTraits + Send>,
+    oplog: Box<dyn StorageTraits + Send>,
 }
 
 pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
@@ -60,8 +60,9 @@ impl Storage {
             Store,
         ) -> std::pin::Pin<
             Box<
-                dyn std::future::Future<Output = Result<Box<dyn StorageTraits>, RandomAccessError>>
-                    + Send,
+                dyn std::future::Future<
+                        Output = Result<Box<dyn StorageTraits + Send>, RandomAccessError>,
+                    > + Send,
             >,
         >,
     {
@@ -236,7 +237,7 @@ impl Storage {
         Ok(())
     }
 
-    fn get_random_access(&mut self, store: &Store) -> &mut Box<dyn StorageTraits> {
+    fn get_random_access(&mut self, store: &Store) -> &mut Box<dyn StorageTraits + Send> {
         match store {
             Store::Tree => &mut self.tree,
             Store::Data => &mut self.data,
@@ -249,7 +250,8 @@ impl Storage {
     #[instrument(err)]
     pub async fn new_memory() -> Result<Self, HypercoreError> {
         let create = |_| {
-            async { Ok(Box::new(RandomAccessMemory::default()) as Box<dyn StorageTraits>) }.boxed()
+            async { Ok(Box::new(RandomAccessMemory::default()) as Box<dyn StorageTraits + Send>) }
+                .boxed()
         };
         // No reason to overwrite, as this is a new memory segment
         Self::open(create, false).await
@@ -270,7 +272,7 @@ impl Storage {
                 };
                 Ok(
                     Box::new(RandomAccessDisk::open(dir.as_path().join(name)).await?)
-                        as Box<dyn StorageTraits>,
+                        as Box<dyn StorageTraits + Send>,
                 )
             }
             .boxed()
