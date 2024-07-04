@@ -1,3 +1,21 @@
+## 2024-07-04, Version v0.13.0
+### Commits
+- [[`16acbffc92`](https://github.com/datrs/hypercore/commit/16acbffc9297c645c0740f33eb6fbee06681871e)] Remove generic parameters from Hypercore and Storage #139  (cowlicks)
+
+### Stats
+```diff
+ benches/disk.rs         |  5 ++---
+ benches/memory.rs       | 24 ++++++++++++++++--------
+ examples/replication.rs |  6 ++----
+ src/builder.rs          | 17 +++++------------
+ src/core.rs             | 24 +++++++-----------------
+ src/lib.rs              |  2 +-
+ src/storage/mod.rs      | 62 +++++++++++++++++++++++++++++++++++---------------------------
+ tests/common/mod.rs     |  5 ++---
+ 8 files changed, 70 insertions(+), 75 deletions(-)
+```
+
+
 ## 2023-10-28, Version v0.12.1
 ### Commits
 - [[`60d50a5e76`](https://github.com/datrs/hypercore/commit/60d50a5e7638c60047c722b6cfb7c50e29ecd502)] Fix Oplog decoding failing on bitfied update (Timo Tiuraniemi)
