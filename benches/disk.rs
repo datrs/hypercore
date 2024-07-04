@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 use criterion::async_executor::AsyncStdExecutor;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hypercore::{Hypercore, HypercoreBuilder, HypercoreError, Storage};
-use random_access_disk::RandomAccessDisk;
 use tempfile::Builder as TempfileBuilder;
 
 fn bench_create_disk(c: &mut Criterion) {
@@ -24,7 +23,7 @@ fn bench_create_disk(c: &mut Criterion) {
 }
 
 #[cfg(feature = "cache")]
-async fn create_hypercore(name: &str) -> Result<Hypercore<RandomAccessDisk>, HypercoreError> {
+async fn create_hypercore(name: &str) -> Result<Hypercore, HypercoreError> {
     let dir = TempfileBuilder::new()
         .prefix(name)
         .tempdir()
@@ -38,7 +37,7 @@ async fn create_hypercore(name: &str) -> Result<Hypercore<RandomAccessDisk>, Hyp
 }
 
 #[cfg(not(feature = "cache"))]
-async fn create_hypercore(name: &str) -> Result<Hypercore<RandomAccessDisk>, HypercoreError> {
+async fn create_hypercore(name: &str) -> Result<Hypercore, HypercoreError> {
     let dir = TempfileBuilder::new()
         .prefix(name)
         .tempdir()

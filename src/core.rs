@@ -1,7 +1,6 @@
 //! Hypercore's main abstraction. Exposes an append-only, secure log structure.
 use ed25519_dalek::Signature;
 use futures::future::Either;
-use random_access_storage::RandomAccess;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use tracing::instrument;
@@ -40,12 +39,9 @@ impl HypercoreOptions {
 
 /// Hypercore is an append-only log structure.
 #[derive(Debug)]
-pub struct Hypercore<T>
-where
-    T: RandomAccess + Debug,
-{
+pub struct Hypercore {
     pub(crate) key_pair: PartialKeypair,
-    pub(crate) storage: Storage<T>,
+    pub(crate) storage: Storage,
     pub(crate) oplog: Oplog,
     pub(crate) tree: MerkleTree,
     pub(crate) block_store: BlockStore,
@@ -79,15 +75,12 @@ pub struct Info {
     pub writeable: bool,
 }
 
-impl<T> Hypercore<T>
-where
-    T: RandomAccess + Debug + Send,
-{
+impl Hypercore {
     /// Creates/opens new hypercore using given storage and options
     pub(crate) async fn new(
-        mut storage: Storage<T>,
+        mut storage: Storage,
         mut options: HypercoreOptions,
-    ) -> Result<Hypercore<T>, HypercoreError> {
+    ) -> Result<Hypercore, HypercoreError> {
         let key_pair: Option<PartialKeypair> = if options.open {
             if options.key_pair.is_some() {
                 return Err(HypercoreError::BadArgument {
@@ -734,7 +727,6 @@ fn update_contiguous_length(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use random_access_memory::RandomAccessMemory;
 
     #[async_std::test]
     async fn core_create_proof_block_only() -> Result<(), HypercoreError> {
@@ -1099,9 +1091,7 @@ mod tests {
         Ok(())
     }
 
-    async fn create_hypercore_with_data(
-        length: u64,
-    ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
+    async fn create_hypercore_with_data(length: u64) -> Result<Hypercore, HypercoreError> {
         let signing_key = generate_signing_key();
         create_hypercore_with_data_and_key_pair(
             length,
@@ -1116,7 +1106,7 @@ mod tests {
     async fn create_hypercore_with_data_and_key_pair(
         length: u64,
         key_pair: PartialKeypair,
-    ) -> Result<Hypercore<RandomAccessMemory>, HypercoreError> {
+    ) -> Result<Hypercore, HypercoreError> {
         let storage = Storage::new_memory().await?;
         let mut hypercore = Hypercore::new(
             storage,

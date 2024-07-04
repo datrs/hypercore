@@ -1,6 +1,5 @@
 use anyhow::Result;
 use ed25519_dalek::{SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use random_access_disk::RandomAccessDisk;
 use sha2::{Digest, Sha256};
 use std::io::prelude::*;
 use std::path::Path;
@@ -35,7 +34,7 @@ pub fn get_test_key_pair() -> PartialKeypair {
     PartialKeypair { public, secret }
 }
 
-pub async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+pub async fn create_hypercore(work_dir: &str) -> Result<Hypercore> {
     let path = Path::new(work_dir).to_owned();
     let key_pair = get_test_key_pair();
     let storage = Storage::new_disk(&path, true).await?;
@@ -45,7 +44,7 @@ pub async fn create_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDi
         .await?)
 }
 
-pub async fn open_hypercore(work_dir: &str) -> Result<Hypercore<RandomAccessDisk>> {
+pub async fn open_hypercore(work_dir: &str) -> Result<Hypercore> {
     let path = Path::new(work_dir).to_owned();
     let storage = Storage::new_disk(&path, false).await?;
     Ok(HypercoreBuilder::new(storage).open(true).build().await?)
