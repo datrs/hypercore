@@ -20,10 +20,15 @@ pub(crate) struct NodeByteRange {
 // disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
+    /// TODO document me
     pub(crate) index: u64,
+    /// hash of the data in this node
     pub(crate) hash: Vec<u8>,
+    /// number of bytes of the data
     pub(crate) length: u64,
     pub(crate) parent: u64,
+    /// The data. Other metadata in this struct is provided before the actual data.
+    /// so it is optional
     pub(crate) data: Option<Vec<u8>>,
     pub(crate) blank: bool,
 }
