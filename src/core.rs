@@ -41,21 +41,21 @@ impl HypercoreOptions {
     }
 }
 
-#[cfg(feature = "tokio")]
 #[derive(Debug)]
+#[cfg(feature = "tokio")]
 struct Events {
     /// Sends a notification to the replicator that core is upgraded
     on_upgrade: Sender<()>,
     /// Notify receiver to get block over the network.
-    /// maybe should not return the block itself
     on_get: Sender<(u64, Sender<()>)>,
 }
 
 #[cfg(feature = "tokio")]
 impl Events {
     fn new() -> Self {
-        let (sender, _) = broadcast::channel(MAX_EVENT_QUEUE_CAPACITY);
-        Self { on_upgrade: sender }
+        let (on_upgrade, _) = broadcast::channel(MAX_EVENT_QUEUE_CAPACITY);
+        let (on_get, _) = broadcast::channel(MAX_EVENT_QUEUE_CAPACITY);
+        Self { on_upgrade, on_get }
     }
 }
 
@@ -367,10 +367,34 @@ impl Hypercore {
         self.events.on_upgrade.subscribe()
     }
 
+    #[cfg(feature = "tokio")]
+    /// Notify listeners of a get request
+    pub fn on_get(&self, index: u64) -> Receiver<()> {
+        let (tx, rx) = broadcast::channel(1);
+        let _ = self.events.on_get.send((index, tx));
+        rx
+    }
+
+    #[cfg(feature = "tokio")]
+    /// Subscribe to `.get` requests
+    pub fn on_get_subscribe(&self) -> Receiver<(u64, Sender<()>)> {
+        self.events.on_get.subscribe()
+    }
+
     /// Read value at given index, if any.
     #[instrument(err, skip(self))]
     pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>, HypercoreError> {
         if !self.bitfield.get(index) {
+            // not in this core
+            // try getting it over the network
+            #[cfg(feature = "tokio")]
+            {
+                let mut rx = self.on_get(index);
+                //let res = rx.recv().await.unwrap();
+                tokio::spawn(async move {
+                    rx.recv().await;
+                });
+            }
             return Ok(None);
         }
 
