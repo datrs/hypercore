@@ -44,7 +44,11 @@ impl HypercoreOptions {
 #[cfg(feature = "tokio")]
 #[derive(Debug)]
 struct Events {
+    /// Sends a notification to the replicator that core is upgraded
     on_upgrade: Sender<()>,
+    /// Notify receiver to get block over the network.
+    /// maybe should not return the block itself
+    on_get: Sender<(u64, Sender<()>)>,
 }
 
 #[cfg(feature = "tokio")]

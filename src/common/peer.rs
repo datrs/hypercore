@@ -104,11 +104,11 @@ pub struct DataSeek {
 #[derive(Debug, Clone, PartialEq)]
 /// TODO: Document
 pub struct DataUpgrade {
-    /// TODO: Document
+    /// starting block of this upgrade response
     pub start: u64,
-    /// TODO: Document
+    /// number of blocks in this upgrade response
     pub length: u64,
-    /// TODO: Document
+    /// the metadata nodes?
     pub nodes: Vec<Node>,
     /// TODO: Document
     pub additional_nodes: Vec<Node>,
