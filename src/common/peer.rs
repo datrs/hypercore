@@ -1,6 +1,8 @@
 //! Types needed for passing information with with peers.
 //! hypercore-protocol-rs uses these types and wraps them
 //! into wire messages.
+use std::fmt::Display;
+
 use crate::Node;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -114,4 +116,17 @@ pub struct DataUpgrade {
     pub additional_nodes: Vec<Node>,
     /// TODO: Document
     pub signature: Vec<u8>,
+}
+
+impl Display for DataUpgrade {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "DataUpgrade(start: {}, length: {}, nodes: {:?}, .., signature: {})",
+            self.start,
+            self.length,
+            self.nodes,
+            self.signature.len()
+        )
+    }
 }
