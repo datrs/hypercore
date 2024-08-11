@@ -392,7 +392,7 @@ impl Hypercore {
                 let mut rx = self.on_get(index);
                 //let res = rx.recv().await.unwrap();
                 tokio::spawn(async move {
-                    rx.recv().await;
+                    let _ = rx.recv().await;
                 });
             }
             return Ok(None);
