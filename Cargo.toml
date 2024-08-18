@@ -60,7 +60,7 @@ test-log = { version = "0.2.11", default-features = false, features = ["trace"] 
 tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 
 [features]
-default = ["async-std", "sparse"]
+default = ["tokio", "sparse"]
 sparse = ["random-access-disk/sparse"]
 tokio = ["dep:tokio", "random-access-disk/tokio"]
 async-std = ["random-access-disk/async-std"]
