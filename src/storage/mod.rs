@@ -161,9 +161,9 @@ impl Storage {
                                 Err(HypercoreError::InvalidOperation {
                                     context: format!(
                                         "Could not read from store {}, index {} / length {} is out of bounds for store length {}",
+                                        current_store,
                                         instruction.index,
                                         read_length,
-                                        current_store,
                                         length
                                     ),
                                 })
