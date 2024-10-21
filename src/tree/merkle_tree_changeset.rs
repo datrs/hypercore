@@ -10,8 +10,8 @@ use crate::{
 /// first create the changes to this changeset, get out information from this to put to the oplog,
 /// and the commit the changeset to the tree.
 ///
-/// This is called "MerkleTreeBatch" in Javascript, see:
-/// https://github.com/hypercore-protocol/hypercore/blob/master/lib/merkle-tree.js
+/// This is called "MerkleTreeBatch" in Javascript, source
+/// [here](https://github.com/holepunchto/hypercore/blob/88a1a2f1ebe6e33102688225516c4e882873f710/lib/merkle-tree.js#L44).
 #[derive(Debug)]
 pub(crate) struct MerkleTreeChangeset {
     pub(crate) length: u64,

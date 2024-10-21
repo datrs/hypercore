@@ -147,11 +147,7 @@ impl Storage {
                             instruction.index,
                             &buf,
                         )),
-                        Err(RandomAccessError::OutOfBounds {
-                            offset: _,
-                            end: _,
-                            length,
-                        }) => {
+                        Err(RandomAccessError::OutOfBounds { length, .. }) => {
                             if instruction.allow_miss {
                                 Ok(StoreInfo::new_content_miss(
                                     instruction.store.clone(),

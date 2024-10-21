@@ -1,6 +1,7 @@
 //! Types needed for passing information with with peers.
 //! hypercore-protocol-rs uses these types and wraps them
 //! into wire messages.
+
 use crate::Node;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,7 +21,7 @@ pub struct RequestSeek {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Request of a DataUpgrade from peer
+/// Request for a DataUpgrade from peer
 pub struct RequestUpgrade {
     /// Hypercore start index
     pub start: u64,
@@ -79,7 +80,7 @@ pub struct DataBlock {
     pub index: u64,
     /// Data block value in bytes
     pub value: Vec<u8>,
-    /// TODO: document
+    /// Nodes of the merkle tree
     pub nodes: Vec<Node>,
 }
 
@@ -104,11 +105,11 @@ pub struct DataSeek {
 #[derive(Debug, Clone, PartialEq)]
 /// TODO: Document
 pub struct DataUpgrade {
-    /// TODO: Document
+    /// Starting block of this upgrade response
     pub start: u64,
-    /// TODO: Document
+    /// Number of blocks in this upgrade response
     pub length: u64,
-    /// TODO: Document
+    /// The nodes of the merkle tree
     pub nodes: Vec<Node>,
     /// TODO: Document
     pub additional_nodes: Vec<Node>,
