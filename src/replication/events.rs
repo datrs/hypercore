@@ -72,13 +72,11 @@ impl_from_for_enum_variant!(Event, DataUpgrade);
 impl_from_for_enum_variant!(Event, Have);
 
 #[derive(Debug)]
-#[cfg(feature = "tokio")]
 pub(crate) struct Events {
     /// Channel for core events
     pub(crate) channel: Sender<Event>,
 }
 
-#[cfg(feature = "tokio")]
 impl Events {
     pub(crate) fn new() -> Self {
         Self {
