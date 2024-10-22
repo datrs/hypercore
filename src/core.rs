@@ -363,10 +363,7 @@ impl Hypercore {
             #[cfg(feature = "replication")]
             // if not in this core, try to get over network
             {
-                let mut rx = self.events.send_on_get(index);
-                tokio::spawn(async move {
-                    let _err_when_no_peers = rx.recv().await;
-                });
+                self.events.send_on_get(index);
             }
             return Ok(None);
         }
