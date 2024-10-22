@@ -52,16 +52,6 @@ impl CoreInfo for SharedCore {
     }
 }
 
-impl CoreInfo for Hypercore {
-    fn info(&self) -> impl Future<Output = Info> + Send {
-        async move { self.info() }
-    }
-
-    fn key_pair(&self) -> impl Future<Output = PartialKeypair> + Send {
-        async move { self.key_pair().clone() }
-    }
-}
-
 /// Error for ReplicationMethods trait
 #[derive(thiserror::Error, Debug)]
 pub enum ReplicationMethodsError {
@@ -201,31 +191,5 @@ impl CoreMethods for SharedCore {
             let mut core = self.0.lock().await;
             Ok(core.append_batch(batch).await?)
         }
-    }
-}
-
-impl CoreMethods for Hypercore {
-    fn has(&self, index: u64) -> impl Future<Output = bool> + Send {
-        async move { self.has(index) }
-    }
-    fn get(
-        &self,
-        index: u64,
-    ) -> impl Future<Output = Result<Option<Vec<u8>>, CoreMethodsError>> + Send {
-        async move { Ok(self.get(index).await?) }
-    }
-
-    fn append(
-        &self,
-        data: &[u8],
-    ) -> impl Future<Output = Result<AppendOutcome, CoreMethodsError>> + Send {
-        async move { Ok(self.append(data).await?) }
-    }
-
-    fn append_batch<A: AsRef<[u8]>, B: AsRef<[A]> + Send>(
-        &self,
-        batch: B,
-    ) -> impl Future<Output = Result<AppendOutcome, CoreMethodsError>> + Send {
-        async move { Ok(self.append_batch(batch).await?) }
     }
 }
