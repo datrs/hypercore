@@ -53,7 +53,7 @@ pub struct Hypercore {
 }
 
 /// Response from append, matches that of the Javascript result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AppendOutcome {
     /// Length of the hypercore after append
     pub length: u64,
@@ -62,7 +62,7 @@ pub struct AppendOutcome {
 }
 
 /// Info about the hypercore
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Info {
     /// Length of the hypercore
     pub length: u64,
