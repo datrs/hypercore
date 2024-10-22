@@ -98,7 +98,8 @@ impl Events {
         Ok(())
     }
 
-    /// Send a [`Get`] messages and return the channel associated with it.
+    /// Send a [`Get`] messages and return [`Receiver`] that will receive a message when block is
+    /// gotten.
     pub(crate) fn send_on_get(&self, index: u64) -> Receiver<()> {
         let (mut tx, rx) = broadcast(1);
         tx.set_await_active(false);

@@ -53,7 +53,7 @@ pub struct Hypercore {
 }
 
 /// Response from append, matches that of the Javascript result
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct AppendOutcome {
     /// Length of the hypercore after append
     pub length: u64,
@@ -359,7 +359,7 @@ impl Hypercore {
     pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>, HypercoreError> {
         if !self.bitfield.get(index) {
             #[cfg(feature = "replication")]
-            // if not in this core, try to get over network
+            // if not in this core, emit Event::Get(index)
             {
                 self.events.send_on_get(index);
             }
