@@ -575,11 +575,11 @@ impl Hypercore {
         #[cfg(feature = "replication")]
         {
             if proof.upgrade.is_some() {
-                /// Notify replicator if we receieved an upgrade
+                // Notify replicator if we receieved an upgrade
                 let _ = self.events.send(crate::replication::events::DataUpgrade {});
             }
 
-            /// Notify replicator if we receieved a bitfield update
+            // Notify replicator if we receieved a bitfield update
             if let Some(ref bitfield) = bitfield_update {
                 let _ = self
                     .events
