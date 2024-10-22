@@ -769,7 +769,7 @@ fn update_contiguous_length(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[async_std::test]
@@ -1135,7 +1135,9 @@ mod tests {
         Ok(())
     }
 
-    async fn create_hypercore_with_data(length: u64) -> Result<Hypercore, HypercoreError> {
+    pub(crate) async fn create_hypercore_with_data(
+        length: u64,
+    ) -> Result<Hypercore, HypercoreError> {
         let signing_key = generate_signing_key();
         create_hypercore_with_data_and_key_pair(
             length,
