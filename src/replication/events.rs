@@ -79,22 +79,23 @@ pub(crate) struct Events {
 
 impl Events {
     pub(crate) fn new() -> Self {
-        Self {
-            channel: broadcast(MAX_EVENT_QUEUE_CAPACITY).0,
-        }
+        let mut channel = broadcast(MAX_EVENT_QUEUE_CAPACITY).0;
+        channel.set_await_active(false);
+        Self { channel }
     }
 
     /// The internal channel errors on send when no replicators are subscribed,
     /// For now we don't consider that an error, but just in case, we return a Result in case
     /// we want to change this or add another fail path later.
     pub(crate) fn send<T: Into<Event>>(&self, evt: T) -> Result<(), HypercoreError> {
-        let _errs_when_no_replicators_subscribed = self.channel.broadcast(evt.into());
+        let _errs_when_no_replicators_subscribed = self.channel.try_broadcast(evt.into());
         Ok(())
     }
 
     /// Send a [`Get`] messages and return the channel associated with it.
     pub(crate) fn send_on_get(&self, index: u64) -> Receiver<()> {
-        let (tx, rx) = broadcast(1);
+        let (mut tx, rx) = broadcast(1);
+        tx.set_await_active(false);
         let _ = self.send(Get {
             index,
             get_result: tx,
