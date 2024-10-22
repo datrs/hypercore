@@ -1,6 +1,6 @@
 //! events related to replication
 use crate::{common::BitfieldUpdate, HypercoreError};
-use tokio::sync::broadcast;
+use async_broadcast::{broadcast, Receiver, Sender};
 
 static MAX_EVENT_QUEUE_CAPACITY: usize = 32;
 
@@ -11,7 +11,7 @@ pub struct Get {
     /// Index of the requested block
     pub index: u64,
     /// When the block is gotten this emits an event
-    pub get_result: broadcast::Sender<()>,
+    pub get_result: Sender<()>,
 }
 
 /// Emitted when
@@ -75,14 +75,14 @@ impl_from_for_enum_variant!(Event, Have);
 #[cfg(feature = "tokio")]
 pub(crate) struct Events {
     /// Channel for core events
-    pub(crate) channel: broadcast::Sender<Event>,
+    pub(crate) channel: Sender<Event>,
 }
 
 #[cfg(feature = "tokio")]
 impl Events {
     pub(crate) fn new() -> Self {
         Self {
-            channel: broadcast::channel(MAX_EVENT_QUEUE_CAPACITY).0,
+            channel: broadcast(MAX_EVENT_QUEUE_CAPACITY).0,
         }
     }
 
@@ -90,13 +90,13 @@ impl Events {
     /// For now we don't consider that an error, but just in case, we return a Result in case
     /// we want to change this or add another fail path later.
     pub(crate) fn send<T: Into<Event>>(&self, evt: T) -> Result<(), HypercoreError> {
-        let _errs_when_no_replicators_subscribed = self.channel.send(evt.into());
+        let _errs_when_no_replicators_subscribed = self.channel.broadcast(evt.into());
         Ok(())
     }
 
     /// Send a [`Get`] messages and return the channel associated with it.
-    pub(crate) fn send_on_get(&self, index: u64) -> broadcast::Receiver<()> {
-        let (tx, rx) = broadcast::channel(1);
+    pub(crate) fn send_on_get(&self, index: u64) -> Receiver<()> {
+        let (tx, rx) = broadcast(1);
         let _ = self.send(Get {
             index,
             get_result: tx,

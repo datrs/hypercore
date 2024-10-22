@@ -8,7 +8,7 @@ use crate::{
 
 pub use events::Event;
 
-use tokio::sync::{broadcast::Receiver, Mutex};
+use async_broadcast::Receiver;
 
 use std::future::Future;
 use std::sync::Arc;

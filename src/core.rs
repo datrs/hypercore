@@ -344,10 +344,8 @@ impl Hypercore {
 
     #[cfg(feature = "replication")]
     /// Subscribe to core events relevant to replication
-    pub fn event_subscribe(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<crate::replication::events::Event> {
-        self.events.channel.subscribe()
+    pub fn event_subscribe(&self) -> async_broadcast::Receiver<crate::replication::events::Event> {
+        self.events.channel.new_receiver()
     }
 
     /// Check if core has the block at the given `index` locally

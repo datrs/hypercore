@@ -40,6 +40,7 @@ crc32fast = "1"
 intmap = "2"
 moka = { version = "0.12", optional = true, features = ["sync"] }
 tokio = { version = "1.27.0", features = ["rt", "sync"], optional = true}
+async-broadcast = { version = "0.7.1", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 random-access-disk = { version = "3", default-features = false }
@@ -61,7 +62,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 
 [features]
 default = ["tokio", "sparse"]
-replication = ["tokio"]
+replication = ["tokio", "dep:async-broadcast"]
 sparse = ["random-access-disk/sparse"]
 tokio = ["dep:tokio", "random-access-disk/tokio"]
 async-std = ["random-access-disk/async-std"]
