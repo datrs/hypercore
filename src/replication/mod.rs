@@ -9,6 +9,7 @@ use crate::{
 pub use events::Event;
 
 use async_broadcast::Receiver;
+use async_lock::Mutex;
 
 use std::future::Future;
 use std::sync::Arc;
