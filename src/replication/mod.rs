@@ -30,6 +30,9 @@ pub enum ReplicationMethodsError {
     /// Error from hypercore
     #[error("Got a hypercore error: [{0}]")]
     HypercoreError(#[from] HypercoreError),
+    /// Error from CoreMethods
+    #[error("Got a CoreMethods error: [{0}]")]
+    CoreMethodsError(#[from] CoreMethodsError),
 }
 
 /// Methods needed for replication
@@ -56,7 +59,7 @@ pub trait ReplicationMethods: CoreInfo + Send {
     fn event_subscribe(&self) -> impl Future<Output = Receiver<Event>>;
 }
 
-/// Error for ReplicationMethods trait
+/// Error for CoreMethods trait
 #[derive(thiserror::Error, Debug)]
 pub enum CoreMethodsError {
     /// Error from hypercore
