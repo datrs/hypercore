@@ -61,8 +61,9 @@ test-log = { version = "0.2.11", default-features = false, features = ["trace"] 
 tracing-subscriber = { version = "0.3.16", features = ["env-filter", "fmt"] }
 
 [features]
-default = ["tokio", "sparse"]
-replication = ["dep:async-broadcast", "dep:async-lock"]
+default = ["tokio", "sparse", "replication"]
+replication = ["dep:async-broadcast"]
+shared-core = ["replication", "dep:async-lock"]
 sparse = ["random-access-disk/sparse"]
 tokio = ["random-access-disk/tokio"]
 async-std = ["random-access-disk/async-std"]
