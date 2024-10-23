@@ -18,9 +18,9 @@ use std::future::Future;
 
 /// Methods related to just this core's information
 pub trait CoreInfo {
-    /// Get core info (see: [`Hypercore::info`]
+    /// Get core info (see: [`crate::Hypercore::info`]
     fn info(&self) -> impl Future<Output = Info> + Send;
-    /// Get the key_pair (see: [`Hypercore::key_pair`]
+    /// Get the key_pair (see: [`crate::Hypercore::key_pair`]
     fn key_pair(&self) -> impl Future<Output = PartialKeypair> + Send;
 }
 
@@ -68,7 +68,7 @@ pub enum CoreMethodsError {
 }
 
 /// Trait for things that consume [`crate::Hypercore`] can instead use this trait
-/// so they can use all Hypercore-like things such as [`SharedCore`].
+/// so they can use all Hypercore-like things such as `SharedCore`.
 pub trait CoreMethods: CoreInfo {
     /// Check if the core has the block at the given index locally
     fn has(&self, index: u64) -> impl Future<Output = bool> + Send;

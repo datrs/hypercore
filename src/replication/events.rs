@@ -4,9 +4,9 @@ use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 
 static MAX_EVENT_QUEUE_CAPACITY: usize = 32;
 
-/// Event emeitted by [`Events::send_on_get`]
+/// Event emitted by [`crate::Hypercore::event_subscribe`]
 #[derive(Debug, Clone)]
-/// Emitted when [`Hypercore::get`] is called when the block is missing.
+/// Emitted when [`crate::Hypercore::get`] is called when the block is missing.
 pub struct Get {
     /// Index of the requested block
     pub index: u64,
