@@ -1149,7 +1149,7 @@ pub(crate) mod tests {
         .await
     }
 
-    async fn create_hypercore_with_data_and_key_pair(
+    pub(crate) async fn create_hypercore_with_data_and_key_pair(
         length: u64,
         key_pair: PartialKeypair,
     ) -> Result<Hypercore, HypercoreError> {
