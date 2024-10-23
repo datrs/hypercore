@@ -125,12 +125,14 @@ impl CoreMethods for SharedCore {
 mod tests {
 
     use super::*;
-    use crate::replication::events::{Get, Have};
+
+    use crate::core::tests::{create_hypercore_with_data, create_hypercore_with_data_and_key_pair};
     #[async_std::test]
     async fn shared_core_methods() -> Result<(), CoreMethodsError> {
         let core = crate::core::tests::create_hypercore_with_data(0).await?;
         let core = SharedCore::from(core);
 
+        // check CoreInfo
         let info = core.info().await;
         assert_eq!(
             info,
@@ -146,6 +148,7 @@ mod tests {
         // key_pair is random, nothing to test here
         let _kp = core.key_pair().await;
 
+        // check CoreMethods
         assert_eq!(core.has(0).await, false);
         assert_eq!(core.get(0).await?, None);
         let res = core.append(b"foo").await?;
@@ -172,61 +175,50 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn test_events() -> Result<(), CoreMethodsError> {
-        let mut core = crate::core::tests::create_hypercore_with_data(0).await?;
+    async fn shared_core_replication_methods() -> Result<(), ReplicationMethodsError> {
+        let main = create_hypercore_with_data(10).await?;
+        let clone = create_hypercore_with_data_and_key_pair(
+            0,
+            PartialKeypair {
+                public: main.key_pair.public,
+                secret: None,
+            },
+        )
+        .await?;
 
-        // Check that appending data emits a DataUpgrade and Have event
+        let main = SharedCore::from(main);
+        let clone = SharedCore::from(clone);
 
-        let mut rx = core.event_subscribe();
-        let handle = async_std::task::spawn(async move {
-            let mut out = vec![];
-            loop {
-                if out.len() == 2 {
-                    return (out, rx);
-                }
-                if let Ok(evt) = rx.recv().await {
-                    out.push(evt);
-                }
-            }
-        });
-        core.append(b"foo").await?;
-        let (res, mut rx) = handle.await;
-        assert!(matches!(res[0], Event::DataUpgrade(_)));
-        assert!(matches!(
-            res[1],
-            Event::Have(Have {
-                start: 0,
-                length: 1,
-                drop: false
-            })
-        ));
-        // no messages in queue
-        assert!(rx.is_empty());
+        let index = 6;
+        let nodes = clone.missing_nodes(index).await?;
+        let proof = main
+            .create_proof(
+                None,
+                Some(RequestBlock { index, nodes }),
+                None,
+                Some(RequestUpgrade {
+                    start: 0,
+                    length: 10,
+                }),
+            )
+            .await?
+            .unwrap();
+        assert!(clone.verify_and_apply_proof(&proof).await?);
+        let main_info = main.info().await;
+        let clone_info = clone.info().await;
+        assert_eq!(main_info.byte_length, clone_info.byte_length);
+        assert_eq!(main_info.length, clone_info.length);
+        assert!(main.get(6).await?.is_some());
+        assert!(clone.get(6).await?.is_none());
 
-        // Check that Hypercore::get for missing data emits a Get event
-
-        let handle = async_std::task::spawn(async move {
-            let mut out = vec![];
-            loop {
-                if out.len() == 1 {
-                    return (out, rx);
-                }
-                if let Ok(evt) = rx.recv().await {
-                    out.push(evt);
-                }
-            }
-        });
-        assert_eq!(core.get(1).await?, None);
-        let (res, rx) = handle.await;
-        assert!(matches!(
-            res[0],
-            Event::Get(Get {
-                index: 1,
-                get_result: _
-            })
-        ));
-        // no messages in queue
-        assert!(rx.is_empty());
+        // Fetch data for index 6 and verify it is found
+        let index = 6;
+        let nodes = clone.missing_nodes(index).await?;
+        let proof = main
+            .create_proof(Some(RequestBlock { index, nodes }), None, None, None)
+            .await?
+            .unwrap();
+        assert!(clone.verify_and_apply_proof(&proof).await?);
         Ok(())
     }
 }
