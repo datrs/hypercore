@@ -1,4 +1,4 @@
-#![forbid(unsafe_code, bad_style, future_incompatible)]
+#![forbid(unsafe_code, future_incompatible)]
 #![forbid(rust_2018_idioms, rust_2018_compatibility)]
 #![forbid(missing_debug_implementations)]
 #![forbid(missing_docs)]
@@ -74,6 +74,8 @@
 
 pub mod encoding;
 pub mod prelude;
+#[cfg(feature = "replication")]
+pub mod replication;
 
 mod bitfield;
 mod builder;

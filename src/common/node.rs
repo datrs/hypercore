@@ -14,16 +14,21 @@ pub(crate) struct NodeByteRange {
     pub(crate) length: u64,
 }
 
-/// Nodes that are persisted to disk.
+/// Nodes of the Merkle Tree that are persisted to disk.
 // TODO: replace `hash: Vec<u8>` with `hash: Hash`. This requires patching /
 // rewriting the Blake2b crate to support `.from_bytes()` to serialize from
 // disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
+    /// This node's index in the Merkle tree
     pub(crate) index: u64,
+    /// Hash of the data in this node
     pub(crate) hash: Vec<u8>,
+    /// Number of bytes in this [`Node::data`]
     pub(crate) length: u64,
+    /// Index of this nodes parent
     pub(crate) parent: u64,
+    /// Hypercore's data. Can be receieved after the rest of the node, so it's optional.
     pub(crate) data: Option<Vec<u8>>,
     pub(crate) blank: bool,
 }

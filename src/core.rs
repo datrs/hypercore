@@ -48,10 +48,12 @@ pub struct Hypercore {
     pub(crate) bitfield: Bitfield,
     skip_flush_count: u8, // autoFlush in Javascript
     header: Header,
+    #[cfg(feature = "replication")]
+    events: crate::replication::events::Events,
 }
 
 /// Response from append, matches that of the Javascript result
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AppendOutcome {
     /// Length of the hypercore after append
     pub length: u64,
@@ -60,7 +62,7 @@ pub struct AppendOutcome {
 }
 
 /// Info about the hypercore
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Info {
     /// Length of the hypercore
     pub length: u64,
@@ -247,6 +249,8 @@ impl Hypercore {
             bitfield,
             header,
             skip_flush_count: 0,
+            #[cfg(feature = "replication")]
+            events: crate::replication::events::Events::new(),
         })
     }
 
@@ -321,6 +325,14 @@ impl Hypercore {
             if self.should_flush_bitfield_and_tree_and_oplog() {
                 self.flush_bitfield_and_tree_and_oplog(false).await?;
             }
+
+            #[cfg(feature = "replication")]
+            {
+                let _ = self.events.send(crate::replication::events::DataUpgrade {});
+                let _ = self
+                    .events
+                    .send(crate::replication::events::Have::from(&bitfield_update));
+            }
         }
 
         // Return the new value
@@ -330,10 +342,27 @@ impl Hypercore {
         })
     }
 
+    #[cfg(feature = "replication")]
+    /// Subscribe to core events relevant to replication
+    pub fn event_subscribe(&self) -> async_broadcast::Receiver<crate::replication::events::Event> {
+        self.events.channel.new_receiver()
+    }
+
+    /// Check if core has the block at the given `index` locally
+    #[instrument(ret, skip(self))]
+    pub fn has(&self, index: u64) -> bool {
+        self.bitfield.get(index)
+    }
+
     /// Read value at given index, if any.
     #[instrument(err, skip(self))]
     pub async fn get(&mut self, index: u64) -> Result<Option<Vec<u8>>, HypercoreError> {
         if !self.bitfield.get(index) {
+            #[cfg(feature = "replication")]
+            // if not in this core, emit Event::Get(index)
+            {
+                self.events.send_on_get(index);
+            }
             return Ok(None);
         }
 
@@ -522,12 +551,12 @@ impl Hypercore {
         self.storage.flush_infos(&outcome.infos_to_flush).await?;
         self.header = outcome.header;
 
-        if let Some(bitfield_update) = bitfield_update {
+        if let Some(bitfield_update) = &bitfield_update {
             // Write to bitfield
-            self.bitfield.update(&bitfield_update);
+            self.bitfield.update(bitfield_update);
 
             // Contiguous length is known only now
-            update_contiguous_length(&mut self.header, &self.bitfield, &bitfield_update);
+            update_contiguous_length(&mut self.header, &self.bitfield, bitfield_update);
         }
 
         // Commit changeset to in-memory tree
@@ -536,6 +565,21 @@ impl Hypercore {
         // Now ready to flush
         if self.should_flush_bitfield_and_tree_and_oplog() {
             self.flush_bitfield_and_tree_and_oplog(false).await?;
+        }
+
+        #[cfg(feature = "replication")]
+        {
+            if proof.upgrade.is_some() {
+                // Notify replicator if we receieved an upgrade
+                let _ = self.events.send(crate::replication::events::DataUpgrade {});
+            }
+
+            // Notify replicator if we receieved a bitfield update
+            if let Some(ref bitfield) = bitfield_update {
+                let _ = self
+                    .events
+                    .send(crate::replication::events::Have::from(bitfield));
+            }
         }
         Ok(true)
     }
@@ -725,7 +769,7 @@ fn update_contiguous_length(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[async_std::test]
@@ -1091,7 +1135,9 @@ mod tests {
         Ok(())
     }
 
-    async fn create_hypercore_with_data(length: u64) -> Result<Hypercore, HypercoreError> {
+    pub(crate) async fn create_hypercore_with_data(
+        length: u64,
+    ) -> Result<Hypercore, HypercoreError> {
         let signing_key = generate_signing_key();
         create_hypercore_with_data_and_key_pair(
             length,
@@ -1103,7 +1149,7 @@ mod tests {
         .await
     }
 
-    async fn create_hypercore_with_data_and_key_pair(
+    pub(crate) async fn create_hypercore_with_data_and_key_pair(
         length: u64,
         key_pair: PartialKeypair,
     ) -> Result<Hypercore, HypercoreError> {
