@@ -25,7 +25,7 @@ async fn create_hypercore(page_size: usize) -> Result<Hypercore, HypercoreError>
     let storage = Storage::open(
         |_| {
             Box::pin(async move {
-                Ok(Box::new(RandomAccessMemory::new(page_size)) as Box<dyn StorageTraits>)
+                Ok(Box::new(RandomAccessMemory::new(page_size)) as Box<dyn StorageTraits + Send>)
             })
         },
         false,
@@ -44,7 +44,7 @@ async fn create_hypercore(page_size: usize) -> Result<Hypercore, HypercoreError>
     let storage = Storage::open(
         |_| {
             Box::pin(async move {
-                Ok(Box::new(RandomAccessMemory::new(page_size)) as Box<dyn StorageTraits>)
+                Ok(Box::new(RandomAccessMemory::new(page_size)) as Box<dyn StorageTraits + Send>)
             })
         },
         false,
