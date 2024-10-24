@@ -62,6 +62,24 @@ async fn js_interop_rs_first() -> Result<()> {
     Ok(())
 }
 
+#[test(async_test)]
+async fn hypercore_disk_format() -> Result<()> {
+    init();
+    let work_dir = prepare_test_set(TEST_SET_RS_FIRST);
+    assert_eq!(create_hypercore_hash(&work_dir), step_0_hash());
+    step_1_create(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_1_hash());
+    step_2_append_hello_world(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_2_hash());
+    step_3_read_and_append_unflushed(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_3_hash());
+    step_4_append_with_flush(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_4_hash());
+    step_5_clear_some(&work_dir).await?;
+    assert_eq!(create_hypercore_hash(&work_dir), step_5_hash());
+    Ok(())
+}
+
 async fn step_1_create(work_dir: &str) -> Result<()> {
     create_hypercore(work_dir).await?;
     Ok(())

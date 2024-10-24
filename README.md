@@ -72,6 +72,9 @@ To test interoperability with Javascript, enable the `js_interop_tests` feature:
 cargo test --features js_interop_tests
 ```
 
+NB: Javascript interoperability has unfortunately been broken by latest Javascript
+upstream changes and the tests now fail because of that.
+
 Run benches with:
 
 ```bash
