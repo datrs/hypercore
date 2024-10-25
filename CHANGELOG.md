@@ -1,3 +1,30 @@
+## 2024-10-25, Version v0.14.0
+### Commits
+- [[`5a1f98f8c7`](https://github.com/datrs/hypercore/commit/5a1f98f8c744a3635e34c95421d67809e154b71d)] fix: error message variable order (Timo Tiuraniemi)
+- [[`4f2f5fe3ec`](https://github.com/datrs/hypercore/commit/4f2f5fe3ec3d3e0e2dd012780bbc8948354d76cc)] Use tokio by default (Blake Griffith)
+- [[`7f70249ffc`](https://github.com/datrs/hypercore/commit/7f70249ffcd4695c581efdaaa046ce702cdd5512)] Fix tests #144 (Blake Griffith)
+- [[`c146362617`](https://github.com/datrs/hypercore/commit/c1463626178683e078dd0cc2af4f5952549f1222)] Add events needed for replication #142 (Blake Griffith)
+
+### Stats
+
+```diff
+.github/workflows/ci.yml          |  42 ++++++++++++++++++++++++------------------
+ Cargo.toml                        |   6 +++++-
+ benches/memory.rs                 |   4 ++--
+ src/common/node.rs                |   7 ++++++-
+ src/common/peer.rs                |  11 ++++++-----
+ src/core.rs                       |  62 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ src/lib.rs                        |   4 +++-
+ src/replication/events.rs         | 177 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/replication/mod.rs            |  93 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/replication/shared_core.rs    | 224 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/storage/mod.rs                |   8 ++------
+ src/tree/merkle_tree_changeset.rs |   4 ++--
+ tests/js/package.json             |   2 +-
+ 13 files changed, 599 insertions(+), 45 deletions(-)
+```
+
+
 ## 2024-07-04, Version v0.13.0
 ### Commits
 - [[`16acbffc92`](https://github.com/datrs/hypercore/commit/16acbffc9297c645c0740f33eb6fbee06681871e)] Remove generic parameters from Hypercore and Storage #139  (cowlicks)
