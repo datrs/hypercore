@@ -47,8 +47,8 @@ random-access-disk = { version = "3", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.70"
-proptest = "1.1.0"
-proptest-derive = "0.2.0"
+proptest = "1.6.0"
+proptest-derive = "0.5.1"
 data-encoding = "2.2.0"
 remove_dir_all = "0.7.0"
 tempfile = "3.1.0"
