@@ -1,4 +1,8 @@
 //! Hypercore-specific compact encodings
+use compact_encoding::encodable::{
+    bytes_fixed_from_vec, encode_bytes_fixed, write_slice, VecEncodable,
+};
+use compact_encoding::types::{take_array, usize_encoded_size, CompactEncodable};
 pub use compact_encoding::{CompactEncoding, EncodingError, EncodingErrorKind, State};
 use std::convert::TryInto;
 use std::ops::{Deref, DerefMut};
@@ -366,5 +370,323 @@ impl CompactEncoding<ManifestSigner> for State {
             namespace,
             public_key,
         })
+    }
+}
+
+impl CompactEncodable for Node {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.index.encoded_size()? + self.length.encoded_size()? + 32)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.index.encoded_bytes(buffer)?;
+        let rest = self.length.encoded_bytes(rest)?;
+        bytes_fixed_from_vec::<32>(&self.hash)?.encoded_bytes(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (index, rest) = u64::decode(buffer)?;
+        let (length, rest) = u64::decode(rest)?;
+        let (hash, rest) = <[u8; 32]>::decode(rest)?;
+        Ok((Node::new(index, hash.to_vec(), length), rest))
+    }
+}
+
+impl VecEncodable for Node {
+    fn vec_encoded_size(vec: &[Self]) -> Result<usize, EncodingError>
+    where
+        Self: Sized,
+    {
+        let mut out = usize_encoded_size(vec.len());
+        for x in vec {
+            out += x.encoded_size()?;
+        }
+        Ok(out)
+    }
+}
+impl CompactEncodable for RequestBlock {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.index.encoded_size()? + self.nodes.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.index.encoded_bytes(buffer)?;
+        let rest = self.nodes.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (index, rest) = u64::decode(buffer)?;
+        let (nodes, rest) = u64::decode(rest)?;
+        Ok((RequestBlock { index, nodes }, rest))
+    }
+}
+
+impl CompactEncodable for RequestSeek {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        self.bytes.encoded_size()
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        self.bytes.encoded_bytes(buffer)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (bytes, rest) = u64::decode(buffer)?;
+        Ok((RequestSeek { bytes }, rest))
+    }
+}
+
+impl CompactEncodable for RequestUpgrade {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.start.encoded_size()? + self.length.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.start.encoded_bytes(buffer)?;
+        let rest = self.length.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (start, rest) = u64::decode(buffer)?;
+        let (length, rest) = u64::decode(rest)?;
+        Ok((RequestUpgrade { start, length }, rest))
+    }
+}
+
+impl CompactEncodable for DataBlock {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.index.encoded_size()? + self.value.encoded_size()? + self.nodes.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.index.encoded_bytes(buffer)?;
+        let rest = self.value.encoded_bytes(rest)?;
+        let rest = self.nodes.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (index, rest) = u64::decode(buffer)?;
+        let (value, rest) = Vec::<u8>::decode(rest)?;
+        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        Ok((
+            DataBlock {
+                index,
+                value,
+                nodes,
+            },
+            rest,
+        ))
+    }
+}
+
+impl CompactEncodable for DataHash {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.index.encoded_size()? + self.nodes.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.index.encoded_bytes(buffer)?;
+        let rest = self.nodes.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (index, rest) = u64::decode(buffer)?;
+        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        Ok((DataHash { index, nodes }, rest))
+    }
+}
+
+impl CompactEncodable for DataSeek {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(self.bytes.encoded_size()? + self.nodes.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.bytes.encoded_bytes(buffer)?;
+        let rest = self.nodes.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (bytes, rest) = u64::decode(buffer)?;
+        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        Ok((DataSeek { bytes, nodes }, rest))
+    }
+}
+
+macro_rules! sum_encoded_size {
+    // Base case: single field
+    ($self:ident, $field:ident) => {
+        $self.$field.encoded_size()?
+    };
+    // Recursive case: first field + rest
+    ($self: ident, $first:ident, $($rest:ident),+) => {
+        $self.$first.encoded_size()? + sum_encoded_size!($self, $($rest),+)
+    };
+}
+
+impl CompactEncodable for DataUpgrade {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(
+            self,
+            start,
+            length,
+            nodes,
+            additional_nodes,
+            signature
+        ))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = self.start.encoded_bytes(buffer)?;
+        let rest = self.length.encoded_bytes(rest)?;
+        let rest = self.nodes.encoded_bytes(rest)?;
+        let rest = self.additional_nodes.encoded_bytes(rest)?;
+        let rest = self.signature.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (start, rest) = u64::decode(buffer)?;
+        let (length, rest) = u64::decode(rest)?;
+        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        let (additional_nodes, rest) = Vec::<Node>::decode(rest)?;
+        let (signature, rest) = <[u8; 32]>::decode(rest)?;
+        Ok((
+            DataUpgrade {
+                start,
+                length,
+                nodes,
+                additional_nodes,
+                signature: signature.to_vec(),
+            },
+            rest,
+        ))
+    }
+}
+
+impl CompactEncodable for ManifestSigner {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(
+            1  /* Signature */ + 32  /* namespace */ + 32, /* public_key */
+        )
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = if &self.signature == "ed25519" {
+            write_slice(&[0], buffer)?
+        } else {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown signature type: {}", &self.signature),
+            ));
+        };
+        let rest = encode_bytes_fixed(&self.namespace, rest)?;
+        encode_bytes_fixed(&self.public_key, rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([signature_id], rest) = take_array::<1>(buffer)?;
+        let signature: String = if signature_id != 0 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown signature id: {signature_id}"),
+            ));
+        } else {
+            "ed25519".to_string()
+        };
+
+        let (namespace, rest) = take_array::<32>(rest)?;
+        let (public_key, rest) = take_array::<32>(rest)?;
+        Ok((
+            ManifestSigner {
+                signature,
+                namespace,
+                public_key,
+            },
+            rest,
+        ))
+    }
+}
+
+impl CompactEncodable for Manifest {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 // Version
+        + 1 // hash in one byte
+        + 1 // type in one byte
+        + self.signer.encoded_size()?)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = write_slice(&[0], buffer)?;
+        let rest = if &self.hash == "blake2b" {
+            write_slice(&[0], rest)?
+        } else {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash: {}", &self.hash),
+            ));
+        };
+        let rest = write_slice(&[1], rest)?;
+        self.signer.encoded_bytes(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([version], rest) = take_array::<1>(buffer)?;
+        if version != 0 {
+            panic!("Unknown manifest version {}", version);
+        }
+        let ([hash_id], rest) = take_array::<1>(rest)?;
+        let hash: String = if hash_id != 0 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash id: {hash_id}"),
+            ));
+        } else {
+            "blake2b".to_string()
+        };
+        let ([manifest_type], rest) = take_array::<1>(rest)?;
+        if manifest_type != 1 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown manifest type: {manifest_type}"),
+            ));
+        }
+        let (signer, rest) = ManifestSigner::decode(rest)?;
+        Ok((Manifest { hash, signer }, rest))
     }
 }
