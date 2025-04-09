@@ -1,4 +1,7 @@
+use compact_encoding::types::{take_array, take_array_mut, write_array, CompactEncodable};
+
 use crate::encoding::{CompactEncoding, EncodingError, HypercoreState};
+use crate::{chain_encoded_bytes, decode, sum_encoded_size};
 use crate::{common::BitfieldUpdate, Node};
 
 /// Entry tree upgrade
@@ -10,6 +13,24 @@ pub(crate) struct EntryTreeUpgrade {
     pub(crate) signature: Box<[u8]>,
 }
 
+impl CompactEncodable for EntryTreeUpgrade {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self, fork, ancestors, length, signature))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(chain_encoded_bytes!(
+            self, buffer, fork, ancestors, length, signature
+        ))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        decode!(EntryTreeUpgrade, buffer, {fork: u64, ancestors: u64, length: u64, signature: Box<[u8]>})
+    }
+}
 impl CompactEncoding<EntryTreeUpgrade> for HypercoreState {
     fn preencode(&mut self, value: &EntryTreeUpgrade) -> Result<usize, EncodingError> {
         self.0.preencode(&value.fork)?;
@@ -40,6 +61,35 @@ impl CompactEncoding<EntryTreeUpgrade> for HypercoreState {
             length,
             signature,
         })
+    }
+}
+
+impl CompactEncodable for BitfieldUpdate {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 + sum_encoded_size!(self, start, length))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let drop = if self.drop { 1 } else { 0 };
+        let rest = write_array(&[drop], buffer)?;
+        Ok(chain_encoded_bytes!(self, rest, start, length))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([flags], rest) = take_array::<1>(buffer)?;
+        let (start, rest) = u64::decode(rest)?;
+        let (length, rest) = u64::decode(rest)?;
+        Ok((
+            BitfieldUpdate {
+                drop: flags == 1,
+                start,
+                length,
+            },
+            rest,
+        ))
     }
 }
 
@@ -81,6 +131,90 @@ pub struct Entry {
     pub(crate) tree_nodes: Vec<Node>,
     pub(crate) tree_upgrade: Option<EntryTreeUpgrade>,
     pub(crate) bitfield: Option<BitfieldUpdate>,
+}
+
+impl CompactEncodable for Entry {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        let mut out = 1; // flags
+        if !self.user_data.is_empty() {
+            out += self.user_data.encoded_size()?;
+        }
+        if !self.tree_nodes.is_empty() {
+            out += self.tree_nodes.encoded_size()?;
+        }
+        if let Some(tree_upgrade) = &self.tree_upgrade {
+            out += tree_upgrade.encoded_size()?;
+        }
+        if let Some(bitfield) = &self.bitfield {
+            out += bitfield.encoded_size()?;
+        }
+        Ok(out)
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let (flag_buf, mut rest) = take_array_mut::<1>(buffer)?;
+        let mut flags = 0u8;
+        if !self.user_data.is_empty() {
+            flags |= 1;
+            rest = self.user_data.encoded_bytes(rest)?;
+        }
+        if !self.tree_nodes.is_empty() {
+            flags |= 2;
+            rest = self.tree_nodes.encoded_bytes(rest)?;
+        }
+        if let Some(tree_upgrade) = &self.tree_upgrade {
+            flags |= 4;
+            rest = tree_upgrade.encoded_bytes(rest)?;
+        }
+        if let Some(bitfield) = &self.bitfield {
+            flags |= 8;
+            rest = bitfield.encoded_bytes(rest)?;
+        }
+        flag_buf[0] = flags;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([flags], rest) = take_array::<1>(buffer)?;
+        let (user_data, rest) = if flags & 1 != 0 {
+            <Vec<String>>::decode(rest)?
+        } else {
+            (Default::default(), rest)
+        };
+
+        let (tree_nodes, rest) = if flags & 2 != 0 {
+            <Vec<Node>>::decode(buffer)?
+        } else {
+            (Default::default(), rest)
+        };
+
+        let (tree_upgrade, rest) = if flags & 2 != 0 {
+            let (x, rest) = EntryTreeUpgrade::decode(buffer)?;
+            (Some(x), rest)
+        } else {
+            (Default::default(), rest)
+        };
+
+        let (bitfield, rest) = if flags & 2 != 0 {
+            let (x, rest) = BitfieldUpdate::decode(buffer)?;
+            (Some(x), rest)
+        } else {
+            (Default::default(), rest)
+        };
+
+        Ok((
+            Self {
+                user_data,
+                tree_nodes,
+                tree_upgrade,
+                bitfield,
+            },
+            rest,
+        ))
+    }
 }
 
 impl CompactEncoding<Entry> for HypercoreState {

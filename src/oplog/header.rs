@@ -83,6 +83,8 @@ impl HeaderTree {
     }
 }
 
+#[macro_export]
+/// Helper for decoding a struct with compact encodable
 macro_rules! decode {
     // Match the pattern: decode!(StructName, buffer, {field1: type1, field2: type2, ...})
     ($struct_name:ident, $buffer:expr, {
