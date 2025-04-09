@@ -1,12 +1,14 @@
-use compact_encoding::EncodingErrorKind;
-use compact_encoding::{CompactEncoding, EncodingError, State};
+use compact_encoding::{
+    types::{take_array, usize_decode, write_array, CompactEncodable},
+    CompactEncoding, EncodingError, EncodingErrorKind, State,
+};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use std::convert::TryInto;
 
 use crate::crypto::default_signer_manifest;
 use crate::crypto::Manifest;
-use crate::PartialKeypair;
-use crate::VerifyingKey;
+use crate::{chain_encoded_bytes, VerifyingKey};
+use crate::{sum_encoded_size, PartialKeypair};
 
 /// Oplog header.
 #[derive(Debug, Clone)]
@@ -81,6 +83,52 @@ impl HeaderTree {
     }
 }
 
+macro_rules! decode {
+    // Match the pattern: decode!(StructName, buffer, {field1: type1, field2: type2, ...})
+    ($struct_name:ident, $buffer:expr, {
+        $($field_name:ident : $field_type:ty),* $(,)?
+    }) => {{
+
+        // Variable to hold the current buffer state
+        let mut current_buffer = $buffer;
+
+        // Decode each field in sequence
+        $(
+            let ($field_name, new_buffer) = <$field_type>::decode(current_buffer)?;
+            current_buffer = new_buffer;
+        )*
+
+        // Create the struct with decoded fields
+        let result = $struct_name {
+            $(
+                $field_name,
+            )*
+        };
+
+        // Return the struct and the remaining buffer
+        Ok((result, current_buffer))
+    }};
+ }
+
+impl CompactEncodable for HeaderTree {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self, fork, length, root_hash, signature))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(chain_encoded_bytes!(
+            self, buffer, fork, length, root_hash, signature
+        ))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        decode!(HeaderTree, buffer, {fork: u64, length: u64, root_hash: Box<[u8]>, signature: Box<[u8]>})
+    }
+}
+
 impl CompactEncoding<HeaderTree> for State {
     fn preencode(&mut self, value: &HeaderTree) -> Result<usize, EncodingError> {
         self.preencode(&value.fork)?;
@@ -107,6 +155,67 @@ impl CompactEncoding<HeaderTree> for State {
             root_hash,
             signature,
         })
+    }
+}
+
+impl CompactEncodable for PartialKeypair {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 // len of public key 
+            + PUBLIC_KEY_LENGTH // public key bytes
+            + match self.secret {
+            // Secret key contains the public key
+            Some(_) => 1 + SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH,
+            None => 1,
+        })
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let public_key = self.public.as_bytes().to_vec();
+        let rest = public_key.encoded_bytes(buffer)?;
+        match &self.secret {
+            Some(sk) => {
+                let sk_bytes = [&sk.to_bytes()[..], &public_key[..]].concat();
+                sk_bytes.encoded_bytes(rest)
+            }
+            None => write_array(&[0], rest),
+        }
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (pk_len, rest) = usize_decode(buffer)?;
+        let (public, rest) = match pk_len {
+            PUBLIC_KEY_LENGTH => {
+                let (pk_bytes, rest) = take_array::<PUBLIC_KEY_LENGTH>(rest)?;
+                let public = VerifyingKey::from_bytes(&pk_bytes).map_err(|e| {
+                    EncodingError::invalid_data(&format!(
+                        "Could not decode public key. error: [{e}]"
+                    ))
+                })?;
+                (public, rest)
+            }
+            len => {
+                return Err(EncodingError::invalid_data(&format!(
+                    "Incorrect secret key length while decoding. length = [{len}]"
+                )))
+            }
+        };
+        let (sk_len, rest) = usize_decode(rest)?;
+        let (secret, rest) = match sk_len {
+            0 => (None, rest),
+            SECRET_KEY_LENGTH => {
+                let (sk_bytes, rest) = take_array::<SECRET_KEY_LENGTH>(rest)?;
+                (Some(SigningKey::from_bytes(&sk_bytes)), rest)
+            }
+            len => {
+                return Err(EncodingError::invalid_data(&format!(
+                    "Incorrect secret key length while decoding. length = [{len}]"
+                )))
+            }
+        };
+        Ok((PartialKeypair { public, secret }, rest))
     }
 }
 
@@ -171,6 +280,28 @@ pub(crate) struct HeaderHints {
     pub(crate) contiguous_length: u64,
 }
 
+impl CompactEncodable for HeaderHints {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self, reorgs, contiguous_length))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(chain_encoded_bytes!(
+            self,
+            buffer,
+            reorgs,
+            contiguous_length
+        ))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        decode!(HeaderHints, buffer, {reorgs: Vec<String>, contiguous_length: u64 })
+    }
+}
+
 impl CompactEncoding<HeaderHints> for State {
     fn preencode(&mut self, value: &HeaderHints) -> Result<usize, EncodingError> {
         self.preencode(&value.reorgs)?;
@@ -187,6 +318,47 @@ impl CompactEncoding<HeaderHints> for State {
             reorgs: self.decode(buffer)?,
             contiguous_length: self.decode(buffer)?,
         })
+    }
+}
+
+impl CompactEncodable for Header {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 + 1 + 32 + sum_encoded_size!(self, manifest, key_pair, user_data, tree, hints))
+    }
+
+    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = write_array(&[1, 2 | 4], buffer)?;
+        let rest = self.key.encoded_bytes(rest)?;
+        let rest = self.manifest.encoded_bytes(rest)?;
+        let rest = self.key_pair.encoded_bytes(rest)?;
+        let rest = self.user_data.encoded_bytes(rest)?;
+        let rest = self.tree.encoded_bytes(rest)?;
+        let rest = self.hints.encoded_bytes(rest)?;
+        Ok(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([_version, _flags], rest) = take_array::<2>(buffer)?;
+        let (key, rest) = take_array::<32>(rest)?;
+        let (manifest, rest) = Manifest::decode(rest)?;
+        let (key_pair, rest) = PartialKeypair::decode(rest)?;
+        let (user_data, rest) = <Vec<String>>::decode(rest)?;
+        let (tree, rest) = HeaderTree::decode(rest)?;
+        let (hints, rest) = HeaderHints::decode(rest)?;
+        Ok((
+            Header {
+                key,
+                manifest,
+                key_pair,
+                user_data,
+                tree,
+                hints,
+            },
+            rest,
+        ))
     }
 }
 
@@ -290,6 +462,28 @@ mod tests {
         let mut dec_state = State::from_buffer(&buffer);
         let tree_ret: HeaderTree = dec_state.decode(&buffer)?;
         assert_eq!(tree, tree_ret);
+        Ok(())
+    }
+
+    #[test]
+    fn encode_tree_cmp() -> Result<(), EncodingError> {
+        let mut enc_state = State::new();
+        let tree = HeaderTree {
+            fork: 520,
+            length: 647,
+            root_hash: vec![12; 464].into_boxed_slice(),
+            signature: vec![46; 22].into_boxed_slice(),
+        };
+        enc_state.preencode(&tree)?;
+        //let mut buffer = enc_state.create_buffer();
+        let mut buffer = vec![0; enc_state.end()];
+        enc_state.encode(&tree, &mut buffer)?;
+        let mut buf2 = vec![0; tree.encoded_size()?];
+        assert_eq!(buffer.len(), buf2.len());
+        tree.encoded_bytes(&mut buf2)?;
+        assert_eq!(buffer, buf2);
+
+        //assert_eq!(tree, tree_ret);
         Ok(())
     }
 

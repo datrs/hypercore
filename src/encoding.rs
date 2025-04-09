@@ -373,6 +373,9 @@ impl CompactEncoding<ManifestSigner> for State {
     }
 }
 
+#[macro_export]
+/// Used for defining CompactEncodable::encoded_size.
+/// Pass self and a list of fields to call encoded_size on
 macro_rules! sum_encoded_size {
     // Base case: single field
     ($self:ident, $field:ident) => {
@@ -384,6 +387,10 @@ macro_rules! sum_encoded_size {
     };
 }
 
+#[macro_export]
+// TODO is this exported from the crate?
+/// Used for defining CompactEncodable::encoded_bytes.
+/// Pass self, the buffer and a list of fields to call encoded_size on
 macro_rules! chain_encoded_bytes {
     // Base case: single field
     ($self:ident, $buffer:ident, $field:ident) => {
@@ -692,5 +699,24 @@ impl CompactEncodable for Manifest {
         }
         let (signer, rest) = ManifestSigner::decode(rest)?;
         Ok((Manifest { hash, signer }, rest))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn cmp_node_enc() -> Result<(), EncodingError> {
+        let node = Node::new(1, vec![4; 32], 66);
+        let my_buf = CompactEncodable::to_bytes(&node)?;
+        let mut state = HypercoreState::new();
+
+        state.preencode(&node)?;
+        assert_eq!(my_buf.len(), state.end());
+        let mut buf = vec![0; state.end()];
+        state.encode(&node, &mut buf)?;
+        assert_eq!(my_buf, buf);
+        Ok(())
     }
 }
