@@ -1,4 +1,4 @@
-use compact_encoding::types::{take_array, take_array_mut, write_array, CompactEncodable};
+use compact_encoding::encodable::{take_array, take_array_mut, write_array, CompactEncodable};
 
 use crate::encoding::{CompactEncoding, EncodingError, HypercoreState};
 use crate::{chain_encoded_bytes, decode, sum_encoded_size};
@@ -18,7 +18,7 @@ impl CompactEncodable for EntryTreeUpgrade {
         Ok(sum_encoded_size!(self, fork, ancestors, length, signature))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(
             self, buffer, fork, ancestors, length, signature
         ))
@@ -69,7 +69,7 @@ impl CompactEncodable for BitfieldUpdate {
         Ok(1 + sum_encoded_size!(self, start, length))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let drop = if self.drop { 1 } else { 0 };
         let rest = write_array(&[drop], buffer)?;
         Ok(chain_encoded_bytes!(self, rest, start, length))
@@ -151,24 +151,24 @@ impl CompactEncodable for Entry {
         Ok(out)
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let (flag_buf, mut rest) = take_array_mut::<1>(buffer)?;
         let mut flags = 0u8;
         if !self.user_data.is_empty() {
             flags |= 1;
-            rest = self.user_data.encoded_bytes(rest)?;
+            rest = self.user_data.encode(rest)?;
         }
         if !self.tree_nodes.is_empty() {
             flags |= 2;
-            rest = self.tree_nodes.encoded_bytes(rest)?;
+            rest = self.tree_nodes.encode(rest)?;
         }
         if let Some(tree_upgrade) = &self.tree_upgrade {
             flags |= 4;
-            rest = tree_upgrade.encoded_bytes(rest)?;
+            rest = tree_upgrade.encode(rest)?;
         }
         if let Some(bitfield) = &self.bitfield {
             flags |= 8;
-            rest = bitfield.encoded_bytes(rest)?;
+            rest = bitfield.encode(rest)?;
         }
         flag_buf[0] = flags;
         Ok(rest)

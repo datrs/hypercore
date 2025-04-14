@@ -1,9 +1,11 @@
 //! Hypercore-specific compact encodings
-use compact_encoding::encodable::{
-    bytes_fixed_from_vec, encode_bytes_fixed, write_slice, VecEncodable,
+pub use compact_encoding::{
+    encodable::{
+        bytes_fixed_from_vec, encode_bytes_fixed, take_array, take_array_mut, usize_encoded_size,
+        write_array, write_slice, CompactEncodable, VecEncodable,
+    },
+    CompactEncoding, EncodingError, EncodingErrorKind, State,
 };
-use compact_encoding::types::{take_array, usize_encoded_size, CompactEncodable};
-pub use compact_encoding::{CompactEncoding, EncodingError, EncodingErrorKind, State};
 use std::convert::TryInto;
 use std::ops::{Deref, DerefMut};
 
@@ -389,16 +391,16 @@ macro_rules! sum_encoded_size {
 
 #[macro_export]
 // TODO is this exported from the crate?
-/// Used for defining CompactEncodable::encoded_bytes.
+/// Used for defining CompactEncodable::encode.
 /// Pass self, the buffer and a list of fields to call encoded_size on
 macro_rules! chain_encoded_bytes {
     // Base case: single field
     ($self:ident, $buffer:ident, $field:ident) => {
-        $self.$field.encoded_bytes($buffer)?
+        $self.$field.encode($buffer)?
     };
     // Recursive case: first field + rest
     ($self: ident, $buffer:ident, $first:ident, $($rest:ident),+) => {{
-        let rest = $self.$first.encoded_bytes($buffer)?;
+        let rest = $self.$first.encode($buffer)?;
         chain_encoded_bytes!($self, rest, $($rest),+)
     }};
 }
@@ -408,9 +410,9 @@ impl CompactEncodable for Node {
         Ok(sum_encoded_size!(self, index, length) + 32)
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let rest = chain_encoded_bytes!(self, buffer, index, length);
-        bytes_fixed_from_vec::<32>(&self.hash)?.encoded_bytes(rest)
+        bytes_fixed_from_vec::<32>(&self.hash)?.encode(rest)
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -442,7 +444,7 @@ impl CompactEncodable for RequestBlock {
         Ok(sum_encoded_size!(self, index, nodes))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(self, buffer, index, nodes))
     }
 
@@ -461,8 +463,8 @@ impl CompactEncodable for RequestSeek {
         self.bytes.encoded_size()
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        self.bytes.encoded_bytes(buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        self.bytes.encode(buffer)
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -479,7 +481,7 @@ impl CompactEncodable for RequestUpgrade {
         Ok(sum_encoded_size!(self, start, length))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(self, buffer, start, length))
     }
 
@@ -498,7 +500,7 @@ impl CompactEncodable for DataBlock {
         Ok(sum_encoded_size!(self, index, value, nodes))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(self, buffer, index, value, nodes))
     }
 
@@ -525,7 +527,7 @@ impl CompactEncodable for DataHash {
         Ok(sum_encoded_size!(self, index, nodes))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(self, buffer, index, nodes))
     }
 
@@ -544,7 +546,7 @@ impl CompactEncodable for DataSeek {
         Ok(sum_encoded_size!(self, bytes, nodes))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(self, buffer, bytes, nodes))
     }
 
@@ -570,7 +572,7 @@ impl CompactEncodable for DataUpgrade {
         ))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(
             self,
             buffer,
@@ -611,7 +613,7 @@ impl CompactEncodable for ManifestSigner {
         )
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let rest = if &self.signature == "ed25519" {
             write_slice(&[0], buffer)?
         } else {
@@ -659,7 +661,7 @@ impl CompactEncodable for Manifest {
         + self.signer.encoded_size()?)
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let rest = write_slice(&[0], buffer)?;
         let rest = if &self.hash == "blake2b" {
             write_slice(&[0], rest)?
@@ -670,7 +672,7 @@ impl CompactEncodable for Manifest {
             ));
         };
         let rest = write_slice(&[1], rest)?;
-        self.signer.encoded_bytes(rest)
+        self.signer.encode(rest)
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>

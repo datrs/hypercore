@@ -1,5 +1,5 @@
 use compact_encoding::{
-    types::{take_array, usize_decode, write_array, CompactEncodable},
+    encodable::{take_array, usize_decode, write_array, CompactEncodable},
     CompactEncoding, EncodingError, EncodingErrorKind, State,
 };
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
@@ -117,7 +117,7 @@ impl CompactEncodable for HeaderTree {
         Ok(sum_encoded_size!(self, fork, length, root_hash, signature))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(
             self, buffer, fork, length, root_hash, signature
         ))
@@ -171,13 +171,13 @@ impl CompactEncodable for PartialKeypair {
         })
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let public_key = self.public.as_bytes().to_vec();
-        let rest = public_key.encoded_bytes(buffer)?;
+        let rest = public_key.encode(buffer)?;
         match &self.secret {
             Some(sk) => {
                 let sk_bytes = [&sk.to_bytes()[..], &public_key[..]].concat();
-                sk_bytes.encoded_bytes(rest)
+                sk_bytes.encode(rest)
             }
             None => write_array(&[0], rest),
         }
@@ -287,7 +287,7 @@ impl CompactEncodable for HeaderHints {
         Ok(sum_encoded_size!(self, reorgs, contiguous_length))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         Ok(chain_encoded_bytes!(
             self,
             buffer,
@@ -328,14 +328,14 @@ impl CompactEncodable for Header {
         Ok(1 + 1 + 32 + sum_encoded_size!(self, manifest, key_pair, user_data, tree, hints))
     }
 
-    fn encoded_bytes<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let rest = write_array(&[1, 2 | 4], buffer)?;
-        let rest = self.key.encoded_bytes(rest)?;
-        let rest = self.manifest.encoded_bytes(rest)?;
-        let rest = self.key_pair.encoded_bytes(rest)?;
-        let rest = self.user_data.encoded_bytes(rest)?;
-        let rest = self.tree.encoded_bytes(rest)?;
-        let rest = self.hints.encoded_bytes(rest)?;
+        let rest = self.key.encode(rest)?;
+        let rest = self.manifest.encode(rest)?;
+        let rest = self.key_pair.encode(rest)?;
+        let rest = self.user_data.encode(rest)?;
+        let rest = self.tree.encode(rest)?;
+        let rest = self.hints.encode(rest)?;
         Ok(rest)
     }
 
@@ -482,7 +482,7 @@ mod tests {
         enc_state.encode(&tree, &mut buffer)?;
         let mut buf2 = vec![0; tree.encoded_size()?];
         assert_eq!(buffer.len(), buf2.len());
-        tree.encoded_bytes(&mut buf2)?;
+        tree.encode(&mut buf2)?;
         assert_eq!(buffer, buf2);
 
         //assert_eq!(tree, tree_ret);
