@@ -1,6 +1,5 @@
-use compact_encoding::encodable::{take_array, take_array_mut, write_array, CompactEncodable};
+use compact_encoding::{take_array, take_array_mut, write_array, CompactEncoding, EncodingError};
 
-use crate::encoding::{CompactEncoding, EncodingError, HypercoreState};
 use crate::{chain_encoded_bytes, decode, sum_encoded_size};
 use crate::{common::BitfieldUpdate, Node};
 
@@ -13,7 +12,7 @@ pub(crate) struct EntryTreeUpgrade {
     pub(crate) signature: Box<[u8]>,
 }
 
-impl CompactEncodable for EntryTreeUpgrade {
+impl CompactEncoding for EntryTreeUpgrade {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(self, fork, ancestors, length, signature))
     }
@@ -31,40 +30,8 @@ impl CompactEncodable for EntryTreeUpgrade {
         decode!(EntryTreeUpgrade, buffer, {fork: u64, ancestors: u64, length: u64, signature: Box<[u8]>})
     }
 }
-impl CompactEncoding<EntryTreeUpgrade> for HypercoreState {
-    fn preencode(&mut self, value: &EntryTreeUpgrade) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.fork)?;
-        self.0.preencode(&value.ancestors)?;
-        self.0.preencode(&value.length)?;
-        self.0.preencode(&value.signature)
-    }
 
-    fn encode(
-        &mut self,
-        value: &EntryTreeUpgrade,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        self.0.encode(&value.fork, buffer)?;
-        self.0.encode(&value.ancestors, buffer)?;
-        self.0.encode(&value.length, buffer)?;
-        self.0.encode(&value.signature, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<EntryTreeUpgrade, EncodingError> {
-        let fork: u64 = self.0.decode(buffer)?;
-        let ancestors: u64 = self.0.decode(buffer)?;
-        let length: u64 = self.0.decode(buffer)?;
-        let signature: Box<[u8]> = self.0.decode(buffer)?;
-        Ok(EntryTreeUpgrade {
-            fork,
-            ancestors,
-            length,
-            signature,
-        })
-    }
-}
-
-impl CompactEncodable for BitfieldUpdate {
+impl CompactEncoding for BitfieldUpdate {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(1 + sum_encoded_size!(self, start, length))
     }
@@ -93,36 +60,6 @@ impl CompactEncodable for BitfieldUpdate {
     }
 }
 
-impl CompactEncoding<BitfieldUpdate> for HypercoreState {
-    fn preencode(&mut self, value: &BitfieldUpdate) -> Result<usize, EncodingError> {
-        self.0.add_end(1)?;
-        self.0.preencode(&value.start)?;
-        self.0.preencode(&value.length)
-    }
-
-    fn encode(
-        &mut self,
-        value: &BitfieldUpdate,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        let flags: u8 = if value.drop { 1 } else { 0 };
-        self.0.set_byte_to_buffer(flags, buffer)?;
-        self.0.encode(&value.start, buffer)?;
-        self.0.encode(&value.length, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<BitfieldUpdate, EncodingError> {
-        let flags = self.0.decode_u8(buffer)?;
-        let start: u64 = self.0.decode(buffer)?;
-        let length: u64 = self.0.decode(buffer)?;
-        Ok(BitfieldUpdate {
-            drop: flags == 1,
-            start,
-            length,
-        })
-    }
-}
-
 /// Oplog Entry
 #[derive(Debug)]
 pub struct Entry {
@@ -133,7 +70,7 @@ pub struct Entry {
     pub(crate) bitfield: Option<BitfieldUpdate>,
 }
 
-impl CompactEncodable for Entry {
+impl CompactEncoding for Entry {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         let mut out = 1; // flags
         if !self.user_data.is_empty() {
@@ -214,85 +151,5 @@ impl CompactEncodable for Entry {
             },
             rest,
         ))
-    }
-}
-
-impl CompactEncoding<Entry> for HypercoreState {
-    fn preencode(&mut self, value: &Entry) -> Result<usize, EncodingError> {
-        self.0.add_end(1)?; // flags
-        if !value.user_data.is_empty() {
-            self.0.preencode(&value.user_data)?;
-        }
-        if !value.tree_nodes.is_empty() {
-            self.preencode(&value.tree_nodes)?;
-        }
-        if let Some(tree_upgrade) = &value.tree_upgrade {
-            self.preencode(tree_upgrade)?;
-        }
-        if let Some(bitfield) = &value.bitfield {
-            self.preencode(bitfield)?;
-        }
-        Ok(self.end())
-    }
-
-    fn encode(&mut self, value: &Entry, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        let start = self.0.start();
-        self.0.add_start(1)?;
-        let mut flags: u8 = 0;
-        if !value.user_data.is_empty() {
-            flags |= 1;
-            self.0.encode(&value.user_data, buffer)?;
-        }
-        if !value.tree_nodes.is_empty() {
-            flags |= 2;
-            self.encode(&value.tree_nodes, buffer)?;
-        }
-        if let Some(tree_upgrade) = &value.tree_upgrade {
-            flags |= 4;
-            self.encode(tree_upgrade, buffer)?;
-        }
-        if let Some(bitfield) = &value.bitfield {
-            flags |= 8;
-            self.encode(bitfield, buffer)?;
-        }
-
-        buffer[start] = flags;
-        Ok(self.0.start())
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<Entry, EncodingError> {
-        let flags = self.0.decode_u8(buffer)?;
-        let user_data: Vec<String> = if flags & 1 != 0 {
-            self.0.decode(buffer)?
-        } else {
-            vec![]
-        };
-
-        let tree_nodes: Vec<Node> = if flags & 2 != 0 {
-            self.decode(buffer)?
-        } else {
-            vec![]
-        };
-
-        let tree_upgrade: Option<EntryTreeUpgrade> = if flags & 4 != 0 {
-            let value: EntryTreeUpgrade = self.decode(buffer)?;
-            Some(value)
-        } else {
-            None
-        };
-
-        let bitfield: Option<BitfieldUpdate> = if flags & 8 != 0 {
-            let value: BitfieldUpdate = self.decode(buffer)?;
-            Some(value)
-        } else {
-            None
-        };
-
-        Ok(Entry {
-            user_data,
-            tree_nodes,
-            tree_upgrade,
-            bitfield,
-        })
     }
 }

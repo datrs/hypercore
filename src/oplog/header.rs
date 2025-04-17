@@ -1,9 +1,5 @@
-use compact_encoding::{
-    encodable::{take_array, usize_decode, write_array, CompactEncodable},
-    CompactEncoding, EncodingError, EncodingErrorKind, State,
-};
+use compact_encoding::{decode_usize, take_array, write_array, CompactEncoding, EncodingError};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use std::convert::TryInto;
 
 use crate::crypto::default_signer_manifest;
 use crate::crypto::Manifest;
@@ -112,7 +108,7 @@ macro_rules! decode {
     }};
  }
 
-impl CompactEncodable for HeaderTree {
+impl CompactEncoding for HeaderTree {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(self, fork, length, root_hash, signature))
     }
@@ -131,36 +127,9 @@ impl CompactEncodable for HeaderTree {
     }
 }
 
-impl CompactEncoding<HeaderTree> for State {
-    fn preencode(&mut self, value: &HeaderTree) -> Result<usize, EncodingError> {
-        self.preencode(&value.fork)?;
-        self.preencode(&value.length)?;
-        self.preencode(&value.root_hash)?;
-        self.preencode(&value.signature)
-    }
-
-    fn encode(&mut self, value: &HeaderTree, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.fork, buffer)?;
-        self.encode(&value.length, buffer)?;
-        self.encode(&value.root_hash, buffer)?;
-        self.encode(&value.signature, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<HeaderTree, EncodingError> {
-        let fork: u64 = self.decode(buffer)?;
-        let length: u64 = self.decode(buffer)?;
-        let root_hash: Box<[u8]> = self.decode(buffer)?;
-        let signature: Box<[u8]> = self.decode(buffer)?;
-        Ok(HeaderTree {
-            fork,
-            length,
-            root_hash,
-            signature,
-        })
-    }
-}
-
-impl CompactEncodable for PartialKeypair {
+/// NB: In Javascript's sodium the secret key contains in itself also the public key, so to
+/// maintain binary compatibility, we store the public key in the oplog now twice.
+impl CompactEncoding for PartialKeypair {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(1 // len of public key 
             + PUBLIC_KEY_LENGTH // public key bytes
@@ -187,7 +156,7 @@ impl CompactEncodable for PartialKeypair {
     where
         Self: Sized,
     {
-        let (pk_len, rest) = usize_decode(buffer)?;
+        let (pk_len, rest) = decode_usize(buffer)?;
         let (public, rest) = match pk_len {
             PUBLIC_KEY_LENGTH => {
                 let (pk_bytes, rest) = take_array::<PUBLIC_KEY_LENGTH>(rest)?;
@@ -204,7 +173,7 @@ impl CompactEncodable for PartialKeypair {
                 )))
             }
         };
-        let (sk_len, rest) = usize_decode(rest)?;
+        let (sk_len, rest) = decode_usize(rest)?;
         let (secret, rest) = match sk_len {
             0 => (None, rest),
             SECRET_KEY_LENGTH => {
@@ -221,60 +190,6 @@ impl CompactEncodable for PartialKeypair {
     }
 }
 
-/// NB: In Javascript's sodium the secret key contains in itself also the public key, so to
-/// maintain binary compatibility, we store the public key in the oplog now twice.
-impl CompactEncoding<PartialKeypair> for State {
-    fn preencode(&mut self, value: &PartialKeypair) -> Result<usize, EncodingError> {
-        self.add_end(1 + PUBLIC_KEY_LENGTH)?;
-        match &value.secret {
-            Some(_) => {
-                // Also add room for the public key
-                self.add_end(1 + SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH)
-            }
-            None => self.add_end(1),
-        }
-    }
-
-    fn encode(
-        &mut self,
-        value: &PartialKeypair,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        let public_key_bytes: Box<[u8]> = value.public.as_bytes().to_vec().into_boxed_slice();
-        self.encode(&public_key_bytes, buffer)?;
-        match &value.secret {
-            Some(secret_key) => {
-                let mut secret_key_bytes: Vec<u8> =
-                    Vec::with_capacity(SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH);
-                secret_key_bytes.extend_from_slice(&secret_key.to_bytes());
-                secret_key_bytes.extend_from_slice(&public_key_bytes);
-                let secret_key_bytes: Box<[u8]> = secret_key_bytes.into_boxed_slice();
-                self.encode(&secret_key_bytes, buffer)
-            }
-            None => self.set_byte_to_buffer(0, buffer),
-        }
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<PartialKeypair, EncodingError> {
-        let public_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] =
-            public_key_bytes[0..PUBLIC_KEY_LENGTH].try_into().unwrap();
-        let secret_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let secret: Option<SigningKey> = if secret_key_bytes.is_empty() {
-            None
-        } else {
-            let secret_key_bytes: [u8; SECRET_KEY_LENGTH] =
-                secret_key_bytes[0..SECRET_KEY_LENGTH].try_into().unwrap();
-            Some(SigningKey::from_bytes(&secret_key_bytes))
-        };
-
-        Ok(PartialKeypair {
-            public: VerifyingKey::from_bytes(&public_key_bytes).unwrap(),
-            secret,
-        })
-    }
-}
-
 /// Oplog header hints
 #[derive(Debug, Clone)]
 pub(crate) struct HeaderHints {
@@ -282,7 +197,7 @@ pub(crate) struct HeaderHints {
     pub(crate) contiguous_length: u64,
 }
 
-impl CompactEncodable for HeaderHints {
+impl CompactEncoding for HeaderHints {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(self, reorgs, contiguous_length))
     }
@@ -304,26 +219,7 @@ impl CompactEncodable for HeaderHints {
     }
 }
 
-impl CompactEncoding<HeaderHints> for State {
-    fn preencode(&mut self, value: &HeaderHints) -> Result<usize, EncodingError> {
-        self.preencode(&value.reorgs)?;
-        self.preencode(&value.contiguous_length)
-    }
-
-    fn encode(&mut self, value: &HeaderHints, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.reorgs, buffer)?;
-        self.encode(&value.contiguous_length, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<HeaderHints, EncodingError> {
-        Ok(HeaderHints {
-            reorgs: self.decode(buffer)?,
-            contiguous_length: self.decode(buffer)?,
-        })
-    }
-}
-
-impl CompactEncodable for Header {
+impl CompactEncoding for Header {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(1 + 1 + 32 + sum_encoded_size!(self, manifest, key_pair, user_data, tree, hints))
     }
@@ -361,63 +257,6 @@ impl CompactEncodable for Header {
             },
             rest,
         ))
-    }
-}
-
-impl CompactEncoding<Header> for State {
-    fn preencode(&mut self, value: &Header) -> Result<usize, EncodingError> {
-        self.add_end(1)?; // Version
-        self.add_end(1)?; // Flags
-        self.preencode_fixed_32()?; // key
-        self.preencode(&value.manifest)?;
-        self.preencode(&value.key_pair)?;
-        self.preencode(&value.user_data)?;
-        self.preencode(&value.tree)?;
-        self.preencode(&value.hints)
-    }
-
-    fn encode(&mut self, value: &Header, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.set_byte_to_buffer(1, buffer)?; // Version
-        let flags: u8 = 2 | 4; // Manifest and key pair, TODO: external=1
-        self.set_byte_to_buffer(flags, buffer)?;
-        self.encode_fixed_32(&value.key, buffer)?;
-        self.encode(&value.manifest, buffer)?;
-        self.encode(&value.key_pair, buffer)?;
-        self.encode(&value.user_data, buffer)?;
-        self.encode(&value.tree, buffer)?;
-        self.encode(&value.hints, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<Header, EncodingError> {
-        let version: u8 = self.decode_u8(buffer)?;
-        if version != 1 {
-            panic!("Unknown oplog version {}", version);
-        }
-        let _flags: u8 = self.decode_u8(buffer)?;
-        let key: [u8; 32] = self
-            .decode_fixed_32(buffer)?
-            .to_vec()
-            .try_into()
-            .map_err(|_err| {
-                EncodingError::new(
-                    EncodingErrorKind::InvalidData,
-                    "Invalid key in oplog header",
-                )
-            })?;
-        let manifest: Manifest = self.decode(buffer)?;
-        let key_pair: PartialKeypair = self.decode(buffer)?;
-        let user_data: Vec<String> = self.decode(buffer)?;
-        let tree: HeaderTree = self.decode(buffer)?;
-        let hints: HeaderHints = self.decode(buffer)?;
-
-        Ok(Header {
-            key,
-            manifest,
-            key_pair,
-            user_data,
-            tree,
-            hints,
-        })
     }
 }
 
