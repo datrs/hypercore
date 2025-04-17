@@ -3,7 +3,9 @@ use blake2::{
     Blake2b, Blake2bMac, Digest,
 };
 use byteorder::{BigEndian, WriteBytesExt};
-use compact_encoding::State;
+use compact_encoding::{
+    as_array, to_encoded_bytes, CompactEncoding, EncodingError, FixedWidthEncoding,
+};
 use ed25519_dalek::VerifyingKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
@@ -124,10 +126,9 @@ impl Hash {
 
     /// Hash data
     pub(crate) fn data(data: &[u8]) -> Self {
-        let (mut state, mut size) = State::new_with_size(8);
-        state
-            .encode_u64(data.len() as u64, &mut size)
-            .expect("Encoding u64 should not fail");
+        let size =
+            (|| Ok::<_, EncodingError>(to_encoded_bytes!((data.len() as u64).as_fixed_width())))()
+                .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b256::new();
         hasher.update(LEAF_TYPE);
@@ -147,9 +148,8 @@ impl Hash {
             (right, left)
         };
 
-        let (mut state, mut size) = State::new_with_size(8);
-        state
-            .encode_u64(node1.length + node2.length, &mut size)
+        let len = node1.length + node2.length;
+        let size: Vec<u8> = (|| Ok::<_, EncodingError>(to_encoded_bytes!(len.as_fixed_width())))()
             .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b256::new();
@@ -170,12 +170,7 @@ impl Hash {
 
         for node in roots {
             let node = node.as_ref();
-            let (mut state, mut buffer) = State::new_with_size(16);
-            state
-                .encode_u64(node.index(), &mut buffer)
-                .expect("Encoding u64 should not fail");
-            state
-                .encode_u64(node.len(), &mut buffer)
+            let buffer = (|| Ok::<_, EncodingError>(to_encoded_bytes!(node.index(), node.len())))()
                 .expect("Encoding u64 should not fail");
 
             hasher.update(node.hash());
@@ -212,20 +207,16 @@ impl DerefMut for Hash {
 /// Create a signable buffer for tree. This is treeSignable in Javascript.
 /// See https://github.com/hypercore-protocol/hypercore/blob/70b271643c4e4b1e5ecae5bb579966dfe6361ff3/lib/caps.js#L17
 pub(crate) fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
-    let (mut state, mut buffer) = State::new_with_size(80);
-    state
-        .encode_fixed_32(&TREE, &mut buffer)
-        .expect("Should be able ");
-    state
-        .encode_fixed_32(hash, &mut buffer)
-        .expect("Encoding fixed 32 bytes should not fail");
-    state
-        .encode_u64(length, &mut buffer)
-        .expect("Encoding u64 should not fail");
-    state
-        .encode_u64(fork, &mut buffer)
-        .expect("Encoding u64 should not fail");
-    buffer
+    (|| {
+        Ok::<_, EncodingError>(to_encoded_bytes!(
+            &TREE,
+            as_array::<32>(hash)?,
+            length.as_fixed_width(),
+            fork.as_fixed_width()
+        ))
+    })()
+    .expect("Encoding should not fail")
+    .into()
 }
 
 #[cfg(test)]
