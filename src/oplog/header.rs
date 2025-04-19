@@ -156,6 +156,8 @@ impl CompactEncoding for PartialKeypair {
     where
         Self: Sized,
     {
+        // the ful secret/private key contains the public key duplicated in it
+        const FULL_SIGNING_KEY_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
         let (pk_len, rest) = decode_usize(buffer)?;
         let (public, rest) = match pk_len {
             PUBLIC_KEY_LENGTH => {
@@ -169,20 +171,23 @@ impl CompactEncoding for PartialKeypair {
             }
             len => {
                 return Err(EncodingError::invalid_data(&format!(
-                    "Incorrect secret key length while decoding. length = [{len}]"
+                    "Incorrect public key length while decoding. length = [{len}] expected [{PUBLIC_KEY_LENGTH}]"
                 )))
             }
         };
         let (sk_len, rest) = decode_usize(rest)?;
         let (secret, rest) = match sk_len {
             0 => (None, rest),
-            SECRET_KEY_LENGTH => {
-                let (sk_bytes, rest) = take_array::<SECRET_KEY_LENGTH>(rest)?;
+            // full signing key = secret_key.cocat(public_key)
+            FULL_SIGNING_KEY_LENGTH => {
+                let (full_key_bytes, rest) = take_array::<FULL_SIGNING_KEY_LENGTH>(rest)?;
+                let (sk_bytes, _shoul_be_empty) = take_array::<SECRET_KEY_LENGTH>(&full_key_bytes)?;
+                assert!(_shoul_be_empty.is_empty());
                 (Some(SigningKey::from_bytes(&sk_bytes)), rest)
             }
             len => {
                 return Err(EncodingError::invalid_data(&format!(
-                    "Incorrect secret key length while decoding. length = [{len}]"
+                    "Incorrect secret key length while decoding. length = [{len}] expected [{FULL_SIGNING_KEY_LENGTH}]"
                 )))
             }
         };
@@ -262,98 +267,86 @@ impl CompactEncoding for Header {
 
 #[cfg(test)]
 mod tests {
+    use compact_encoding::{map_decode, to_encoded_bytes};
+
     use super::*;
 
     use crate::crypto::generate_signing_key;
 
     #[test]
     fn encode_partial_key_pair() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
         let signing_key = generate_signing_key();
         let key_pair = PartialKeypair {
             public: signing_key.verifying_key(),
             secret: Some(signing_key),
         };
-        enc_state.preencode(&key_pair)?;
-        let mut buffer = enc_state.create_buffer();
-        // Pub key: 1 byte for length, 32 bytes for content
-        // Sec key: 1 byte for length, 64 bytes for data
+
+        // sizeof(pk.len()) + sizeof(pk) + sizeof(sk.len() + sizeof(sk)
         let expected_len = 1 + 32 + 1 + 64;
-        assert_eq!(buffer.len(), expected_len);
-        assert_eq!(enc_state.end(), expected_len);
-        assert_eq!(enc_state.start(), 0);
-        enc_state.encode(&key_pair, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let key_pair_ret: PartialKeypair = dec_state.decode(&buffer)?;
-        assert_eq!(key_pair.public, key_pair_ret.public);
+        let encoded = to_encoded_bytes!(&key_pair);
+        assert_eq!(encoded.len(), expected_len);
+        let ((dec_kp,), rest) = map_decode!(&encoded, [PartialKeypair]);
+        dbg!(rest);
+        assert!(rest.is_empty());
+        assert_eq!(key_pair.public, dec_kp.public);
         assert_eq!(
             key_pair.secret.unwrap().to_bytes(),
-            key_pair_ret.secret.unwrap().to_bytes()
+            dec_kp.secret.unwrap().to_bytes()
         );
         Ok(())
     }
 
     #[test]
     fn encode_tree() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
         let tree = HeaderTree::new();
-        enc_state.preencode(&tree)?;
-        let mut buffer = enc_state.create_buffer();
-        enc_state.encode(&tree, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let tree_ret: HeaderTree = dec_state.decode(&buffer)?;
-        assert_eq!(tree, tree_ret);
+        let encoded = to_encoded_bytes!(tree);
+        // all sizeof(0) + sizeof(0) + sizeof(vec![]) + sizeof(vec![]) == 4
+        assert_eq!(encoded.len(), 4);
+        let ((dec_tree,), rest) = map_decode!(&encoded, [HeaderTree]);
+        assert!(rest.is_empty());
+        assert_eq!(dec_tree, tree);
         Ok(())
     }
 
     #[test]
-    fn encode_tree_cmp() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
+    fn encode_tree_with_data() -> Result<(), EncodingError> {
         let tree = HeaderTree {
             fork: 520,
             length: 647,
             root_hash: vec![12; 464].into_boxed_slice(),
             signature: vec![46; 22].into_boxed_slice(),
         };
-        enc_state.preencode(&tree)?;
-        //let mut buffer = enc_state.create_buffer();
-        let mut buffer = vec![0; enc_state.end()];
-        enc_state.encode(&tree, &mut buffer)?;
-        let mut buf2 = vec![0; tree.encoded_size()?];
-        assert_eq!(buffer.len(), buf2.len());
-        tree.encode(&mut buf2)?;
-        assert_eq!(buffer, buf2);
-
-        //assert_eq!(tree, tree_ret);
+        let encoded = to_encoded_bytes!(&tree);
+        let ((dec_tree,), rest) = map_decode!(&encoded, [HeaderTree]);
+        assert!(rest.is_empty());
+        assert_eq!(dec_tree, tree);
         Ok(())
     }
 
     #[test]
     fn encode_header() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
+        //let mut enc_state = State::new();
         let signing_key = generate_signing_key();
         let signing_key = PartialKeypair {
             public: signing_key.verifying_key(),
             secret: Some(signing_key),
         };
         let header = Header::new(signing_key);
-        enc_state.preencode(&header)?;
-        let mut buffer = enc_state.create_buffer();
-        enc_state.encode(&header, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let header_ret: Header = dec_state.decode(&buffer)?;
-        assert_eq!(header.key_pair.public, header_ret.key_pair.public);
-        assert_eq!(header.tree.fork, header_ret.tree.fork);
-        assert_eq!(header.tree.length, header_ret.tree.length);
-        assert_eq!(header.tree.length, header_ret.tree.length);
-        assert_eq!(header.manifest.hash, header_ret.manifest.hash);
+        let encoded = to_encoded_bytes!(&header);
+        let ((dec_header,), rest) = map_decode!(&encoded, [Header]);
+        assert!(rest.is_empty());
+        assert_eq!(header.key_pair.public, dec_header.key_pair.public);
+        assert_eq!(header.tree.fork, dec_header.tree.fork);
+        assert_eq!(header.tree.length, dec_header.tree.length);
+        assert_eq!(header.tree.length, dec_header.tree.length);
+        assert_eq!(header.manifest.hash, dec_header.manifest.hash);
         assert_eq!(
             header.manifest.signer.public_key,
-            header_ret.manifest.signer.public_key
+            dec_header.manifest.signer.public_key
         );
         assert_eq!(
             header.manifest.signer.signature,
-            header_ret.manifest.signer.signature
+            dec_header.manifest.signer.signature
         );
         Ok(())
     }
