@@ -181,8 +181,7 @@ impl CompactEncoding for PartialKeypair {
             // full signing key = secret_key.cocat(public_key)
             FULL_SIGNING_KEY_LENGTH => {
                 let (full_key_bytes, rest) = take_array::<FULL_SIGNING_KEY_LENGTH>(rest)?;
-                let (sk_bytes, _shoul_be_empty) = take_array::<SECRET_KEY_LENGTH>(&full_key_bytes)?;
-                assert!(_shoul_be_empty.is_empty());
+                let (sk_bytes, _pk_bytes) = take_array::<SECRET_KEY_LENGTH>(&full_key_bytes)?;
                 (Some(SigningKey::from_bytes(&sk_bytes)), rest)
             }
             len => {

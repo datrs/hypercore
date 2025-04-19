@@ -168,8 +168,13 @@ impl Hash {
 
         for node in roots {
             let node = node.as_ref();
-            let buffer = (|| Ok::<_, EncodingError>(to_encoded_bytes!(node.index(), node.len())))()
-                .expect("Encoding u64 should not fail");
+            let buffer = (|| {
+                Ok::<_, EncodingError>(to_encoded_bytes!(
+                    node.index().as_fixed_width(),
+                    node.len().as_fixed_width()
+                ))
+            })()
+            .expect("Encoding u64 should not fail");
 
             hasher.update(node.hash());
             hasher.update(&buffer[..8]);
