@@ -1,12 +1,15 @@
+use compact_encoding::{
+    as_array_mut, get_slices_checked, get_slices_mut_checked, map_decode, take_array_mut,
+    CompactEncoding, FixedWidthEncoding, FixedWidthU32,
+};
 use futures::future::Either;
 use std::convert::{TryFrom, TryInto};
 
 use crate::common::{BitfieldUpdate, Store, StoreInfo, StoreInfoInstruction};
-use crate::encoding::{CompactEncoding, HypercoreState};
 use crate::tree::MerkleTreeChangeset;
 use crate::{HypercoreError, Node, PartialKeypair};
 
-mod entry;
+pub(crate) mod entry;
 mod header;
 
 pub(crate) use entry::{Entry, EntryTreeUpgrade};
@@ -14,6 +17,13 @@ pub(crate) use header::{Header, HeaderTree};
 
 pub(crate) const MAX_OPLOG_ENTRIES_BYTE_SIZE: u64 = 65536;
 const HEADER_SIZE: usize = 4096;
+
+// NB: we use the word "leader" to describe the 8 byte part put before a chunk of data that
+// contains 4 byte checksum, then a 30 bit unsigned integer, then a "header bit" and a "partial
+// bit"
+const CRC_SIZE: usize = 4;
+const LEN_PARTIAL_AND_HEADER_INFO_SIZE: usize = 4;
+const LEADER_SIZE: usize = CRC_SIZE + LEN_PARTIAL_AND_HEADER_INFO_SIZE;
 
 /// Oplog.
 ///
@@ -73,8 +83,8 @@ enum OplogSlot {
 }
 
 #[derive(Debug)]
-struct ValidateLeaderOutcome {
-    state: HypercoreState,
+struct ValidateLeaderOutcome<'a> {
+    state: &'a [u8],
     header_bit: bool,
     partial_bit: bool,
 }
@@ -96,25 +106,27 @@ impl Oplog {
             Some(info) => {
                 let existing = info.data.expect("Could not get data of existing oplog");
                 // First read and validate both headers stored in the existing oplog
-                let h1_outcome = Self::validate_leader(OplogSlot::FirstHeader as usize, &existing)?;
-                let h2_outcome =
-                    Self::validate_leader(OplogSlot::SecondHeader as usize, &existing)?;
-
+                let h1_outcome = Self::validate_leader(
+                    get_slices_checked(&existing, OplogSlot::FirstHeader as usize)?.1,
+                )?;
+                let h2_outcome = Self::validate_leader(
+                    get_slices_checked(&existing, OplogSlot::SecondHeader as usize)?.1,
+                )?;
                 // Depending on what is stored, the state needs to be set accordingly.
                 // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
-                let mut outcome: OplogOpenOutcome = if let Some(mut h1_outcome) = h1_outcome {
+                let mut outcome: OplogOpenOutcome = if let Some(h1_outcome) = h1_outcome {
                     let (header, header_bits): (Header, [bool; 2]) =
-                        if let Some(mut h2_outcome) = h2_outcome {
+                        if let Some(h2_outcome) = h2_outcome {
                             let header_bits = [h1_outcome.header_bit, h2_outcome.header_bit];
                             let header: Header = if header_bits[0] == header_bits[1] {
-                                (*h1_outcome.state).decode(&existing)?
+                                Header::decode(h1_outcome.state)?.0
                             } else {
-                                (*h2_outcome.state).decode(&existing)?
+                                Header::decode(h2_outcome.state)?.0
                             };
                             (header, header_bits)
                         } else {
                             (
-                                (*h1_outcome.state).decode(&existing)?,
+                                Header::decode(h1_outcome.state)?.0,
                                 [h1_outcome.header_bit, h1_outcome.header_bit],
                             )
                         };
@@ -124,7 +136,7 @@ impl Oplog {
                         entries_byte_length: 0,
                     };
                     OplogOpenOutcome::new(oplog, header, Box::new([]))
-                } else if let Some(mut h2_outcome) = h2_outcome {
+                } else if let Some(h2_outcome) = h2_outcome {
                     // This shouldn't happen because the first header is saved to the first slot
                     // but Javascript supports this so we should too.
                     let header_bits: [bool; 2] = [!h2_outcome.header_bit, h2_outcome.header_bit];
@@ -133,11 +145,7 @@ impl Oplog {
                         entries_length: 0,
                         entries_byte_length: 0,
                     };
-                    OplogOpenOutcome::new(
-                        oplog,
-                        (*h2_outcome.state).decode(&existing)?,
-                        Box::new([]),
-                    )
+                    OplogOpenOutcome::new(oplog, Header::decode(h2_outcome.state)?.0, Box::new([]))
                 } else if let Some(key_pair) = key_pair {
                     // There is nothing in the oplog, start from fresh given key pair.
                     Self::fresh(key_pair.clone())?
@@ -150,16 +158,15 @@ impl Oplog {
 
                 // Read headers that might be stored in the existing content
                 if existing.len() > OplogSlot::Entries as usize {
-                    let mut entry_offset = OplogSlot::Entries as usize;
+                    let mut entries_buff =
+                        get_slices_checked(&existing, OplogSlot::Entries as usize)?.1;
                     let mut entries: Vec<Entry> = Vec::new();
                     let mut partials: Vec<bool> = Vec::new();
-                    while let Some(mut entry_outcome) =
-                        Self::validate_leader(entry_offset, &existing)?
-                    {
-                        let entry: Entry = entry_outcome.state.decode(&existing)?;
-                        entries.push(entry);
+                    while let Some(entry_outcome) = Self::validate_leader(entries_buff)? {
+                        let res = Entry::decode(entry_outcome.state)?;
+                        entries.push(res.0);
+                        entries_buff = res.1;
                         partials.push(entry_outcome.partial_bit);
-                        entry_offset = (*entry_outcome.state).end();
                     }
 
                     // Remove all trailing partial entries
@@ -264,7 +271,7 @@ impl Oplog {
             let (new_header_bits, infos_to_flush) =
                 Self::insert_header(header, 0, self.header_bits, clear_traces)?;
             let mut combined_infos_to_flush: Vec<StoreInfo> =
-                infos_to_flush.into_vec().drain(0..1).into_iter().collect();
+                infos_to_flush.into_vec().drain(0..1).collect();
             let (new_header_bits, infos_to_flush) =
                 Self::insert_header(header, 0, new_header_bits, clear_traces)?;
             combined_infos_to_flush.extend(infos_to_flush.into_vec());
@@ -286,31 +293,25 @@ impl Oplog {
     ) -> Result<Box<[StoreInfo]>, HypercoreError> {
         let len = batch.len();
         let header_bit = self.get_current_header_bit();
-        // Leave room for leaders
-        let mut state = HypercoreState::new_with_start_and_end(0, len * 8);
 
-        for entry in batch.iter() {
-            state.preencode(entry)?;
+        let mut size = len * LEADER_SIZE;
+
+        // TODO:  should I add back the fn sum_encoded_size(&[impl CompactEncoding])-> usize?
+        // it could be used here. I thought there would not be a case where we were encoding a
+        // runtime defined number of types in a row and it not be as a Vec (length prefixed) thing
+        for e in batch.iter() {
+            size += e.encoded_size()?;
         }
 
-        let mut buffer = state.create_buffer();
+        let mut buffer = vec![0; size];
+        let mut rest = buffer.as_mut_slice();
         for (i, entry) in batch.iter().enumerate() {
-            (*state).add_start(8)?;
-            let start = state.start();
             let partial_bit: bool = atomic && i < len - 1;
-            state.encode(entry, &mut buffer)?;
-            Self::prepend_leader(
-                state.start() - start,
-                header_bit,
-                partial_bit,
-                &mut state,
-                &mut buffer,
-            )?;
+            rest = encode_with_leader(entry, partial_bit, header_bit, rest)?;
         }
-
         let index = OplogSlot::Entries as u64 + self.entries_byte_length;
         self.entries_length += len as u64;
-        self.entries_byte_length += buffer.len() as u64;
+        self.entries_byte_length += size as u64;
 
         Ok(vec![StoreInfo::new_content(Store::Oplog, index, &buffer)].into_boxed_slice())
     }
@@ -342,8 +343,6 @@ impl Oplog {
         clear_traces: bool,
     ) -> Result<([bool; 2], Box<[StoreInfo]>), HypercoreError> {
         // The first 8 bytes will be filled with `prepend_leader`.
-        let data_start_index: usize = 8;
-        let mut state = HypercoreState::new_with_start_and_end(data_start_index, data_start_index);
 
         // Get the right slot and header bit
         let (oplog_slot, header_bit) =
@@ -357,32 +356,17 @@ impl Oplog {
             }
         }
 
-        // Preencode the new header
-        (*state).preencode(header)?;
+        let mut size = LEADER_SIZE + header.encoded_size()?;
+        size += header.encoded_size()?;
 
         // If clearing, lets add zeros to the end
-        let end = if clear_traces {
-            let end = state.end();
-            state.set_end(HEADER_SIZE);
-            end
-        } else {
-            state.end()
-        };
+        if clear_traces {
+            size = HEADER_SIZE;
+        }
 
         // Create a buffer for the needed data
-        let mut buffer = state.create_buffer();
-
-        // Encode the header
-        (*state).encode(header, &mut buffer)?;
-
-        // Finally prepend the buffer's 8 first bytes with a CRC, len and right bits
-        Self::prepend_leader(
-            end - data_start_index,
-            header_bit,
-            false,
-            &mut state,
-            &mut buffer,
-        )?;
+        let mut buffer = vec![0; size];
+        encode_with_leader(header, false, header_bit, &mut buffer)?;
 
         // The oplog is always truncated to the minimum byte size, which is right after
         // all of the entries in the oplog finish.
@@ -397,76 +381,39 @@ impl Oplog {
         ))
     }
 
-    /// Prepends given `State` with 4 bytes of CRC followed by 4 bytes containing length of
-    /// following buffer, 1 bit indicating which header is relevant to the entry (or if used to
-    /// wrap the actual header, then the header bit relevant for saving) and 1 bit that tells if
-    /// the written batch is only partially finished. For this to work, the state given must have
-    /// 8 bytes in reserve in the beginning, so that state.start can be set back 8 bytes.
-    fn prepend_leader(
-        len: usize,
-        header_bit: bool,
-        partial_bit: bool,
-        state: &mut HypercoreState,
-        buffer: &mut Box<[u8]>,
-    ) -> Result<(), HypercoreError> {
-        // The 4 bytes right before start of data is the length in 8+8+8+6=30 bits. The 31st bit is
-        // the partial bit and 32nd bit the header bit.
-        let start = (*state).start();
-        (*state).set_start(start - len - 4)?;
-        let len_u32: u32 = len.try_into().unwrap();
-        let partial_bit: u32 = if partial_bit { 2 } else { 0 };
-        let header_bit: u32 = if header_bit { 1 } else { 0 };
-        let combined: u32 = (len_u32 << 2) | header_bit | partial_bit;
-        state.encode_u32(combined, buffer)?;
-
-        // Before that, is a 4 byte CRC32 that is a checksum of the above encoded 4 bytes and the
-        // content.
-        let start = state.start();
-        state.set_start(start - 8)?;
-        let checksum = crc32fast::hash(&buffer[state.start() + 4..state.start() + 8 + len]);
-        state.encode_u32(checksum, buffer)?;
-        Ok(())
-    }
-
     /// Validates that leader at given index is valid, and returns header and partial bits and
     /// `State` for the header/entry that the leader was for.
-    fn validate_leader(
-        index: usize,
-        buffer: &[u8],
-    ) -> Result<Option<ValidateLeaderOutcome>, HypercoreError> {
-        if buffer.len() < index + 8 {
+    fn validate_leader(buffer: &[u8]) -> Result<Option<ValidateLeaderOutcome<'_>>, HypercoreError> {
+        if buffer.len() < 8 {
             return Ok(None);
         }
-        let mut state = HypercoreState::new_with_start_and_end(index, buffer.len());
-        let stored_checksum: u32 = state.decode_u32(buffer)?;
-        let combined: u32 = state.decode_u32(buffer)?;
+        let ((stored_checksum, combined), data_buff) =
+            map_decode!(buffer, [FixedWidthU32<'_>, FixedWidthU32<'_>]);
+
         let len = usize::try_from(combined >> 2)
             .expect("Attempted converting to a 32 bit usize on below 32 bit system");
 
         // NB: In the Javascript version IIUC zero length is caught only with a mismatch
         // of checksums, which is silently interpreted to only mean "no value". That doesn't sound good:
         // better to throw an error on mismatch and let the caller at least log the problem.
-        if len == 0 || state.end() - state.start() < len {
+        if len == 0 || data_buff.len() < len {
             return Ok(None);
         }
+
         let header_bit = combined & 1 == 1;
         let partial_bit = combined & 2 == 2;
 
-        let new_start = index + 8;
-        state.set_end(new_start + len);
-        state.set_start(new_start)?;
-
-        let calculated_checksum = crc32fast::hash(&buffer[index + 4..state.end()]);
+        let to_hash = &buffer[CRC_SIZE..LEADER_SIZE + len];
+        let calculated_checksum = crc32fast::hash(to_hash);
         if calculated_checksum != stored_checksum {
             return Err(HypercoreError::InvalidChecksum {
-                context: "Calculated signature does not match oplog signature".to_string(),
+                context: format!("Calculated signature [{calculated_checksum}] does not match oplog signature [{stored_checksum}]"),
             });
         };
-
         Ok(Some(ValidateLeaderOutcome {
             header_bit,
             partial_bit,
-            state,
+            state: data_buff,
         }))
     }
 
@@ -492,4 +439,58 @@ impl Oplog {
             (OplogSlot::SecondHeader, !header_bits[1])
         }
     }
+}
+
+/// Create a header. 30 bits are the length plus two bits for "partial" and "header" info
+fn build_len_and_info_header(data_length: usize, header_bit: bool, partial_bit: bool) -> u32 {
+    let data_length: u32 = data_length
+        .try_into()
+        .expect("Must be able to convert usize to u32");
+    const MASK: u32 = (3u32).rotate_right(2);
+
+    if (MASK & data_length) != 0 {
+        panic!("Data length would overflow. It does not fit in 30 bits");
+    }
+    let partial_bit: u32 = if partial_bit { 2 } else { 0 };
+    let header_bit: u32 = if header_bit { 1 } else { 0 };
+    (data_length << 2) | header_bit | partial_bit
+}
+
+fn write_leader_parts(
+    header_bit: bool,
+    partial_bit: bool,
+    crc_zone: &mut [u8; CRC_SIZE],
+    len_and_meta_zone: &mut [u8; LEN_PARTIAL_AND_HEADER_INFO_SIZE],
+    data: &[u8],
+) -> Result<(), HypercoreError> {
+    // first we write the length and partial data
+    let len_and_info = build_len_and_info_header(data.len(), header_bit, partial_bit);
+    (len_and_info.as_fixed_width()).encode(len_and_meta_zone)?;
+    // next we hash the new header info along with the data
+    let mut hasher = crc32fast::Hasher::new();
+    hasher.update(len_and_meta_zone);
+    hasher.update(data);
+    hasher.finalize().as_fixed_width().encode(crc_zone)?;
+    Ok(())
+}
+
+fn encode_with_leader<'a>(
+    thing: &impl CompactEncoding,
+    partial_bit: bool,
+    header_bit: bool,
+    buffer: &'a mut [u8],
+) -> Result<&'a mut [u8], HypercoreError> {
+    let (leader_bytes, data_and_rest) = take_array_mut::<LEADER_SIZE>(buffer)?;
+    let enc_size = thing.encoded_size()?;
+    let (data_buff, rest) = get_slices_mut_checked(data_and_rest, enc_size)?;
+    let (crc_zone, len_and_meta_zone) = get_slices_mut_checked(leader_bytes, CRC_SIZE)?;
+    thing.encode(data_buff)?;
+    write_leader_parts(
+        header_bit,
+        partial_bit,
+        as_array_mut::<CRC_SIZE>(crc_zone)?,
+        as_array_mut::<LEN_PARTIAL_AND_HEADER_INFO_SIZE>(len_and_meta_zone)?,
+        data_buff,
+    )?;
+    Ok(rest)
 }
