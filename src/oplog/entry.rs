@@ -62,7 +62,7 @@ impl CompactEncoding for BitfieldUpdate {
 
 /// Oplog Entry
 #[derive(Debug)]
-pub struct Entry {
+pub(crate) struct Entry {
     // TODO: This is a keyValueArray in JS
     pub(crate) user_data: Vec<String>,
     pub(crate) tree_nodes: Vec<Node>,

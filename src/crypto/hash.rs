@@ -3,9 +3,7 @@ use blake2::{
     Blake2b, Blake2bMac, Digest,
 };
 use byteorder::{BigEndian, WriteBytesExt};
-use compact_encoding::{
-    as_array, to_encoded_bytes, CompactEncoding, EncodingError, FixedWidthEncoding,
-};
+use compact_encoding::{as_array, to_encoded_bytes, EncodingError, FixedWidthEncoding};
 use ed25519_dalek::VerifyingKey;
 use merkle_tree_stream::Node as NodeTrait;
 use std::convert::AsRef;
