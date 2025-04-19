@@ -285,7 +285,6 @@ mod tests {
         let encoded = to_encoded_bytes!(&key_pair);
         assert_eq!(encoded.len(), expected_len);
         let ((dec_kp,), rest) = map_decode!(&encoded, [PartialKeypair]);
-        dbg!(rest);
         assert!(rest.is_empty());
         assert_eq!(key_pair.public, dec_kp.public);
         assert_eq!(

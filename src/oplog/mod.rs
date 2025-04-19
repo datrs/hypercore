@@ -106,12 +106,17 @@ impl Oplog {
             Some(info) => {
                 let existing = info.data.expect("Could not get data of existing oplog");
                 // First read and validate both headers stored in the existing oplog
-                let h1_outcome = Self::validate_leader(
-                    get_slices_checked(&existing, OplogSlot::FirstHeader as usize)?.1,
-                )?;
-                let h2_outcome = Self::validate_leader(
-                    get_slices_checked(&existing, OplogSlot::SecondHeader as usize)?.1,
-                )?;
+                let h1_outcome = if let Some(h1) = existing.get(OplogSlot::FirstHeader as usize..) {
+                    Self::validate_leader(h1)?
+                } else {
+                    None
+                };
+                let h2_outcome = if let Some(h2) = existing.get(OplogSlot::SecondHeader as usize..)
+                {
+                    Self::validate_leader(h2)?
+                } else {
+                    None
+                };
                 // Depending on what is stored, the state needs to be set accordingly.
                 // See `get_next_header_oplog_slot_and_bit_value` for details on header_bits.
                 let mut outcome: OplogOpenOutcome = if let Some(h1_outcome) = h1_outcome {
