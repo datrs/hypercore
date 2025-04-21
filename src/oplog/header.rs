@@ -1,10 +1,11 @@
 use compact_encoding::{decode_usize, take_array, write_array, CompactEncoding, EncodingError};
+use compact_encoding::{map_encode, sum_encoded_size};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
 use crate::crypto::default_signer_manifest;
 use crate::crypto::Manifest;
-use crate::{chain_encoded_bytes, VerifyingKey};
-use crate::{sum_encoded_size, PartialKeypair};
+use crate::PartialKeypair;
+use crate::VerifyingKey;
 
 /// Oplog header.
 #[derive(Debug, Clone)]
@@ -110,12 +111,21 @@ macro_rules! decode {
 
 impl CompactEncoding for HeaderTree {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, fork, length, root_hash, signature))
+        Ok(sum_encoded_size!(
+            self.fork,
+            self.length,
+            self.root_hash,
+            self.signature
+        ))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(
-            self, buffer, fork, length, root_hash, signature
+        Ok(map_encode!(
+            buffer,
+            self.fork,
+            self.length,
+            self.root_hash,
+            self.signature
         ))
     }
 
@@ -203,16 +213,11 @@ pub(crate) struct HeaderHints {
 
 impl CompactEncoding for HeaderHints {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, reorgs, contiguous_length))
+        Ok(sum_encoded_size!(self.reorgs, self.contiguous_length))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(
-            self,
-            buffer,
-            reorgs,
-            contiguous_length
-        ))
+        Ok(map_encode!(buffer, self.reorgs, self.contiguous_length))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -225,7 +230,15 @@ impl CompactEncoding for HeaderHints {
 
 impl CompactEncoding for Header {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(1 + 1 + 32 + sum_encoded_size!(self, manifest, key_pair, user_data, tree, hints))
+        Ok(1 + 1
+            + 32
+            + sum_encoded_size!(
+                self.manifest,
+                self.key_pair,
+                self.user_data,
+                self.tree,
+                self.hints
+            ))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {

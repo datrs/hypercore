@@ -3,50 +3,20 @@ use crate::{
     crypto::{Manifest, ManifestSigner},
     DataBlock, DataHash, DataSeek, DataUpgrade, Node, RequestBlock, RequestSeek, RequestUpgrade,
 };
-use compact_encoding::encoded_size_usize;
+use compact_encoding::{as_array, encoded_size_usize, map_encode, sum_encoded_size};
 pub use compact_encoding::{
     bytes_fixed_from_vec, encode_bytes_fixed, take_array, take_array_mut, write_array, write_slice,
     CompactEncoding, EncodingError, EncodingErrorKind, VecEncodable,
 };
 
-#[macro_export]
-/// Used for defining CompactEncoding::encoded_size.
-/// Pass self and a list of fields to call encoded_size on
-macro_rules! sum_encoded_size {
-    // Base case: single field
-    ($self:ident, $field:ident) => {
-        $self.$field.encoded_size()?
-    };
-    // Recursive case: first field + rest
-    ($self: ident, $first:ident, $($rest:ident),+) => {
-        $self.$first.encoded_size()? + sum_encoded_size!($self, $($rest),+)
-    };
-}
-
-#[macro_export]
-// TODO is this exported from the crate?
-/// Used for defining CompactEncoding::encode.
-/// Pass self, the buffer and a list of fields to call encoded_size on
-macro_rules! chain_encoded_bytes {
-    // Base case: single field
-    ($self:ident, $buffer:ident, $field:ident) => {
-        $self.$field.encode($buffer)?
-    };
-    // Recursive case: first field + rest
-    ($self: ident, $buffer:ident, $first:ident, $($rest:ident),+) => {{
-        let rest = $self.$first.encode($buffer)?;
-        chain_encoded_bytes!($self, rest, $($rest),+)
-    }};
-}
-
 impl CompactEncoding for Node {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, index, length) + 32)
+        Ok(sum_encoded_size!(self.index, self.length) + 32)
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        let rest = chain_encoded_bytes!(self, buffer, index, length);
-        bytes_fixed_from_vec::<32>(&self.hash)?.encode(rest)
+        let hash = as_array::<32>(&self.hash)?;
+        Ok(map_encode!(buffer, self.index, self.length, hash))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -56,6 +26,7 @@ impl CompactEncoding for Node {
         let (index, rest) = u64::decode(buffer)?;
         let (length, rest) = u64::decode(rest)?;
         let (hash, rest) = <[u8; 32]>::decode(rest)?;
+
         Ok((Node::new(index, hash.to_vec(), length), rest))
     }
 }
@@ -75,11 +46,11 @@ impl VecEncodable for Node {
 
 impl CompactEncoding for RequestBlock {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, index, nodes))
+        Ok(sum_encoded_size!(self.index, self.nodes))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(self, buffer, index, nodes))
+        Ok(map_encode!(buffer, self.index, self.nodes))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -112,11 +83,11 @@ impl CompactEncoding for RequestSeek {
 
 impl CompactEncoding for RequestUpgrade {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, start, length))
+        Ok(sum_encoded_size!(self.start, self.length))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(self, buffer, start, length))
+        Ok(map_encode!(buffer, self.start, self.length))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -131,11 +102,11 @@ impl CompactEncoding for RequestUpgrade {
 
 impl CompactEncoding for DataBlock {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, index, value, nodes))
+        Ok(sum_encoded_size!(self.index, self.value, self.nodes))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(self, buffer, index, value, nodes))
+        Ok(map_encode!(buffer, self.index, self.value, self.nodes))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -158,11 +129,11 @@ impl CompactEncoding for DataBlock {
 
 impl CompactEncoding for DataHash {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, index, nodes))
+        Ok(sum_encoded_size!(self.index, self.nodes))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(self, buffer, index, nodes))
+        Ok(map_encode!(buffer, self.index, self.nodes))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -177,11 +148,11 @@ impl CompactEncoding for DataHash {
 
 impl CompactEncoding for DataSeek {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, bytes, nodes))
+        Ok(sum_encoded_size!(self.bytes, self.nodes))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(self, buffer, bytes, nodes))
+        Ok(map_encode!(buffer, self.bytes, self.nodes))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -197,24 +168,22 @@ impl CompactEncoding for DataSeek {
 impl CompactEncoding for DataUpgrade {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(
-            self,
-            start,
-            length,
-            nodes,
-            additional_nodes,
-            signature
+            self.start,
+            self.length,
+            self.nodes,
+            self.additional_nodes,
+            self.signature
         ))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(
-            self,
+        Ok(map_encode!(
             buffer,
-            start,
-            length,
-            nodes,
-            additional_nodes,
-            signature
+            self.start,
+            self.length,
+            self.nodes,
+            self.additional_nodes,
+            self.signature
         ))
     }
 

@@ -1,6 +1,9 @@
-use compact_encoding::{take_array, take_array_mut, write_array, CompactEncoding, EncodingError};
+use compact_encoding::{
+    map_encode, sum_encoded_size, take_array, take_array_mut, write_array, CompactEncoding,
+    EncodingError,
+};
 
-use crate::{chain_encoded_bytes, decode, sum_encoded_size};
+use crate::decode;
 use crate::{common::BitfieldUpdate, Node};
 
 /// Entry tree upgrade
@@ -14,12 +17,21 @@ pub(crate) struct EntryTreeUpgrade {
 
 impl CompactEncoding for EntryTreeUpgrade {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(sum_encoded_size!(self, fork, ancestors, length, signature))
+        Ok(sum_encoded_size!(
+            self.fork,
+            self.ancestors,
+            self.length,
+            self.signature
+        ))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
-        Ok(chain_encoded_bytes!(
-            self, buffer, fork, ancestors, length, signature
+        Ok(map_encode!(
+            buffer,
+            self.fork,
+            self.ancestors,
+            self.length,
+            self.signature
         ))
     }
 
@@ -33,13 +45,13 @@ impl CompactEncoding for EntryTreeUpgrade {
 
 impl CompactEncoding for BitfieldUpdate {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
-        Ok(1 + sum_encoded_size!(self, start, length))
+        Ok(1 + sum_encoded_size!(self.start, self.length))
     }
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let drop = if self.drop { 1 } else { 0 };
         let rest = write_array(&[drop], buffer)?;
-        Ok(chain_encoded_bytes!(self, rest, start, length))
+        Ok(map_encode!(rest, self.start, self.length))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
