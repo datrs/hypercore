@@ -135,20 +135,20 @@ impl CompactEncoding for Entry {
         };
 
         let (tree_nodes, rest) = if flags & 2 != 0 {
-            <Vec<Node>>::decode(buffer)?
+            <Vec<Node>>::decode(rest)?
         } else {
             (Default::default(), rest)
         };
 
         let (tree_upgrade, rest) = if flags & 2 != 0 {
-            let (x, rest) = EntryTreeUpgrade::decode(buffer)?;
+            let (x, rest) = EntryTreeUpgrade::decode(rest)?;
             (Some(x), rest)
         } else {
             (Default::default(), rest)
         };
 
         let (bitfield, rest) = if flags & 2 != 0 {
-            let (x, rest) = BitfieldUpdate::decode(buffer)?;
+            let (x, rest) = BitfieldUpdate::decode(rest)?;
             (Some(x), rest)
         } else {
             (Default::default(), rest)
