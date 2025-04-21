@@ -106,12 +106,15 @@ impl Oplog {
             Some(info) => {
                 let existing = info.data.expect("Could not get data of existing oplog");
                 // First read and validate both headers stored in the existing oplog
-                let h1_outcome = if let Some(h1) = existing.get(OplogSlot::FirstHeader as usize..) {
+                let h1_outcome = if let Some(h1) =
+                    existing.get(OplogSlot::FirstHeader as usize..OplogSlot::SecondHeader as usize)
+                {
                     Self::validate_leader(h1)?
                 } else {
                     None
                 };
-                let h2_outcome = if let Some(h2) = existing.get(OplogSlot::SecondHeader as usize..)
+                let h2_outcome = if let Some(h2) =
+                    existing.get(OplogSlot::SecondHeader as usize..OplogSlot::Entries as usize)
                 {
                     Self::validate_leader(h2)?
                 } else {
