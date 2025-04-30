@@ -166,6 +166,8 @@ impl CompactEncoding for DataSeek {
     }
 }
 
+// from:
+// https://github.com/holepunchto/hypercore/blob/d21ebdeca1b27eb4c2232f8af17d5ae939ee97f2/lib/messages.js#L394
 impl CompactEncoding for DataUpgrade {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(
@@ -196,14 +198,14 @@ impl CompactEncoding for DataUpgrade {
         let (length, rest) = u64::decode(rest)?;
         let (nodes, rest) = Vec::<Node>::decode(rest)?;
         let (additional_nodes, rest) = Vec::<Node>::decode(rest)?;
-        let (signature, rest) = <[u8; 32]>::decode(rest)?;
+        let (signature, rest) = <Vec<u8>>::decode(rest)?;
         Ok((
             DataUpgrade {
                 start,
                 length,
                 nodes,
                 additional_nodes,
-                signature: signature.to_vec(),
+                signature,
             },
             rest,
         ))
