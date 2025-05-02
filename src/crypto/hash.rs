@@ -147,8 +147,9 @@ impl Hash {
         };
 
         let len = node1.length + node2.length;
-        let size: Vec<u8> = (|| Ok::<_, EncodingError>(to_encoded_bytes!(len.as_fixed_width())))()
-            .expect("Encoding u64 should not fail");
+        let size: Box<[u8]> =
+            (|| Ok::<_, EncodingError>(to_encoded_bytes!(len.as_fixed_width())))()
+                .expect("Encoding u64 should not fail");
 
         let mut hasher = Blake2b256::new();
         hasher.update(PARENT_TYPE);

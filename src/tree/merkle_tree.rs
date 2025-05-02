@@ -662,7 +662,10 @@ impl MerkleTree {
         for (_, node) in self.unflushed.drain() {
             let buffer = (|| {
                 let hash = as_array::<32>(&node.hash)?;
-                Ok::<Vec<u8>, EncodingError>(to_encoded_bytes!(node.length.as_fixed_width(), hash))
+                Ok::<Box<[u8]>, EncodingError>(to_encoded_bytes!(
+                    node.length.as_fixed_width(),
+                    hash
+                ))
             })()
             .expect("Encoding u64 should not fail");
             infos_to_flush.push(StoreInfo::new_content(
