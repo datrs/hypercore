@@ -304,9 +304,6 @@ impl Oplog {
 
         let mut size = len * LEADER_SIZE;
 
-        // TODO:  should I add back the fn sum_encoded_size(&[impl CompactEncoding])-> usize?
-        // it could be used here. I thought there would not be a case where we were encoding a
-        // runtime defined number of types in a row and it not be as a Vec (length prefixed) thing
         for e in batch.iter() {
             size += e.encoded_size()?;
         }

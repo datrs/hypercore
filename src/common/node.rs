@@ -23,6 +23,8 @@ pub struct Node {
     /// This node's index in the Merkle tree
     pub(crate) index: u64,
     /// Hash of the data in this node
+    // TODO make this [u8; 32] like:
+    // https://github.com/holepunchto/hypercore/blob/d21ebdeca1b27eb4c2232f8af17d5ae939ee97f2/lib/messages.js#L246
     pub(crate) hash: Vec<u8>,
     /// Number of bytes in this [`Node::data`]
     pub(crate) length: u64,
