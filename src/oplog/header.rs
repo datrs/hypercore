@@ -233,13 +233,15 @@ impl CompactEncoding for Header {
 
     fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
         let rest = write_array(&[1, 2 | 4], buffer)?;
-        let rest = self.key.encode(rest)?;
-        let rest = self.manifest.encode(rest)?;
-        let rest = self.key_pair.encode(rest)?;
-        let rest = self.user_data.encode(rest)?;
-        let rest = self.tree.encode(rest)?;
-        let rest = self.hints.encode(rest)?;
-        Ok(rest)
+        Ok(map_encode!(
+            rest,
+            self.key,
+            self.manifest,
+            self.key_pair,
+            self.user_data,
+            self.tree,
+            self.hints
+        ))
     }
 
     fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
@@ -248,11 +250,11 @@ impl CompactEncoding for Header {
     {
         let ([_version, _flags], rest) = take_array::<2>(buffer)?;
         let (key, rest) = take_array::<32>(rest)?;
-        let (manifest, rest) = Manifest::decode(rest)?;
-        let (key_pair, rest) = PartialKeypair::decode(rest)?;
-        let (user_data, rest) = <Vec<String>>::decode(rest)?;
-        let (tree, rest) = HeaderTree::decode(rest)?;
-        let (hints, rest) = HeaderHints::decode(rest)?;
+        let ((manifest, key_pair, user_data, tree, hints), rest) = map_decode!(
+            rest, [
+                Manifest, PartialKeypair, Vec<String>, HeaderTree, HeaderHints
+            ]
+        );
         Ok((
             Header {
                 key,
