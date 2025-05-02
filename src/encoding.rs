@@ -3,11 +3,9 @@ use crate::{
     crypto::{Manifest, ManifestSigner},
     DataBlock, DataHash, DataSeek, DataUpgrade, Node, RequestBlock, RequestSeek, RequestUpgrade,
 };
-use compact_encoding::{as_array, encoded_size_usize};
-pub use compact_encoding::{
-    bytes_fixed_from_vec, decode_usize, encode_bytes_fixed, map_decode, map_encode,
-    sum_encoded_size, take_array, take_array_mut, to_encoded_bytes, write_array, write_slice,
-    CompactEncoding, EncodingError, EncodingErrorKind, VecEncodable,
+use compact_encoding::{
+    as_array, encode_bytes_fixed, encoded_size_usize, map_decode, map_encode, sum_encoded_size,
+    take_array, write_slice, CompactEncoding, EncodingError, EncodingErrorKind, VecEncodable,
 };
 
 impl CompactEncoding for Node {
