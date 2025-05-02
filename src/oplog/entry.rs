@@ -1,9 +1,8 @@
 use compact_encoding::{
-    map_encode, sum_encoded_size, take_array, take_array_mut, write_array, CompactEncoding,
-    EncodingError,
+    map_decode, map_encode, sum_encoded_size, take_array, take_array_mut, write_array,
+    CompactEncoding, EncodingError,
 };
 
-use crate::decode;
 use crate::{common::BitfieldUpdate, Node};
 
 /// Entry tree upgrade
@@ -39,7 +38,17 @@ impl CompactEncoding for EntryTreeUpgrade {
     where
         Self: Sized,
     {
-        decode!(EntryTreeUpgrade, buffer, {fork: u64, ancestors: u64, length: u64, signature: Box<[u8]>})
+        let ((fork, ancestors, length, signature), rest) =
+            map_decode!(buffer, [u64, u64, u64, Box<[u8]>]);
+        Ok((
+            Self {
+                fork,
+                ancestors,
+                length,
+                signature,
+            },
+            rest,
+        ))
     }
 }
 

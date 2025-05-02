@@ -1,4 +1,6 @@
-use compact_encoding::{decode_usize, take_array, write_array, CompactEncoding, EncodingError};
+use compact_encoding::{
+    decode_usize, map_decode, take_array, write_array, CompactEncoding, EncodingError,
+};
 use compact_encoding::{map_encode, sum_encoded_size};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
@@ -80,35 +82,6 @@ impl HeaderTree {
     }
 }
 
-#[macro_export]
-/// Helper for decoding a struct with compact encodable
-macro_rules! decode {
-    // Match the pattern: decode!(StructName, buffer, {field1: type1, field2: type2, ...})
-    ($struct_name:ident, $buffer:expr, {
-        $($field_name:ident : $field_type:ty),* $(,)?
-    }) => {{
-
-        // Variable to hold the current buffer state
-        let mut current_buffer = $buffer;
-
-        // Decode each field in sequence
-        $(
-            let ($field_name, new_buffer) = <$field_type>::decode(current_buffer)?;
-            current_buffer = new_buffer;
-        )*
-
-        // Create the struct with decoded fields
-        let result = $struct_name {
-            $(
-                $field_name,
-            )*
-        };
-
-        // Return the struct and the remaining buffer
-        Ok((result, current_buffer))
-    }};
- }
-
 impl CompactEncoding for HeaderTree {
     fn encoded_size(&self) -> Result<usize, EncodingError> {
         Ok(sum_encoded_size!(
@@ -133,7 +106,17 @@ impl CompactEncoding for HeaderTree {
     where
         Self: Sized,
     {
-        decode!(HeaderTree, buffer, {fork: u64, length: u64, root_hash: Box<[u8]>, signature: Box<[u8]>})
+        let ((fork, length, root_hash, signature), rest) =
+            map_decode!(buffer, [u64, u64, Box<[u8]>, Box<[u8]>]);
+        Ok((
+            Self {
+                fork,
+                length,
+                root_hash,
+                signature,
+            },
+            rest,
+        ))
     }
 }
 
@@ -224,7 +207,14 @@ impl CompactEncoding for HeaderHints {
     where
         Self: Sized,
     {
-        decode!(HeaderHints, buffer, {reorgs: Vec<String>, contiguous_length: u64 })
+        let ((reorgs, contiguous_length), rest) = map_decode!(buffer, [Vec<String>, u64]);
+        Ok((
+            Self {
+                reorgs,
+                contiguous_length,
+            },
+            rest,
+        ))
     }
 }
 
