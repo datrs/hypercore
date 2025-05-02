@@ -22,10 +22,7 @@ impl CompactEncoding for Node {
     where
         Self: Sized,
     {
-        let (index, rest) = u64::decode(buffer)?;
-        let (length, rest) = u64::decode(rest)?;
-        let (hash, rest) = <[u8; 32]>::decode(rest)?;
-
+        let ((index, length, hash), rest) = map_decode!(buffer, [u64, u64, [u8; 32]]);
         Ok((Node::new(index, hash.to_vec(), length), rest))
     }
 }
@@ -56,8 +53,7 @@ impl CompactEncoding for RequestBlock {
     where
         Self: Sized,
     {
-        let (index, rest) = u64::decode(buffer)?;
-        let (nodes, rest) = u64::decode(rest)?;
+        let ((index, nodes), rest) = map_decode!(buffer, [u64, u64]);
         Ok((RequestBlock { index, nodes }, rest))
     }
 }
@@ -93,8 +89,7 @@ impl CompactEncoding for RequestUpgrade {
     where
         Self: Sized,
     {
-        let (start, rest) = u64::decode(buffer)?;
-        let (length, rest) = u64::decode(rest)?;
+        let ((start, length), rest) = map_decode!(buffer, [u64, u64]);
         Ok((RequestUpgrade { start, length }, rest))
     }
 }
@@ -112,9 +107,7 @@ impl CompactEncoding for DataBlock {
     where
         Self: Sized,
     {
-        let (index, rest) = u64::decode(buffer)?;
-        let (value, rest) = Vec::<u8>::decode(rest)?;
-        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        let ((index, value, nodes), rest) = map_decode!(buffer, [u64, Vec<u8>, Vec<Node>]);
         Ok((
             DataBlock {
                 index,
@@ -139,8 +132,7 @@ impl CompactEncoding for DataHash {
     where
         Self: Sized,
     {
-        let (index, rest) = u64::decode(buffer)?;
-        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        let ((index, nodes), rest) = map_decode!(buffer, [u64, Vec<Node>]);
         Ok((DataHash { index, nodes }, rest))
     }
 }
@@ -158,8 +150,7 @@ impl CompactEncoding for DataSeek {
     where
         Self: Sized,
     {
-        let (bytes, rest) = u64::decode(buffer)?;
-        let (nodes, rest) = Vec::<Node>::decode(rest)?;
+        let ((bytes, nodes), rest) = map_decode!(buffer, [u64, Vec<Node>]);
         Ok((DataSeek { bytes, nodes }, rest))
     }
 }
@@ -192,11 +183,8 @@ impl CompactEncoding for DataUpgrade {
     where
         Self: Sized,
     {
-        let (start, rest) = u64::decode(buffer)?;
-        let (length, rest) = u64::decode(rest)?;
-        let (nodes, rest) = Vec::<Node>::decode(rest)?;
-        let (additional_nodes, rest) = Vec::<Node>::decode(rest)?;
-        let (signature, rest) = <Vec<u8>>::decode(rest)?;
+        let ((start, length, nodes, additional_nodes, signature), rest) =
+            map_decode!(buffer, [u64, u64, Vec<Node>, Vec<Node>, Vec<u8>]);
         Ok((
             DataUpgrade {
                 start,
