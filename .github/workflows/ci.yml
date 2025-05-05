@@ -8,6 +8,8 @@ on:
 env:
   RUST_BACKTRACE: 1
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   ci-pass:
@@ -145,4 +147,6 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Format check
       run: |
+        cargo doc
         cargo fmt -- --check
+        cargo clippy --all-targets
