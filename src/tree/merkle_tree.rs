@@ -94,7 +94,7 @@ impl MerkleTree {
                 if length > 0 {
                     length /= 2;
                 }
-                let signature: Option<Signature> = if header_tree.signature.len() > 0 {
+                let signature: Option<Signature> = if !header_tree.signature.is_empty() {
                     Some(
                         Signature::try_from(&*header_tree.signature).map_err(|_err| {
                             HypercoreError::InvalidSignature {
@@ -481,11 +481,7 @@ impl MerkleTree {
                     start: upgrade.start,
                     length: upgrade.length,
                     nodes: p.upgrade.expect("nodes need to be set"),
-                    additional_nodes: if let Some(additional_upgrade) = p.additional_upgrade {
-                        additional_upgrade
-                    } else {
-                        vec![]
-                    },
+                    additional_nodes: p.additional_upgrade.unwrap_or_default(),
                     signature: signature
                         .expect("signature needs to be set")
                         .to_bytes()
@@ -1566,7 +1562,7 @@ fn parent_node(index: u64, left: &Node, right: &Node) -> Node {
     )
 }
 
-fn block_node(index: u64, value: &Vec<u8>) -> Node {
+fn block_node(index: u64, value: &[u8]) -> Node {
     Node::new(
         index,
         Hash::data(value).as_bytes().to_vec(),

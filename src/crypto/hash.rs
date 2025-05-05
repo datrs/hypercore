@@ -220,7 +220,6 @@ pub(crate) fn signable_tree(hash: &[u8], length: u64, fork: u64) -> Box<[u8]> {
         ))
     })()
     .expect("Encoding should not fail")
-    .into()
 }
 
 #[cfg(test)]
