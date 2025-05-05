@@ -68,11 +68,10 @@ impl CompactEncoding for BitfieldUpdate {
         Self: Sized,
     {
         let ([flags], rest) = take_array::<1>(buffer)?;
-        let (start, rest) = u64::decode(rest)?;
-        let (length, rest) = u64::decode(rest)?;
+        let ((start, length), rest) = map_decode!(rest, [u64, u64]);
         Ok((
             BitfieldUpdate {
-                drop: flags == 1,
+                drop: flags & 1 == 1,
                 start,
                 length,
             },
