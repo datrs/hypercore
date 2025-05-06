@@ -1,7 +1,8 @@
-use compact_encoding::EncodingErrorKind;
-use compact_encoding::{CompactEncoding, EncodingError, State};
+use compact_encoding::{
+    decode_usize, map_decode, take_array, write_array, CompactEncoding, EncodingError,
+};
+use compact_encoding::{map_encode, sum_encoded_size};
 use ed25519_dalek::{SigningKey, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use std::convert::TryInto;
 
 use crate::crypto::default_signer_manifest;
 use crate::crypto::Manifest;
@@ -81,86 +82,108 @@ impl HeaderTree {
     }
 }
 
-impl CompactEncoding<HeaderTree> for State {
-    fn preencode(&mut self, value: &HeaderTree) -> Result<usize, EncodingError> {
-        self.preencode(&value.fork)?;
-        self.preencode(&value.length)?;
-        self.preencode(&value.root_hash)?;
-        self.preencode(&value.signature)
+impl CompactEncoding for HeaderTree {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(
+            self.fork,
+            self.length,
+            self.root_hash,
+            self.signature
+        ))
     }
 
-    fn encode(&mut self, value: &HeaderTree, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.fork, buffer)?;
-        self.encode(&value.length, buffer)?;
-        self.encode(&value.root_hash, buffer)?;
-        self.encode(&value.signature, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(
+            buffer,
+            self.fork,
+            self.length,
+            self.root_hash,
+            self.signature
+        ))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<HeaderTree, EncodingError> {
-        let fork: u64 = self.decode(buffer)?;
-        let length: u64 = self.decode(buffer)?;
-        let root_hash: Box<[u8]> = self.decode(buffer)?;
-        let signature: Box<[u8]> = self.decode(buffer)?;
-        Ok(HeaderTree {
-            fork,
-            length,
-            root_hash,
-            signature,
-        })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((fork, length, root_hash, signature), rest) =
+            map_decode!(buffer, [u64, u64, Box<[u8]>, Box<[u8]>]);
+        Ok((
+            Self {
+                fork,
+                length,
+                root_hash,
+                signature,
+            },
+            rest,
+        ))
     }
 }
 
 /// NB: In Javascript's sodium the secret key contains in itself also the public key, so to
 /// maintain binary compatibility, we store the public key in the oplog now twice.
-impl CompactEncoding<PartialKeypair> for State {
-    fn preencode(&mut self, value: &PartialKeypair) -> Result<usize, EncodingError> {
-        self.add_end(1 + PUBLIC_KEY_LENGTH)?;
-        match &value.secret {
-            Some(_) => {
-                // Also add room for the public key
-                self.add_end(1 + SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH)
-            }
-            None => self.add_end(1),
-        }
-    }
-
-    fn encode(
-        &mut self,
-        value: &PartialKeypair,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        let public_key_bytes: Box<[u8]> = value.public.as_bytes().to_vec().into_boxed_slice();
-        self.encode(&public_key_bytes, buffer)?;
-        match &value.secret {
-            Some(secret_key) => {
-                let mut secret_key_bytes: Vec<u8> =
-                    Vec::with_capacity(SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH);
-                secret_key_bytes.extend_from_slice(&secret_key.to_bytes());
-                secret_key_bytes.extend_from_slice(&public_key_bytes);
-                let secret_key_bytes: Box<[u8]> = secret_key_bytes.into_boxed_slice();
-                self.encode(&secret_key_bytes, buffer)
-            }
-            None => self.set_byte_to_buffer(0, buffer),
-        }
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<PartialKeypair, EncodingError> {
-        let public_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] =
-            public_key_bytes[0..PUBLIC_KEY_LENGTH].try_into().unwrap();
-        let secret_key_bytes: Box<[u8]> = self.decode(buffer)?;
-        let secret: Option<SigningKey> = if secret_key_bytes.is_empty() {
-            None
-        } else {
-            let secret_key_bytes: [u8; SECRET_KEY_LENGTH] =
-                secret_key_bytes[0..SECRET_KEY_LENGTH].try_into().unwrap();
-            Some(SigningKey::from_bytes(&secret_key_bytes))
-        };
-
-        Ok(PartialKeypair {
-            public: VerifyingKey::from_bytes(&public_key_bytes).unwrap(),
-            secret,
+impl CompactEncoding for PartialKeypair {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 // len of public key 
+            + PUBLIC_KEY_LENGTH // public key bytes
+            + match self.secret {
+            // Secret key contains the public key
+            Some(_) => 1 + SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH,
+            None => 1,
         })
+    }
+
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let public_key = self.public.as_bytes().to_vec();
+        let rest = public_key.encode(buffer)?;
+        match &self.secret {
+            Some(sk) => {
+                let sk_bytes = [&sk.to_bytes()[..], &public_key[..]].concat();
+                sk_bytes.encode(rest)
+            }
+            None => write_array(&[0], rest),
+        }
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        // the ful secret/private key contains the public key duplicated in it
+        const FULL_SIGNING_KEY_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
+        let (pk_len, rest) = decode_usize(buffer)?;
+        let (public, rest) = match pk_len {
+            PUBLIC_KEY_LENGTH => {
+                let (pk_bytes, rest) = take_array::<PUBLIC_KEY_LENGTH>(rest)?;
+                let public = VerifyingKey::from_bytes(&pk_bytes).map_err(|e| {
+                    EncodingError::invalid_data(&format!(
+                        "Could not decode public key. error: [{e}]"
+                    ))
+                })?;
+                (public, rest)
+            }
+            len => {
+                return Err(EncodingError::invalid_data(&format!(
+                    "Incorrect public key length while decoding. length = [{len}] expected [{PUBLIC_KEY_LENGTH}]"
+                )))
+            }
+        };
+        let (sk_len, rest) = decode_usize(rest)?;
+        let (secret, rest) = match sk_len {
+            0 => (None, rest),
+            // full signing key = secret_key.cocat(public_key)
+            FULL_SIGNING_KEY_LENGTH => {
+                let (full_key_bytes, rest) = take_array::<FULL_SIGNING_KEY_LENGTH>(rest)?;
+                let (sk_bytes, _pk_bytes) = take_array::<SECRET_KEY_LENGTH>(&full_key_bytes)?;
+                (Some(SigningKey::from_bytes(&sk_bytes)), rest)
+            }
+            len => {
+                return Err(EncodingError::invalid_data(&format!(
+                    "Incorrect secret key length while decoding. length = [{len}] expected [{FULL_SIGNING_KEY_LENGTH}]"
+                )))
+            }
+        };
+        Ok((PartialKeypair { public, secret }, rest))
     }
 }
 
@@ -171,154 +194,162 @@ pub(crate) struct HeaderHints {
     pub(crate) contiguous_length: u64,
 }
 
-impl CompactEncoding<HeaderHints> for State {
-    fn preencode(&mut self, value: &HeaderHints) -> Result<usize, EncodingError> {
-        self.preencode(&value.reorgs)?;
-        self.preencode(&value.contiguous_length)
+impl CompactEncoding for HeaderHints {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.reorgs, self.contiguous_length))
     }
 
-    fn encode(&mut self, value: &HeaderHints, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.encode(&value.reorgs, buffer)?;
-        self.encode(&value.contiguous_length, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.reorgs, self.contiguous_length))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<HeaderHints, EncodingError> {
-        Ok(HeaderHints {
-            reorgs: self.decode(buffer)?,
-            contiguous_length: self.decode(buffer)?,
-        })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((reorgs, contiguous_length), rest) = map_decode!(buffer, [Vec<String>, u64]);
+        Ok((
+            Self {
+                reorgs,
+                contiguous_length,
+            },
+            rest,
+        ))
     }
 }
 
-impl CompactEncoding<Header> for State {
-    fn preencode(&mut self, value: &Header) -> Result<usize, EncodingError> {
-        self.add_end(1)?; // Version
-        self.add_end(1)?; // Flags
-        self.preencode_fixed_32()?; // key
-        self.preencode(&value.manifest)?;
-        self.preencode(&value.key_pair)?;
-        self.preencode(&value.user_data)?;
-        self.preencode(&value.tree)?;
-        self.preencode(&value.hints)
+impl CompactEncoding for Header {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 + 1
+            + 32
+            + sum_encoded_size!(
+                self.manifest,
+                self.key_pair,
+                self.user_data,
+                self.tree,
+                self.hints
+            ))
     }
 
-    fn encode(&mut self, value: &Header, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.set_byte_to_buffer(1, buffer)?; // Version
-        let flags: u8 = 2 | 4; // Manifest and key pair, TODO: external=1
-        self.set_byte_to_buffer(flags, buffer)?;
-        self.encode_fixed_32(&value.key, buffer)?;
-        self.encode(&value.manifest, buffer)?;
-        self.encode(&value.key_pair, buffer)?;
-        self.encode(&value.user_data, buffer)?;
-        self.encode(&value.tree, buffer)?;
-        self.encode(&value.hints, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = write_array(&[1, 2 | 4], buffer)?;
+        Ok(map_encode!(
+            rest,
+            self.key,
+            self.manifest,
+            self.key_pair,
+            self.user_data,
+            self.tree,
+            self.hints
+        ))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<Header, EncodingError> {
-        let version: u8 = self.decode_u8(buffer)?;
-        if version != 1 {
-            panic!("Unknown oplog version {}", version);
-        }
-        let _flags: u8 = self.decode_u8(buffer)?;
-        let key: [u8; 32] = self
-            .decode_fixed_32(buffer)?
-            .to_vec()
-            .try_into()
-            .map_err(|_err| {
-                EncodingError::new(
-                    EncodingErrorKind::InvalidData,
-                    "Invalid key in oplog header",
-                )
-            })?;
-        let manifest: Manifest = self.decode(buffer)?;
-        let key_pair: PartialKeypair = self.decode(buffer)?;
-        let user_data: Vec<String> = self.decode(buffer)?;
-        let tree: HeaderTree = self.decode(buffer)?;
-        let hints: HeaderHints = self.decode(buffer)?;
-
-        Ok(Header {
-            key,
-            manifest,
-            key_pair,
-            user_data,
-            tree,
-            hints,
-        })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([_version, _flags], rest) = take_array::<2>(buffer)?;
+        let (key, rest) = take_array::<32>(rest)?;
+        let ((manifest, key_pair, user_data, tree, hints), rest) = map_decode!(
+            rest, [
+                Manifest, PartialKeypair, Vec<String>, HeaderTree, HeaderHints
+            ]
+        );
+        Ok((
+            Header {
+                key,
+                manifest,
+                key_pair,
+                user_data,
+                tree,
+                hints,
+            },
+            rest,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use compact_encoding::{map_decode, to_encoded_bytes};
+
     use super::*;
 
     use crate::crypto::generate_signing_key;
 
     #[test]
     fn encode_partial_key_pair() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
         let signing_key = generate_signing_key();
         let key_pair = PartialKeypair {
             public: signing_key.verifying_key(),
             secret: Some(signing_key),
         };
-        enc_state.preencode(&key_pair)?;
-        let mut buffer = enc_state.create_buffer();
-        // Pub key: 1 byte for length, 32 bytes for content
-        // Sec key: 1 byte for length, 64 bytes for data
+
+        // sizeof(pk.len()) + sizeof(pk) + sizeof(sk.len() + sizeof(sk)
         let expected_len = 1 + 32 + 1 + 64;
-        assert_eq!(buffer.len(), expected_len);
-        assert_eq!(enc_state.end(), expected_len);
-        assert_eq!(enc_state.start(), 0);
-        enc_state.encode(&key_pair, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let key_pair_ret: PartialKeypair = dec_state.decode(&buffer)?;
-        assert_eq!(key_pair.public, key_pair_ret.public);
+        let encoded = to_encoded_bytes!(&key_pair);
+        assert_eq!(encoded.len(), expected_len);
+        let ((dec_kp,), rest) = map_decode!(&encoded, [PartialKeypair]);
+        assert!(rest.is_empty());
+        assert_eq!(key_pair.public, dec_kp.public);
         assert_eq!(
             key_pair.secret.unwrap().to_bytes(),
-            key_pair_ret.secret.unwrap().to_bytes()
+            dec_kp.secret.unwrap().to_bytes()
         );
         Ok(())
     }
 
     #[test]
     fn encode_tree() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
         let tree = HeaderTree::new();
-        enc_state.preencode(&tree)?;
-        let mut buffer = enc_state.create_buffer();
-        enc_state.encode(&tree, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let tree_ret: HeaderTree = dec_state.decode(&buffer)?;
-        assert_eq!(tree, tree_ret);
+        let encoded = to_encoded_bytes!(tree);
+        // all sizeof(0) + sizeof(0) + sizeof(vec![]) + sizeof(vec![]) == 4
+        assert_eq!(encoded.len(), 4);
+        let ((dec_tree,), rest) = map_decode!(&encoded, [HeaderTree]);
+        assert!(rest.is_empty());
+        assert_eq!(dec_tree, tree);
+        Ok(())
+    }
+
+    #[test]
+    fn encode_tree_with_data() -> Result<(), EncodingError> {
+        let tree = HeaderTree {
+            fork: 520,
+            length: 647,
+            root_hash: vec![12; 464].into_boxed_slice(),
+            signature: vec![46; 22].into_boxed_slice(),
+        };
+        let encoded = to_encoded_bytes!(&tree);
+        let ((dec_tree,), rest) = map_decode!(&encoded, [HeaderTree]);
+        assert!(rest.is_empty());
+        assert_eq!(dec_tree, tree);
         Ok(())
     }
 
     #[test]
     fn encode_header() -> Result<(), EncodingError> {
-        let mut enc_state = State::new();
+        //let mut enc_state = State::new();
         let signing_key = generate_signing_key();
         let signing_key = PartialKeypair {
             public: signing_key.verifying_key(),
             secret: Some(signing_key),
         };
         let header = Header::new(signing_key);
-        enc_state.preencode(&header)?;
-        let mut buffer = enc_state.create_buffer();
-        enc_state.encode(&header, &mut buffer)?;
-        let mut dec_state = State::from_buffer(&buffer);
-        let header_ret: Header = dec_state.decode(&buffer)?;
-        assert_eq!(header.key_pair.public, header_ret.key_pair.public);
-        assert_eq!(header.tree.fork, header_ret.tree.fork);
-        assert_eq!(header.tree.length, header_ret.tree.length);
-        assert_eq!(header.tree.length, header_ret.tree.length);
-        assert_eq!(header.manifest.hash, header_ret.manifest.hash);
+        let encoded = to_encoded_bytes!(&header);
+        let ((dec_header,), rest) = map_decode!(&encoded, [Header]);
+        assert!(rest.is_empty());
+        assert_eq!(header.key_pair.public, dec_header.key_pair.public);
+        assert_eq!(header.tree.fork, dec_header.tree.fork);
+        assert_eq!(header.tree.length, dec_header.tree.length);
+        assert_eq!(header.tree.length, dec_header.tree.length);
+        assert_eq!(header.manifest.hash, dec_header.manifest.hash);
         assert_eq!(
             header.manifest.signer.public_key,
-            header_ret.manifest.signer.public_key
+            dec_header.manifest.signer.public_key
         );
         assert_eq!(
             header.manifest.signer.signature,
-            header_ret.manifest.signer.signature
+            dec_header.manifest.signer.signature
         );
         Ok(())
     }

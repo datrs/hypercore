@@ -27,7 +27,7 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }
 getrandom = { version = "0.2", features = ["js"] }
 thiserror = "1"
 tracing = "0.1"
-compact-encoding = "1"
+compact-encoding = "2"
 flat-tree = "6"
 merkle-tree-stream =  "0.12"
 pretty-hash = "0.4"
@@ -47,8 +47,8 @@ random-access-disk = { version = "3", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.70"
-proptest = "1.1.0"
-proptest-derive = "0.2.0"
+proptest = "1.6.0"
+proptest-derive = "0.5.1"
 data-encoding = "2.2.0"
 remove_dir_all = "0.7.0"
 tempfile = "3.1.0"

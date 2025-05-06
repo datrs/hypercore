@@ -1,337 +1,228 @@
 //! Hypercore-specific compact encodings
-pub use compact_encoding::{CompactEncoding, EncodingError, EncodingErrorKind, State};
-use std::convert::TryInto;
-use std::ops::{Deref, DerefMut};
-
 use crate::{
     crypto::{Manifest, ManifestSigner},
     DataBlock, DataHash, DataSeek, DataUpgrade, Node, RequestBlock, RequestSeek, RequestUpgrade,
 };
+use compact_encoding::{
+    as_array, encode_bytes_fixed, encoded_size_usize, map_decode, map_encode, sum_encoded_size,
+    take_array, write_slice, CompactEncoding, EncodingError, EncodingErrorKind, VecEncodable,
+};
 
-#[derive(Debug, Clone)]
-/// Wrapper struct for compact_encoding::State
-pub struct HypercoreState(pub State);
+impl CompactEncoding for Node {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.index, self.length) + 32)
+    }
 
-impl Default for HypercoreState {
-    /// Passthrought to compact_encoding
-    fn default() -> Self {
-        Self::new()
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let hash = as_array::<32>(&self.hash)?;
+        Ok(map_encode!(buffer, self.index, self.length, hash))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((index, length, hash), rest) = map_decode!(buffer, [u64, u64, [u8; 32]]);
+        Ok((Node::new(index, hash.to_vec(), length), rest))
     }
 }
 
-impl HypercoreState {
-    /// Passthrought to compact_encoding
-    pub fn new() -> HypercoreState {
-        HypercoreState(State::new())
-    }
-
-    /// Passthrought to compact_encoding
-    pub fn new_with_size(size: usize) -> (HypercoreState, Box<[u8]>) {
-        let (state, buffer) = State::new_with_size(size);
-        (HypercoreState(state), buffer)
-    }
-
-    /// Passthrought to compact_encoding
-    pub fn new_with_start_and_end(start: usize, end: usize) -> HypercoreState {
-        HypercoreState(State::new_with_start_and_end(start, end))
-    }
-
-    /// Passthrought to compact_encoding
-    pub fn from_buffer(buffer: &[u8]) -> HypercoreState {
-        HypercoreState(State::from_buffer(buffer))
-    }
-}
-
-impl Deref for HypercoreState {
-    type Target = State;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for HypercoreState {
-    fn deref_mut(&mut self) -> &mut State {
-        &mut self.0
-    }
-}
-
-impl CompactEncoding<Node> for HypercoreState {
-    fn preencode(&mut self, value: &Node) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.index)?;
-        self.0.preencode(&value.length)?;
-        self.0.preencode_fixed_32()
-    }
-
-    fn encode(&mut self, value: &Node, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.index, buffer)?;
-        self.0.encode(&value.length, buffer)?;
-        self.0.encode_fixed_32(&value.hash, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<Node, EncodingError> {
-        let index: u64 = self.0.decode(buffer)?;
-        let length: u64 = self.0.decode(buffer)?;
-        let hash: Box<[u8]> = self.0.decode_fixed_32(buffer)?;
-        Ok(Node::new(index, hash.to_vec(), length))
-    }
-}
-
-impl CompactEncoding<Vec<Node>> for HypercoreState {
-    fn preencode(&mut self, value: &Vec<Node>) -> Result<usize, EncodingError> {
-        let len = value.len();
-        self.0.preencode(&len)?;
-        for val in value {
-            self.preencode(val)?;
+impl VecEncodable for Node {
+    fn vec_encoded_size(vec: &[Self]) -> Result<usize, EncodingError>
+    where
+        Self: Sized,
+    {
+        let mut out = encoded_size_usize(vec.len());
+        for x in vec {
+            out += x.encoded_size()?;
         }
-        Ok(self.end())
-    }
-
-    fn encode(&mut self, value: &Vec<Node>, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        let len = value.len();
-        self.0.encode(&len, buffer)?;
-        for val in value {
-            self.encode(val, buffer)?;
-        }
-        Ok(self.start())
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<Vec<Node>, EncodingError> {
-        let len: usize = self.0.decode(buffer)?;
-        let mut value = Vec::with_capacity(len);
-        for _ in 0..len {
-            value.push(self.decode(buffer)?);
-        }
-        Ok(value)
+        Ok(out)
     }
 }
 
-impl CompactEncoding<RequestBlock> for HypercoreState {
-    fn preencode(&mut self, value: &RequestBlock) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.index)?;
-        self.0.preencode(&value.nodes)
+impl CompactEncoding for RequestBlock {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.index, self.nodes))
     }
 
-    fn encode(&mut self, value: &RequestBlock, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.index, buffer)?;
-        self.0.encode(&value.nodes, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.index, self.nodes))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<RequestBlock, EncodingError> {
-        let index: u64 = self.0.decode(buffer)?;
-        let nodes: u64 = self.0.decode(buffer)?;
-        Ok(RequestBlock { index, nodes })
-    }
-}
-
-impl CompactEncoding<RequestSeek> for HypercoreState {
-    fn preencode(&mut self, value: &RequestSeek) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.bytes)
-    }
-
-    fn encode(&mut self, value: &RequestSeek, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.bytes, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<RequestSeek, EncodingError> {
-        let bytes: u64 = self.0.decode(buffer)?;
-        Ok(RequestSeek { bytes })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((index, nodes), rest) = map_decode!(buffer, [u64, u64]);
+        Ok((RequestBlock { index, nodes }, rest))
     }
 }
 
-impl CompactEncoding<RequestUpgrade> for HypercoreState {
-    fn preencode(&mut self, value: &RequestUpgrade) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.start)?;
-        self.0.preencode(&value.length)
+impl CompactEncoding for RequestSeek {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        self.bytes.encoded_size()
     }
 
-    fn encode(
-        &mut self,
-        value: &RequestUpgrade,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        self.0.encode(&value.start, buffer)?;
-        self.0.encode(&value.length, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        self.bytes.encode(buffer)
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<RequestUpgrade, EncodingError> {
-        let start: u64 = self.0.decode(buffer)?;
-        let length: u64 = self.0.decode(buffer)?;
-        Ok(RequestUpgrade { start, length })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let (bytes, rest) = u64::decode(buffer)?;
+        Ok((RequestSeek { bytes }, rest))
     }
 }
 
-impl CompactEncoding<DataBlock> for HypercoreState {
-    fn preencode(&mut self, value: &DataBlock) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.index)?;
-        self.0.preencode(&value.value)?;
-        self.preencode(&value.nodes)
+impl CompactEncoding for RequestUpgrade {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.start, self.length))
     }
 
-    fn encode(&mut self, value: &DataBlock, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.index, buffer)?;
-        self.0.encode(&value.value, buffer)?;
-        self.encode(&value.nodes, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.start, self.length))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<DataBlock, EncodingError> {
-        let index: u64 = self.0.decode(buffer)?;
-        let value: Vec<u8> = self.0.decode(buffer)?;
-        let nodes: Vec<Node> = self.decode(buffer)?;
-        Ok(DataBlock {
-            index,
-            value,
-            nodes,
-        })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((start, length), rest) = map_decode!(buffer, [u64, u64]);
+        Ok((RequestUpgrade { start, length }, rest))
     }
 }
 
-impl CompactEncoding<DataHash> for HypercoreState {
-    fn preencode(&mut self, value: &DataHash) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.index)?;
-        self.preencode(&value.nodes)
+impl CompactEncoding for DataBlock {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.index, self.value, self.nodes))
     }
 
-    fn encode(&mut self, value: &DataHash, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.index, buffer)?;
-        self.encode(&value.nodes, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.index, self.value, self.nodes))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<DataHash, EncodingError> {
-        let index: u64 = self.0.decode(buffer)?;
-        let nodes: Vec<Node> = self.decode(buffer)?;
-        Ok(DataHash { index, nodes })
-    }
-}
-
-impl CompactEncoding<DataSeek> for HypercoreState {
-    fn preencode(&mut self, value: &DataSeek) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.bytes)?;
-        self.preencode(&value.nodes)
-    }
-
-    fn encode(&mut self, value: &DataSeek, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.bytes, buffer)?;
-        self.encode(&value.nodes, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<DataSeek, EncodingError> {
-        let bytes: u64 = self.0.decode(buffer)?;
-        let nodes: Vec<Node> = self.decode(buffer)?;
-        Ok(DataSeek { bytes, nodes })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((index, value, nodes), rest) = map_decode!(buffer, [u64, Vec<u8>, Vec<Node>]);
+        Ok((
+            DataBlock {
+                index,
+                value,
+                nodes,
+            },
+            rest,
+        ))
     }
 }
 
-impl CompactEncoding<DataUpgrade> for HypercoreState {
-    fn preencode(&mut self, value: &DataUpgrade) -> Result<usize, EncodingError> {
-        self.0.preencode(&value.start)?;
-        self.0.preencode(&value.length)?;
-        self.preencode(&value.nodes)?;
-        self.preencode(&value.additional_nodes)?;
-        self.0.preencode(&value.signature)
+impl CompactEncoding for DataHash {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.index, self.nodes))
     }
 
-    fn encode(&mut self, value: &DataUpgrade, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.0.encode(&value.start, buffer)?;
-        self.0.encode(&value.length, buffer)?;
-        self.encode(&value.nodes, buffer)?;
-        self.encode(&value.additional_nodes, buffer)?;
-        self.0.encode(&value.signature, buffer)
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.index, self.nodes))
     }
 
-    fn decode(&mut self, buffer: &[u8]) -> Result<DataUpgrade, EncodingError> {
-        let start: u64 = self.0.decode(buffer)?;
-        let length: u64 = self.0.decode(buffer)?;
-        let nodes: Vec<Node> = self.decode(buffer)?;
-        let additional_nodes: Vec<Node> = self.decode(buffer)?;
-        let signature: Vec<u8> = self.0.decode(buffer)?;
-        Ok(DataUpgrade {
-            start,
-            length,
-            nodes,
-            additional_nodes,
-            signature,
-        })
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((index, nodes), rest) = map_decode!(buffer, [u64, Vec<Node>]);
+        Ok((DataHash { index, nodes }, rest))
     }
 }
 
-impl CompactEncoding<Manifest> for State {
-    fn preencode(&mut self, value: &Manifest) -> Result<usize, EncodingError> {
-        self.add_end(1)?; // Version
-        self.add_end(1)?; // hash in one byte
-        self.add_end(1)?; // type in one byte
-        self.preencode(&value.signer)
+impl CompactEncoding for DataSeek {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(self.bytes, self.nodes))
     }
 
-    fn encode(&mut self, value: &Manifest, buffer: &mut [u8]) -> Result<usize, EncodingError> {
-        self.set_byte_to_buffer(0, buffer)?; // Version
-        if &value.hash == "blake2b" {
-            self.set_byte_to_buffer(0, buffer)?; // Version
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(buffer, self.bytes, self.nodes))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((bytes, nodes), rest) = map_decode!(buffer, [u64, Vec<Node>]);
+        Ok((DataSeek { bytes, nodes }, rest))
+    }
+}
+
+// from:
+// https://github.com/holepunchto/hypercore/blob/d21ebdeca1b27eb4c2232f8af17d5ae939ee97f2/lib/messages.js#L394
+impl CompactEncoding for DataUpgrade {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(sum_encoded_size!(
+            self.start,
+            self.length,
+            self.nodes,
+            self.additional_nodes,
+            self.signature
+        ))
+    }
+
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        Ok(map_encode!(
+            buffer,
+            self.start,
+            self.length,
+            self.nodes,
+            self.additional_nodes,
+            self.signature
+        ))
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ((start, length, nodes, additional_nodes, signature), rest) =
+            map_decode!(buffer, [u64, u64, Vec<Node>, Vec<Node>, Vec<u8>]);
+        Ok((
+            DataUpgrade {
+                start,
+                length,
+                nodes,
+                additional_nodes,
+                signature,
+            },
+            rest,
+        ))
+    }
+}
+
+impl CompactEncoding for ManifestSigner {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(
+            1  /* Signature */ + 32  /* namespace */ + 32, /* public_key */
+        )
+    }
+
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = if &self.signature == "ed25519" {
+            write_slice(&[0], buffer)?
         } else {
             return Err(EncodingError::new(
                 EncodingErrorKind::InvalidData,
-                &format!("Unknown hash: {}", &value.hash),
+                &format!("Unknown signature type: {}", &self.signature),
             ));
-        }
-        // Type. 0: static, 1: signer, 2: multiple signers
-        self.set_byte_to_buffer(1, buffer)?; // Version
-        self.encode(&value.signer, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<Manifest, EncodingError> {
-        let version: u8 = self.decode_u8(buffer)?;
-        if version != 0 {
-            panic!("Unknown manifest version {}", version);
-        }
-        let hash_id: u8 = self.decode_u8(buffer)?;
-        let hash: String = if hash_id != 0 {
-            return Err(EncodingError::new(
-                EncodingErrorKind::InvalidData,
-                &format!("Unknown hash id: {hash_id}"),
-            ));
-        } else {
-            "blake2b".to_string()
         };
-
-        let manifest_type: u8 = self.decode_u8(buffer)?;
-        if manifest_type != 1 {
-            return Err(EncodingError::new(
-                EncodingErrorKind::InvalidData,
-                &format!("Unknown manifest type: {manifest_type}"),
-            ));
-        }
-        let signer: ManifestSigner = self.decode(buffer)?;
-
-        Ok(Manifest { hash, signer })
-    }
-}
-
-impl CompactEncoding<ManifestSigner> for State {
-    fn preencode(&mut self, _value: &ManifestSigner) -> Result<usize, EncodingError> {
-        self.add_end(1)?; // Signature
-        self.preencode_fixed_32()?;
-        self.preencode_fixed_32()
+        let rest = encode_bytes_fixed(&self.namespace, rest)?;
+        encode_bytes_fixed(&self.public_key, rest)
     }
 
-    fn encode(
-        &mut self,
-        value: &ManifestSigner,
-        buffer: &mut [u8],
-    ) -> Result<usize, EncodingError> {
-        if &value.signature == "ed25519" {
-            self.set_byte_to_buffer(0, buffer)?;
-        } else {
-            return Err(EncodingError::new(
-                EncodingErrorKind::InvalidData,
-                &format!("Unknown signature type: {}", &value.signature),
-            ));
-        }
-        self.encode_fixed_32(&value.namespace, buffer)?;
-        self.encode_fixed_32(&value.public_key, buffer)
-    }
-
-    fn decode(&mut self, buffer: &[u8]) -> Result<ManifestSigner, EncodingError> {
-        let signature_id: u8 = self.decode_u8(buffer)?;
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([signature_id], rest) = take_array::<1>(buffer)?;
         let signature: String = if signature_id != 0 {
             return Err(EncodingError::new(
                 EncodingErrorKind::InvalidData,
@@ -340,31 +231,67 @@ impl CompactEncoding<ManifestSigner> for State {
         } else {
             "ed25519".to_string()
         };
-        let namespace: [u8; 32] =
-            self.decode_fixed_32(buffer)?
-                .to_vec()
-                .try_into()
-                .map_err(|_err| {
-                    EncodingError::new(
-                        EncodingErrorKind::InvalidData,
-                        "Invalid namespace in manifest signer",
-                    )
-                })?;
-        let public_key: [u8; 32] =
-            self.decode_fixed_32(buffer)?
-                .to_vec()
-                .try_into()
-                .map_err(|_err| {
-                    EncodingError::new(
-                        EncodingErrorKind::InvalidData,
-                        "Invalid public key in manifest signer",
-                    )
-                })?;
 
-        Ok(ManifestSigner {
-            signature,
-            namespace,
-            public_key,
-        })
+        let (namespace, rest) = take_array::<32>(rest)?;
+        let (public_key, rest) = take_array::<32>(rest)?;
+        Ok((
+            ManifestSigner {
+                signature,
+                namespace,
+                public_key,
+            },
+            rest,
+        ))
+    }
+}
+
+impl CompactEncoding for Manifest {
+    fn encoded_size(&self) -> Result<usize, EncodingError> {
+        Ok(1 // Version
+        + 1 // hash in one byte
+        + 1 // type in one byte
+        + self.signer.encoded_size()?)
+    }
+
+    fn encode<'a>(&self, buffer: &'a mut [u8]) -> Result<&'a mut [u8], EncodingError> {
+        let rest = write_slice(&[0], buffer)?;
+        let rest = if &self.hash == "blake2b" {
+            write_slice(&[0], rest)?
+        } else {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash: {}", &self.hash),
+            ));
+        };
+        let rest = write_slice(&[1], rest)?;
+        self.signer.encode(rest)
+    }
+
+    fn decode(buffer: &[u8]) -> Result<(Self, &[u8]), EncodingError>
+    where
+        Self: Sized,
+    {
+        let ([version], rest) = take_array::<1>(buffer)?;
+        if version != 0 {
+            panic!("Unknown manifest version {}", version);
+        }
+        let ([hash_id], rest) = take_array::<1>(rest)?;
+        let hash: String = if hash_id != 0 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown hash id: {hash_id}"),
+            ));
+        } else {
+            "blake2b".to_string()
+        };
+        let ([manifest_type], rest) = take_array::<1>(rest)?;
+        if manifest_type != 1 {
+            return Err(EncodingError::new(
+                EncodingErrorKind::InvalidData,
+                &format!("Unknown manifest type: {manifest_type}"),
+            ));
+        }
+        let (signer, rest) = ManifestSigner::decode(rest)?;
+        Ok((Manifest { hash, signer }, rest))
     }
 }

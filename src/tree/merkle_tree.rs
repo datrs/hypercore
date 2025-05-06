@@ -1,4 +1,6 @@
-use compact_encoding::State;
+use compact_encoding::{
+    as_array, map_decode, to_encoded_bytes, EncodingError, FixedWidthEncoding, FixedWidthU64,
+};
 use ed25519_dalek::Signature;
 use futures::future::Either;
 use intmap::IntMap;
@@ -92,7 +94,7 @@ impl MerkleTree {
                 if length > 0 {
                     length /= 2;
                 }
-                let signature: Option<Signature> = if header_tree.signature.len() > 0 {
+                let signature: Option<Signature> = if !header_tree.signature.is_empty() {
                     Some(
                         Signature::try_from(&*header_tree.signature).map_err(|_err| {
                             HypercoreError::InvalidSignature {
@@ -479,11 +481,7 @@ impl MerkleTree {
                     start: upgrade.start,
                     length: upgrade.length,
                     nodes: p.upgrade.expect("nodes need to be set"),
-                    additional_nodes: if let Some(additional_upgrade) = p.additional_upgrade {
-                        additional_upgrade
-                    } else {
-                        vec![]
-                    },
+                    additional_nodes: p.additional_upgrade.unwrap_or_default(),
                     signature: signature
                         .expect("signature needs to be set")
                         .to_bytes()
@@ -658,13 +656,14 @@ impl MerkleTree {
     pub(crate) fn flush_nodes(&mut self) -> Vec<StoreInfo> {
         let mut infos_to_flush: Vec<StoreInfo> = Vec::with_capacity(self.unflushed.len());
         for (_, node) in self.unflushed.drain() {
-            let (mut state, mut buffer) = State::new_with_size(40);
-            state
-                .encode_u64(node.length, &mut buffer)
-                .expect("Encoding u64 should not fail");
-            state
-                .encode_fixed_32(&node.hash, &mut buffer)
-                .expect("Encoding fixed 32 bytes should not fail");
+            let buffer = (|| {
+                let hash = as_array::<32>(&node.hash)?;
+                Ok::<Box<[u8]>, EncodingError>(to_encoded_bytes!(
+                    node.length.as_fixed_width(),
+                    hash
+                ))
+            })()
+            .expect("Encoding u64 should not fail");
             infos_to_flush.push(StoreInfo::new_content(
                 Store::Tree,
                 node.index * 40,
@@ -1475,8 +1474,7 @@ fn index_from_info(info: &StoreInfo) -> u64 {
 fn node_from_bytes(index: &u64, data: &[u8]) -> Result<Node, HypercoreError> {
     let len_buf = &data[..8];
     let hash = &data[8..];
-    let mut state = State::from_buffer(len_buf);
-    let len = state.decode_u64(len_buf)?;
+    let len = map_decode!(len_buf, [FixedWidthU64<'_>]).0 .0;
     Ok(Node::new(*index, hash.to_vec(), len))
 }
 
@@ -1564,7 +1562,7 @@ fn parent_node(index: u64, left: &Node, right: &Node) -> Node {
     )
 }
 
-fn block_node(index: u64, value: &Vec<u8>) -> Node {
+fn block_node(index: u64, value: &[u8]) -> Node {
     Node::new(
         index,
         Hash::data(value).as_bytes().to_vec(),
