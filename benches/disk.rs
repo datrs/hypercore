@@ -28,7 +28,7 @@ async fn create_hypercore(name: &str) -> Result<Hypercore, HypercoreError> {
         .prefix(name)
         .tempdir()
         .unwrap()
-        .into_path();
+        .keep();
     let storage = Storage::new_disk(&dir, true).await?;
     HypercoreBuilder::new(storage)
         .node_cache_options(hypercore::CacheOptionsBuilder::new())
