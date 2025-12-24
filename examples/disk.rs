@@ -14,7 +14,7 @@ async fn main() {
         .prefix("examples_disk")
         .tempdir()
         .unwrap()
-        .into_path();
+        .keep();
 
     // Create a disk storage, overwriting existing values.
     let overwrite = true;
