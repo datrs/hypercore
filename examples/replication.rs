@@ -19,7 +19,7 @@ async fn main() {
         .prefix("examples_replication")
         .tempdir()
         .unwrap()
-        .into_path();
+        .keep();
 
     // Create a disk storage, overwriting existing values.
     let overwrite = true;

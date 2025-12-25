@@ -1,4 +1,30 @@
-## 2024-10-25, Version v0.14.0
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+<!-- next-header -->
+
+## [Unreleased] - ReleaseDate
+
+### Added
+
+* More impl's of `CompactEncoding`.
+
+### Changed
+
+* New version of compact-encoding used.
+
+### Removed
+
+* `HypercoreState` struct. It is obsolete with new compact-encoding version.
+
+
+
+## [0.14.0] - 2024-10-25
+
 ### Commits
 - [[`5a1f98f8c7`](https://github.com/datrs/hypercore/commit/5a1f98f8c744a3635e34c95421d67809e154b71d)] fix: error message variable order (Timo Tiuraniemi)
 - [[`4f2f5fe3ec`](https://github.com/datrs/hypercore/commit/4f2f5fe3ec3d3e0e2dd012780bbc8948354d76cc)] Use tokio by default (Blake Griffith)
@@ -452,3 +478,7 @@
  tests/storage.rs    | 54 +++++++++++++++++++++++++++++++++++++++++++++++-
  11 files changed, 197 insertions(+), 38 deletions(-)
 ```
+
+<!-- next-url -->
+[Unreleased]: https://github.com/datrs/hypercore/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/datrs/hypercore/compare/v0.14.0...v0.13.0
