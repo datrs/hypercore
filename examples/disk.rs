@@ -1,12 +1,8 @@
-#[cfg(feature = "async-std")]
-use async_std::main as async_main;
 use hypercore::{HypercoreBuilder, HypercoreError, Storage};
 use tempfile::Builder;
-#[cfg(feature = "tokio")]
-use tokio::main as async_main;
 
 /// Example about using an in-memory hypercore.
-#[async_main]
+#[tokio::main]
 async fn main() {
     // For the purposes of this example, first create a
     // temporary directory to hold hypercore.
@@ -23,7 +19,7 @@ async fn main() {
         .expect("Could not create disk storage");
 
     // Build a new disk hypercore
-    let mut hypercore = HypercoreBuilder::new(storage)
+    let hypercore = HypercoreBuilder::new(storage)
         .build()
         .await
         .expect("Could not create disk hypercore");

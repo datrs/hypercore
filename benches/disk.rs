@@ -1,7 +1,5 @@
 use std::time::{Duration, Instant};
 
-#[cfg(feature = "async-std")]
-use criterion::async_executor::AsyncStdExecutor;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hypercore::{Hypercore, HypercoreBuilder, HypercoreError, Storage};
 use tempfile::Builder as TempfileBuilder;
@@ -10,12 +8,6 @@ fn bench_create_disk(c: &mut Criterion) {
     let mut group = c.benchmark_group("slow_call");
     group.measurement_time(Duration::from_secs(20));
 
-    #[cfg(feature = "async-std")]
-    group.bench_function("create_disk", move |b| {
-        b.to_async(AsyncStdExecutor)
-            .iter(|| create_hypercore("create"));
-    });
-    #[cfg(feature = "tokio")]
     group.bench_function("create_disk", move |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.to_async(&rt).iter(|| create_hypercore("create"));
@@ -51,11 +43,6 @@ fn bench_write_disk(c: &mut Criterion) {
     let mut group = c.benchmark_group("slow_call");
     group.measurement_time(Duration::from_secs(20));
 
-    #[cfg(feature = "async-std")]
-    group.bench_function("write disk", |b| {
-        b.to_async(AsyncStdExecutor).iter_custom(write_disk);
-    });
-    #[cfg(feature = "tokio")]
     group.bench_function("write disk", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.to_async(&rt).iter_custom(write_disk);
@@ -63,7 +50,7 @@ fn bench_write_disk(c: &mut Criterion) {
 }
 
 async fn write_disk(iters: u64) -> Duration {
-    let mut hypercore = create_hypercore("write").await.unwrap();
+    let hypercore = create_hypercore("write").await.unwrap();
     let data = Vec::from("hello");
     let start = Instant::now();
     for _ in 0..iters {
@@ -76,11 +63,6 @@ fn bench_read_disk(c: &mut Criterion) {
     let mut group = c.benchmark_group("slow_call");
     group.measurement_time(Duration::from_secs(20));
 
-    #[cfg(feature = "async-std")]
-    group.bench_function("read disk", |b| {
-        b.to_async(AsyncStdExecutor).iter_custom(read_disk);
-    });
-    #[cfg(feature = "tokio")]
     group.bench_function("read disk", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.to_async(&rt).iter_custom(read_disk);
@@ -88,7 +70,7 @@ fn bench_read_disk(c: &mut Criterion) {
 }
 
 async fn read_disk(iters: u64) -> Duration {
-    let mut hypercore = create_hypercore("read").await.unwrap();
+    let hypercore = create_hypercore("read").await.unwrap();
     let data = Vec::from("hello");
     for _ in 0..iters {
         hypercore.append(&data).await.unwrap();
@@ -104,11 +86,6 @@ fn bench_clear_disk(c: &mut Criterion) {
     let mut group = c.benchmark_group("slow_call");
     group.measurement_time(Duration::from_secs(20));
 
-    #[cfg(feature = "async-std")]
-    group.bench_function("clear disk", |b| {
-        b.to_async(AsyncStdExecutor).iter_custom(clear_disk);
-    });
-    #[cfg(feature = "tokio")]
     group.bench_function("clear disk", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.to_async(&rt).iter_custom(clear_disk);

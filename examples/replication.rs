@@ -1,15 +1,11 @@
-#[cfg(feature = "async-std")]
-use async_std::main as async_main;
 use hypercore::{Hypercore, HypercoreBuilder, HypercoreError, PartialKeypair, Storage};
 use hypercore_schema::{RequestBlock, RequestUpgrade};
 use tempfile::Builder;
-#[cfg(feature = "tokio")]
-use tokio::main as async_main;
 
 /// Example on how to replicate a (disk) hypercore to another (memory) hypercore.
 /// NB: The replication functions used here are low-level, built for use in the wire
 /// protocol.
-#[async_main]
+#[tokio::main]
 async fn main() {
     // For the purposes of this example, first create a
     // temporary directory to hold hypercore.
@@ -99,7 +95,7 @@ async fn replicate_index(
     // Then the proof is verified and applied to the replicated party.
     assert!(
         replicated_hypercore
-            .verify_and_apply_proof(&proof)
+            .verify_and_apply_proof(proof)
             .await
             .expect("Verifying and applying proof failed")
     );

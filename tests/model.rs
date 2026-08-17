@@ -44,13 +44,6 @@ proptest! {
   })]
 
   #[test]
-  #[cfg(feature = "async-std")]
-  fn implementation_matches_model(ops: Vec<Op>) {
-    assert!(async_std::task::block_on(assert_implementation_matches_model(ops)));
-  }
-
-  #[test]
-  #[cfg(feature = "tokio")]
   fn implementation_matches_model(ops: Vec<Op>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     assert!(rt.block_on(async {

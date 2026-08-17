@@ -20,7 +20,7 @@ corresponding wire protocol implementation.
 - [x] Get entries from hypercore
 - [x] Clear range from hypercore, with optional support for sparse files
 - [x] Support basic replication by creating proofs in a source hypercore and verifying and applying them to a destination hypercore
-- [x] Support `tokio` or `async-std` runtimes
+- [x] ~~Support `tokio` or `async-std` runtimes~~ `async-std` support dropped `tokio` used unconditionally
 - [x] Support WASM for in-memory storage
 - [x] Test Javascript interoperability for supported features
 - [x] Add optional read cache

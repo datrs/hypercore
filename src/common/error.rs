@@ -1,4 +1,5 @@
 use compact_encoding::EncodingError;
+use random_access_storage::RandomAccessError;
 use thiserror::Error;
 
 use crate::Store;
@@ -48,6 +49,12 @@ pub enum HypercoreError {
         /// Context for the error
         context: String,
     },
+    /// An operation gave up waiting
+    #[error("Operation timed out. {context}")]
+    Timeout {
+        /// Context for the error
+        context: String,
+    },
     /// Unexpected IO error occured
     #[error("Unrecoverable input/output error occured.{}",
           .context.as_ref().map_or_else(String::new, |ctx| format!(" {ctx}.")))]
@@ -58,6 +65,10 @@ pub enum HypercoreError {
         #[source]
         source: std::io::Error,
     },
+
+    #[cfg(feature = "replication")]
+    #[error("hypercore_protocol Error")]
+    Protocol(#[from] hypercore_protocol::Error),
 }
 
 impl From<std::io::Error> for HypercoreError {
@@ -74,5 +85,35 @@ impl From<EncodingError> for HypercoreError {
         Self::InvalidOperation {
             context: format!("Encoding failed: {err}"),
         }
+    }
+}
+
+impl From<RandomAccessError> for HypercoreError {
+    fn from(value: RandomAccessError) -> Self {
+        map_random_access_err(value)
+    }
+}
+
+pub(crate) fn map_random_access_err(err: RandomAccessError) -> HypercoreError {
+    match err {
+        RandomAccessError::IO {
+            return_code,
+            context,
+            source,
+        } => HypercoreError::IO {
+            context: Some(format!(
+                "RandomAccess IO error. Context: {context:?}, return_code: {return_code:?}",
+            )),
+            source,
+        },
+        RandomAccessError::OutOfBounds {
+            offset,
+            end,
+            length,
+        } => HypercoreError::InvalidOperation {
+            context: format!(
+                "RandomAccess out of bounds. Offset: {offset}, end: {end:?}, length: {length}",
+            ),
+        },
     }
 }

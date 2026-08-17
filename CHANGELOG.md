@@ -11,9 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* Replication over the Hypercore wire protocol, behind the (default) `replication` feature:
+  * `Hypercore::replicate` builds a `Replicator` driving a Noise-encrypted connection, and
+    `Hypercore::replicator` builds an unconnected one to attach a connection to later.
+  * `Replicator::with_connection` and `Replicator::with_connection_stream` attach a transport.
+  * `Hypercore::attach_replicator` attaches a `Replicator` to the core.
+  * `Hypercore::attach_channel` joins a channel on an already-multiplexed `hypercore-protocol`
+    connection, for hosting several cores over one stream.
+  * Polling `Hypercore::get` drives replication, so a request for a block the core does not have
+    is served from peers.
+* `HypercoreError::Protocol`, wrapping `hypercore_protocol::Error`.
+* `From<RandomAccessError> for HypercoreError`.
+
 ### Changed
 
+* `Hypercore` is now `Clone`, sharing one underlying core between clones.
+* `append`, `append_batch`, `get`, `create_proof`, `verify_and_apply_proof`, `missing_nodes` and
+  `missing_nodes_from_merkle_tree_index` take `&self` rather than `&mut self`.
+* `key_pair` returns `PartialKeypair` by value instead of `&PartialKeypair`.
+* `verify_and_apply_proof` takes `Proof` by value instead of `&Proof`.
+* `StorageTraits` now requires `Send + Sync`.
+* Internals were reworked to produce owned (`'static`) futures rather than futures borrowing the
+  core, which is what lets replication hold work in flight across calls.
+* `random-access-storage` bumped to `6.0.0-alpha`, `random-access-memory` and `random-access-disk`
+  to `4.0.0-alpha`.
+* The `replication` feature now also pulls in `hypercore-protocol` and `hypercore_handshake`.
+* `src/core.rs` was split into `src/core/mod.rs` and `src/core/inner.rs`.
+
 ### Removed
+
+* The `tokio` and `async-std` features. `async-std` is no longer supported and tokio is used
+  unconditionally, so there is no longer a runtime to select.
+* The `shared-core` feature and its `SharedCore` type. `Hypercore` is now `Clone` and its methods
+  take `&self`, so wrapping it in an `Arc<Mutex<_>>` is no longer needed.
 
 
 

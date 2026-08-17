@@ -5,12 +5,6 @@ use std::sync::Once;
 use anyhow::Result;
 use common::{create_hypercore, create_hypercore_hash, open_hypercore};
 use js::{cleanup, install, js_run_step, prepare_test_set};
-use test_log::test;
-
-#[cfg(feature = "async-std")]
-use async_std::test as async_test;
-#[cfg(feature = "tokio")]
-use tokio::test as async_test;
 
 const TEST_SET_JS_FIRST: &str = "jsfirst";
 const TEST_SET_RS_FIRST: &str = "rsfirst";
@@ -24,7 +18,7 @@ fn init() {
     });
 }
 
-#[test(async_test)]
+#[tokio::test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 async fn js_interop_js_first() -> Result<()> {
     init();
@@ -43,7 +37,7 @@ async fn js_interop_js_first() -> Result<()> {
     Ok(())
 }
 
-#[test(async_test)]
+#[tokio::test]
 #[cfg_attr(not(feature = "js_interop_tests"), ignore)]
 async fn js_interop_rs_first() -> Result<()> {
     init();
@@ -68,7 +62,7 @@ async fn step_1_create(work_dir: &str) -> Result<()> {
 }
 
 async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
-    let mut hypercore = open_hypercore(work_dir).await?;
+    let hypercore = open_hypercore(work_dir).await?;
     let batch: &[&[u8]] = &[b"Hello", b"World"];
     let append_outcome = hypercore.append_batch(batch).await?;
     assert_eq!(append_outcome.length, 2);
@@ -77,7 +71,7 @@ async fn step_2_append_hello_world(work_dir: &str) -> Result<()> {
 }
 
 async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
-    let mut hypercore = open_hypercore(work_dir).await?;
+    let hypercore = open_hypercore(work_dir).await?;
     let hello = hypercore.get(0).await?;
     assert_eq!(hello.unwrap(), b"Hello");
     let world = hypercore.get(1).await?;
@@ -109,7 +103,7 @@ async fn step_3_read_and_append_unflushed(work_dir: &str) -> Result<()> {
 }
 
 async fn step_4_append_with_flush(work_dir: &str) -> Result<()> {
-    let mut hypercore = open_hypercore(work_dir).await?;
+    let hypercore = open_hypercore(work_dir).await?;
     for i in 0..5 {
         let append_outcome = hypercore.append(&[i]).await?;
         assert_eq!(append_outcome.length, (6 + i + 1) as u64);
